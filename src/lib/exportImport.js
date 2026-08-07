@@ -1,12 +1,17 @@
 // Every localStorage key this app writes — bundled together so a full
 // backup/restore (or moving data from one browser/domain to another, since
 // localStorage is scoped per-origin) is a single file instead of copying
-// keys one at a time through devtools.
+// keys one at a time through devtools. Deliberately excludes the auth
+// session key — logging in on the new browser is a manual step, not
+// something a shared file should carry.
+import { AUTH_USERS_KEY } from "./auth";
+
 const KEYS = [
   "vend.projectTracker.v3",
   "vend.projectTracker.labelWidth",
   "vend.mapPins.v1",
   "vend.mapGroups.v1",
+  AUTH_USERS_KEY,
 ];
 
 export function exportAllData() {

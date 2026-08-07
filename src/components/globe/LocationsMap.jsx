@@ -268,10 +268,15 @@ function ManageGroupsModal({ open, onClose, groups, onCreateGroup, onUpdateGroup
   );
 }
 
-export default function LocationsMap() {
+export default function LocationsMap({ isAdmin = true }) {
   const [data] = useLocalStorage(STORAGE_KEY, initialData());
-  const [mapPins, setMapPins] = useLocalStorage(MAP_PINS_KEY, []);
-  const [groups, setGroups] = useLocalStorage(MAP_GROUPS_KEY, []);
+  const [rawMapPins, rawSetMapPins] = useLocalStorage(MAP_PINS_KEY, []);
+  const [rawGroups, rawSetGroups] = useLocalStorage(MAP_GROUPS_KEY, []);
+  const mapPins = rawMapPins;
+  const groups = rawGroups;
+  const denyWrite = () => window.alert("You have view-only access — ask an admin to make this change.");
+  const setMapPins = isAdmin ? rawSetMapPins : denyWrite;
+  const setGroups = isAdmin ? rawSetGroups : denyWrite;
   const [showAdd, setShowAdd] = useState(false);
   const [showGroups, setShowGroups] = useState(false);
 
@@ -373,20 +378,24 @@ export default function LocationsMap() {
             <span className="h-2.5 w-2.5 rounded-full bg-caution-600" /> Not live yet (
             {upcomingPins.length + mapPins.filter((p) => !p.live).length})
           </span>
-          <button
-            type="button"
-            onClick={() => setShowGroups(true)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-concrete-300 px-3.5 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-vend-black hover:text-vend-black"
-          >
-            <Layers size={13} /> Group garages
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowAdd(true)}
-            className="inline-flex items-center gap-1.5 rounded-full bg-vend-black px-3.5 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
-          >
-            <Plus size={13} /> Add location
-          </button>
+          {isAdmin && (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowGroups(true)}
+                className="inline-flex items-center gap-1.5 rounded-full border border-concrete-300 px-3.5 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-vend-black hover:text-vend-black"
+              >
+                <Layers size={13} /> Group garages
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAdd(true)}
+                className="inline-flex items-center gap-1.5 rounded-full bg-vend-black px-3.5 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
+              >
+                <Plus size={13} /> Add location
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -461,20 +470,24 @@ export default function LocationsMap() {
                       <div className="text-sm font-semibold">{p.name}</div>
                       <div className="text-xs text-slate-500">{p.place || "—"}</div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => toggleLive(p.id)}
-                      className="w-full rounded-full bg-vend-black px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
-                    >
-                      {p.live ? "Mark not live yet" : "Mark live"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removePin(p.id)}
-                      className="flex w-full items-center justify-center gap-1 py-1 text-xs font-semibold text-alert-600 hover:text-alert-700"
-                    >
-                      <Trash2 size={12} /> Remove
-                    </button>
+                    {isAdmin && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => toggleLive(p.id)}
+                          className="w-full rounded-full bg-vend-black px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
+                        >
+                          {p.live ? "Mark not live yet" : "Mark live"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removePin(p.id)}
+                          className="flex w-full items-center justify-center gap-1 py-1 text-xs font-semibold text-alert-600 hover:text-alert-700"
+                        >
+                          <Trash2 size={12} /> Remove
+                        </button>
+                      </>
+                    )}
                   </div>
                 </Popup>
               </CircleMarker>

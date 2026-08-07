@@ -46,6 +46,7 @@ export default function PhaseBar({
   onToggleSelect,
   open,
   onOpenChange,
+  labelStagger = 0,
 }) {
   const startDate = parseDate(phase.start);
   const endDate = parseDate(phase.end);
@@ -287,9 +288,10 @@ export default function PhaseBar({
       </div>
       {externalLabel && (
         <span
-          className={`pointer-events-none absolute left-full top-1/2 ml-1.5 -translate-y-1/2 whitespace-nowrap text-xs font-semibold text-vend-black ${
+          className={`pointer-events-none absolute left-full ml-1.5 whitespace-nowrap text-xs font-semibold text-vend-black ${
             phase.done ? "opacity-50 line-through" : ""
           } ${dimmed ? "opacity-25" : ""}`}
+          style={{ top: "50%", transform: `translateY(calc(-50% + ${labelStagger ? 9 : -9}px))` }}
         >
           {phase.label}
         </span>

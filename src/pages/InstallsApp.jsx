@@ -1,7 +1,9 @@
 import { useRef, useState } from "react";
-import { Download, Upload } from "lucide-react";
+import { Download, LogOut, Upload, Users } from "lucide-react";
 import { VendMark } from "../components/Logo";
 import { exportAllData, importAllData } from "../lib/exportImport";
+import { useAuth } from "../lib/auth";
+import { FirstAdminSetup, LoginForm, ManageUsersModal } from "../components/auth/AuthScreens";
 import ProjectTracker from "./ProjectTracker";
 import LocationsMap from "../components/globe/LocationsMap";
 
@@ -11,7 +13,9 @@ const TABS = [
 ];
 
 export default function InstallsApp() {
+  const auth = useAuth();
   const [view, setView] = useState("schedule");
+  const [showUsers, setShowUsers] = useState(false);
   const fileInputRef = useRef(null);
 
   function handleImportFile(e) {
@@ -21,7 +25,7 @@ export default function InstallsApp() {
     const reader = new FileReader();
     reader.onload = () => {
       const proceed = window.confirm(
-        "This replaces the schedule, map pins, and groups currently in this browser with the ones from that file. Continue?"
+        "This replaces the schedule, map pins, groups, and user list currently in this browser with the ones from that file. Continue?"
       );
       if (!proceed) return;
       try {
@@ -32,6 +36,13 @@ export default function InstallsApp() {
       }
     };
     reader.readAsText(file);
+  }
+
+  if (!auth.hasAnyUsers) {
+    return <FirstAdminSetup onCreate={auth.createFirstAdmin} />;
+  }
+  if (!auth.currentUser) {
+    return <LoginForm onLogin={auth.login} />;
   }
 
   return (
@@ -53,37 +64,70 @@ export default function InstallsApp() {
           ))}
         </div>
         <div className="ml-auto flex items-center gap-2">
+          <span className="mr-1 text-xs font-semibold text-slate-400">
+            {auth.currentUser.username} · {auth.isAdmin ? "Admin" : "Viewer"}
+          </span>
+          {auth.isAdmin && (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowUsers(true)}
+                title="Add or manage who can log in"
+                className="inline-flex items-center gap-1.5 rounded-full border border-concrete-300 px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-vend-black hover:text-vend-black"
+              >
+                <Users size={13} /> Manage users
+              </button>
+              <button
+                type="button"
+                onClick={exportAllData}
+                title="Download a backup of everything in this browser"
+                className="inline-flex items-center gap-1.5 rounded-full border border-concrete-300 px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-vend-black hover:text-vend-black"
+              >
+                <Download size={13} /> Export data
+              </button>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                title="Restore from a backup file (e.g. to move data to another browser/domain)"
+                className="inline-flex items-center gap-1.5 rounded-full border border-concrete-300 px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-vend-black hover:text-vend-black"
+              >
+                <Upload size={13} /> Import data
+              </button>
+              <input ref={fileInputRef} type="file" accept="application/json" className="hidden" onChange={handleImportFile} />
+            </>
+          )}
           <button
             type="button"
-            onClick={exportAllData}
-            title="Download a backup of everything in this browser"
+            onClick={auth.logout}
+            title="Log out"
             className="inline-flex items-center gap-1.5 rounded-full border border-concrete-300 px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-vend-black hover:text-vend-black"
           >
-            <Download size={13} /> Export data
+            <LogOut size={13} /> Log out
           </button>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            title="Restore from a backup file (e.g. to move data to another browser/domain)"
-            className="inline-flex items-center gap-1.5 rounded-full border border-concrete-300 px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-vend-black hover:text-vend-black"
-          >
-            <Upload size={13} /> Import data
-          </button>
-          <input ref={fileInputRef} type="file" accept="application/json" className="hidden" onChange={handleImportFile} />
         </div>
       </div>
       <div className="flex-1 overflow-hidden">
         {view === "schedule" && (
           <div className="h-full overflow-y-auto">
-            <ProjectTracker />
+            <ProjectTracker isAdmin={auth.isAdmin} />
           </div>
         )}
         {view === "map" && (
           <div className="h-full">
-            <LocationsMap />
+            <LocationsMap isAdmin={auth.isAdmin} />
           </div>
         )}
       </div>
+
+      <ManageUsersModal
+        open={showUsers}
+        onClose={() => setShowUsers(false)}
+        users={auth.users}
+        currentUser={auth.currentUser}
+        onAddUser={auth.addUser}
+        onUpdateUser={auth.updateUser}
+        onRemoveUser={auth.removeUser}
+      />
     </div>
   );
 }

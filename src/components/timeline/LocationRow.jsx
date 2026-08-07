@@ -36,6 +36,15 @@ export default function LocationRow({
   const teamById = Object.fromEntries(team.map((t) => [t.id, t]));
   const controls = useDragControls();
 
+  // Alternates each phase's narrow-bar label above/below the shared
+  // midline, by chronological order rather than array order (seed data
+  // doesn't always list phases in date order) — so two short, adjacent
+  // phases (e.g. Install + Go Live) never render their labels on the same
+  // line and overlap into unreadable text.
+  const staggerByPhaseId = new Map(
+    [...location.phases].sort((a, b) => a.start.localeCompare(b.start)).map((p, i) => [p.id, i % 2])
+  );
+
   return (
     <Reorder.Item
       value={location}
@@ -130,6 +139,7 @@ export default function LocationRow({
               onToggleSelect={() => onToggleSelect(phase.id)}
               open={openPhaseId === phase.id}
               onOpenChange={(next) => onOpenPhase?.(next ? phase.id : null)}
+              labelStagger={staggerByPhaseId.get(phase.id)}
               onChange={(patch) => onUpdatePhase(location.id, phase.id, patch)}
               onDelete={() => onDeletePhase(location.id, phase.id)}
               onMoving={(dx, groupIds) => onDragGroupChange({ draggerId: phase.id, ids: new Set(groupIds), dx })}

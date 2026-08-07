@@ -44,8 +44,14 @@ function measureTextWidth(text, font) {
   return ctx.measureText(text).width;
 }
 
-export default function ProjectTracker() {
-  const [data, setData] = useLocalStorage(STORAGE_KEY, initialData());
+export default function ProjectTracker({ isAdmin = true }) {
+  const [data, rawSetData] = useLocalStorage(STORAGE_KEY, initialData());
+  // Seed/migration effects always run (they only ever add missing data);
+  // every user-triggered mutator below goes through this guarded version
+  // instead, so a viewer account can look at everything but can't write.
+  const setData = isAdmin
+    ? rawSetData
+    : () => window.alert("You have view-only access — ask an admin to make this change.");
   const [pxPerDay, setPxPerDay] = useState(9);
   const [ownerFilter, setOwnerFilter] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -57,7 +63,7 @@ export default function ProjectTracker() {
   const [manualLabelWidth, setManualLabelWidth] = useLocalStorage(LABEL_WIDTH_KEY, null);
 
   useEffect(() => {
-    setData((cur) => {
+    rawSetData((cur) => {
       if (cur.asanaCompletedImportedV1) return cur;
       const crewId = newId();
       return {
@@ -74,7 +80,7 @@ export default function ProjectTracker() {
   // above mistakenly gave to Abdullah, scoped to just those imported
   // locations so nothing else gets touched.
   useEffect(() => {
-    setData((cur) => {
+    rawSetData((cur) => {
       if (cur.asanaSyedFixV1) return cur;
       const abdullah = cur.team.find((t) => t.name.toLowerCase().startsWith("abdullah"));
       const existingSyed = cur.team.find((t) => t.name.toLowerCase().startsWith("syed"));
@@ -415,13 +421,15 @@ export default function ProjectTracker() {
               <Plus size={14} />
             </button>
           </div>
-          <button
-            type="button"
-            onClick={openAddModal}
-            className="inline-flex items-center gap-1.5 rounded-full bg-vend-black px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
-          >
-            <Plus size={15} /> Add location
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={openAddModal}
+              className="inline-flex items-center gap-1.5 rounded-full bg-vend-black px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+            >
+              <Plus size={15} /> Add location
+            </button>
+          )}
         </div>
       </div>
 
