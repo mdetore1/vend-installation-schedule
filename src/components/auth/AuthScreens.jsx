@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import { VendMark } from "../Logo";
-import { Field, TextInput, Select } from "../fields";
+import { Field, TextInput } from "../fields";
 
 function AuthShell({ title, subtitle, children }) {
   return (
@@ -18,126 +18,113 @@ function AuthShell({ title, subtitle, children }) {
   );
 }
 
-export function FirstAdminSetup({ onCreate, onImportClick }) {
-  const [username, setUsername] = useState("");
+export function AuthForm({ onSignUp, onLogin }) {
+  const [mode, setMode] = useState("login"); // "login" | "signup"
+  const [email, setEmail] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  function submit(e) {
+  async function submit(e) {
     e.preventDefault();
-    if (!username.trim() || !password) {
-      setError("Enter a username and password.");
-      return;
+    setError("");
+    setNotice("");
+    setBusy(true);
+    if (mode === "signup") {
+      const res = await onSignUp(email, password, displayName);
+      setBusy(false);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      if (res.needsConfirmation) {
+        setNotice("Check your email for a confirmation link before logging in.");
+        return;
+      }
+      setNotice("Account created — an admin needs to approve you before you'll see any data.");
+    } else {
+      const res = await onLogin(email, password);
+      setBusy(false);
+      if (!res.ok) setError(res.error);
     }
-    if (password !== confirm) {
-      setError("Passwords don't match.");
-      return;
-    }
-    onCreate(username, password);
   }
 
   return (
     <AuthShell
-      title="Set up the admin account"
-      subtitle="This first account gets edit access. Add more people — as admins or view-only — from Manage users once you're in."
+      title={mode === "login" ? "Log in" : "Create an account"}
+      subtitle={
+        mode === "login"
+          ? "Vend Installation Schedule"
+          : "You'll land in view-only limbo until an admin approves your account — that's expected."
+      }
     >
       <form onSubmit={submit} className="space-y-3">
-        <Field label="Username">
-          <TextInput autoFocus value={username} onChange={(e) => setUsername(e.target.value)} placeholder="e.g. matt" />
+        {mode === "signup" && (
+          <Field label="Your name">
+            <TextInput autoFocus value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="e.g. Cerel Munoz" />
+          </Field>
+        )}
+        <Field label="Work email">
+          <TextInput
+            type="email"
+            autoFocus={mode === "login"}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@vendpark.io"
+          />
         </Field>
         <Field label="Password">
           <TextInput type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </Field>
-        <Field label="Confirm password">
-          <TextInput type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-        </Field>
         {error && <p className="text-xs font-semibold text-alert-600">{error}</p>}
+        {notice && <p className="text-xs font-semibold text-go-700">{notice}</p>}
         <button
           type="submit"
-          className="w-full rounded-full bg-vend-black px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+          disabled={busy}
+          className="w-full rounded-full bg-vend-black px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
         >
-          Create admin account
+          {mode === "login" ? "Log in" : "Create account"}
         </button>
       </form>
-      {onImportClick && (
-        <button
-          type="button"
-          onClick={onImportClick}
-          className="mt-4 w-full text-center text-xs font-semibold text-slate-400 hover:text-vend-black"
-        >
-          Someone already shared a backup file with you? Import it instead
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => {
+          setMode((m) => (m === "login" ? "signup" : "login"));
+          setError("");
+          setNotice("");
+        }}
+        className="mt-4 w-full text-center text-xs font-semibold text-slate-400 hover:text-vend-black"
+      >
+        {mode === "login" ? "New here? Create an account" : "Already have an account? Log in"}
+      </button>
     </AuthShell>
   );
 }
 
-export function LoginForm({ onLogin, onImportClick }) {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-
-  function submit(e) {
-    e.preventDefault();
-    const ok = onLogin(username, password);
-    if (!ok) setError("Incorrect username or password.");
-  }
-
+export function PendingScreen({ email, onLogout }) {
   return (
-    <AuthShell title="Log in" subtitle="Vend Installation Schedule">
-      <form onSubmit={submit} className="space-y-3">
-        <Field label="Username">
-          <TextInput autoFocus value={username} onChange={(e) => setUsername(e.target.value)} />
-        </Field>
-        <Field label="Password">
-          <TextInput type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-        </Field>
-        {error && <p className="text-xs font-semibold text-alert-600">{error}</p>}
-        <button
-          type="submit"
-          className="w-full rounded-full bg-vend-black px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
-        >
-          Log in
-        </button>
-      </form>
-      {onImportClick && (
-        <button
-          type="button"
-          onClick={onImportClick}
-          className="mt-4 w-full text-center text-xs font-semibold text-slate-400 hover:text-vend-black"
-        >
-          Have a backup file instead? Import it
-        </button>
-      )}
+    <AuthShell title="Waiting for approval" subtitle={email}>
+      <p className="text-sm text-slate-500">
+        Your account was created but doesn't have access yet — an admin needs to approve you from{" "}
+        <span className="font-semibold text-vend-black">Manage users</span> before you can see anything. If you're
+        supposed to be the first admin, they'll give you a one-time SQL command to run in Supabase to promote
+        yourself.
+      </p>
+      <button
+        type="button"
+        onClick={onLogout}
+        className="mt-5 w-full rounded-full border border-concrete-300 px-4 py-2 text-sm font-semibold text-slate-500 transition hover:border-vend-black hover:text-vend-black"
+      >
+        Log out
+      </button>
     </AuthShell>
   );
 }
 
-const ROLE_OPTIONS = [
-  { value: "viewer", label: "Viewer — can't edit" },
-  { value: "admin", label: "Admin — can edit" },
-];
-
-export function ManageUsersModal({ open, onClose, users, currentUser, onAddUser, onUpdateUser, onRemoveUser }) {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState("viewer");
-  const [error, setError] = useState("");
-
+export function ManageUsersModal({ open, onClose, users, currentUser, onUpdateRole, onRevoke }) {
   if (!open) return null;
-
-  function submit() {
-    const res = onAddUser(username, password, role);
-    if (!res.ok) {
-      setError(res.error);
-      return;
-    }
-    setUsername("");
-    setPassword("");
-    setRole("viewer");
-    setError("");
-  }
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-vend-black/40 p-4">
@@ -149,23 +136,44 @@ export function ManageUsersModal({ open, onClose, users, currentUser, onAddUser,
           </button>
         </div>
 
-        <div className="flex-1 space-y-5 overflow-y-auto p-6">
-          <div>
-            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">People</p>
-            <div className="space-y-2">
-              {users.map((u) => (
-                <div key={u.id} className="flex items-center justify-between rounded-xl border border-concrete-200 px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-vend-black">
-                      {u.username}
-                      {u.id === currentUser?.id ? " (you)" : ""}
-                    </p>
-                    <p className="text-xs text-slate-400">{u.role === "admin" ? "Admin — can edit" : "Viewer — can't edit"}</p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-3">
+        <div className="flex-1 space-y-2 overflow-y-auto p-6">
+          <p className="mb-1 text-xs text-slate-400">
+            People show up here once they've signed up on the login screen — approve them below.
+          </p>
+          {users.map((u) => (
+            <div key={u.id} className="flex items-center justify-between rounded-xl border border-concrete-200 px-3 py-2">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-vend-black">
+                  {u.display_name}
+                  {u.id === currentUser?.id ? " (you)" : ""}
+                </p>
+                <p className="truncate text-xs text-slate-400">{u.email}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {u.role === "pending" && (
+                  <>
                     <button
                       type="button"
-                      onClick={() => onUpdateUser(u.id, { role: u.role === "admin" ? "viewer" : "admin" })}
+                      onClick={() => onUpdateRole(u.id, "viewer")}
+                      className="rounded-full border border-concrete-300 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:border-vend-black hover:text-vend-black"
+                    >
+                      Approve as viewer
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onUpdateRole(u.id, "admin")}
+                      className="rounded-full bg-vend-black px-2.5 py-1 text-xs font-semibold text-white hover:opacity-90"
+                    >
+                      Approve as admin
+                    </button>
+                  </>
+                )}
+                {u.role !== "pending" && (
+                  <>
+                    <span className="text-xs font-semibold text-slate-400">{u.role === "admin" ? "Admin" : "Viewer"}</span>
+                    <button
+                      type="button"
+                      onClick={() => onUpdateRole(u.id, u.role === "admin" ? "viewer" : "admin")}
                       className="text-xs font-semibold text-slate-500 hover:text-vend-black"
                     >
                       Make {u.role === "admin" ? "viewer" : "admin"}
@@ -173,40 +181,17 @@ export function ManageUsersModal({ open, onClose, users, currentUser, onAddUser,
                     {u.id !== currentUser?.id && (
                       <button
                         type="button"
-                        onClick={() => onRemoveUser(u.id)}
+                        onClick={() => onRevoke(u.id)}
                         className="text-xs font-semibold text-alert-600 hover:text-alert-700"
                       >
-                        Remove
+                        Revoke
                       </button>
                     )}
-                  </div>
-                </div>
-              ))}
+                  </>
+                )}
+              </div>
             </div>
-          </div>
-
-          <div>
-            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">Add a person</p>
-            <div className="space-y-3">
-              <Field label="Username">
-                <TextInput value={username} onChange={(e) => setUsername(e.target.value)} placeholder="e.g. cerel" />
-              </Field>
-              <Field label="Password">
-                <TextInput type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-              </Field>
-              <Field label="Access">
-                <Select value={role} onChange={(e) => setRole(e.target.value)} options={ROLE_OPTIONS} />
-              </Field>
-              {error && <p className="text-xs font-semibold text-alert-600">{error}</p>}
-              <button
-                type="button"
-                onClick={submit}
-                className="w-full rounded-full bg-vend-black px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
-              >
-                Add person
-              </button>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </div>

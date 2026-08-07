@@ -1,27 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { LayoutGroup } from "framer-motion";
 import { Minus, Plus } from "lucide-react";
-import { useLocalStorage, newId } from "../lib/storage";
+import { useLocalStorage } from "../lib/storage";
+import { useScheduleStore } from "../lib/scheduleStore";
 import {
   parseDate,
-  toISO,
   addDays,
   startOfMonth,
-  nextColor,
-  initialsOf,
-  cascadeDates,
   canonPhaseLabel,
   rangesOverlap,
   earliestScheduleDate,
   latestScheduleDate,
   UNASSIGNED,
 } from "../lib/dateUtils";
-import {
-  STORAGE_KEY,
-  initialData,
-  buildAsanaImportLocations,
-  ASANA_IMPORT_LOCATION_NAMES,
-} from "../lib/projectData";
 import OwnerLegend from "../components/timeline/OwnerLegend";
 import TimelineGrid from "../components/timeline/TimelineGrid";
 import CompletedStrip from "../components/timeline/CompletedStrip";
@@ -35,6 +26,28 @@ const LABEL_WIDTH_MIN = 160;
 const LABEL_WIDTH_MAX = 560;
 const LABEL_FIXED_CHROME = 100; // grip + checkbox/restore + delete + paddings
 
+const MUTATOR_NAMES = [
+  "addTeammate",
+  "updateTeammate",
+  "removeTeammate",
+  "reorderTeam",
+  "addTimeOff",
+  "updateTimeOff",
+  "removeTimeOff",
+  "addLocation",
+  "updatePhase",
+  "shiftPhasesByIds",
+  "deletePhase",
+  "setArchived",
+  "updateLocation",
+  "deleteLocation",
+  "addQueueItem",
+  "addSalesRep",
+  "updateQueueItem",
+  "removeQueueItem",
+  "promoteQueueItem",
+];
+
 let _measureCanvas;
 function measureTextWidth(text, font) {
   if (!text) return 0;
@@ -45,13 +58,38 @@ function measureTextWidth(text, font) {
 }
 
 export default function ProjectTracker({ isAdmin = true }) {
-  const [data, rawSetData] = useLocalStorage(STORAGE_KEY, initialData());
-  // Seed/migration effects always run (they only ever add missing data);
-  // every user-triggered mutator below goes through this guarded version
-  // instead, so a viewer account can look at everything but can't write.
-  const setData = isAdmin
-    ? rawSetData
-    : () => window.alert("You have view-only access — ask an admin to make this change.");
+  const store = useScheduleStore();
+  const { data } = store;
+  // Every write goes through the shared database now — a viewer's clicks
+  // never reach Supabase at all, so there's nothing to bypass client-side.
+  const denyWrite = () => window.alert("You have view-only access — ask an admin to make this change.");
+  const mutators = useMemo(
+    () => Object.fromEntries(MUTATOR_NAMES.map((n) => [n, isAdmin ? store[n] : denyWrite])),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isAdmin, store.data]
+  );
+  const {
+    addTeammate,
+    updateTeammate,
+    removeTeammate,
+    reorderTeam,
+    addTimeOff,
+    updateTimeOff,
+    removeTimeOff,
+    addLocation,
+    updatePhase,
+    shiftPhasesByIds,
+    deletePhase,
+    setArchived,
+    updateLocation,
+    deleteLocation,
+    addQueueItem,
+    addSalesRep,
+    updateQueueItem,
+    removeQueueItem,
+    promoteQueueItem,
+  } = mutators;
+
   const [pxPerDay, setPxPerDay] = useState(9);
   const [ownerFilter, setOwnerFilter] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -61,49 +99,6 @@ export default function ProjectTracker({ isAdmin = true }) {
   const [editingLocation, setEditingLocation] = useState(null);
   const [promoteItem, setPromoteItem] = useState(null);
   const [manualLabelWidth, setManualLabelWidth] = useLocalStorage(LABEL_WIDTH_KEY, null);
-
-  useEffect(() => {
-    rawSetData((cur) => {
-      if (cur.asanaCompletedImportedV1) return cur;
-      const crewId = newId();
-      return {
-        ...cur,
-        asanaCompletedImportedV1: true,
-        locations: [...cur.locations, ...buildAsanaImportLocations(cur.team, crewId)],
-      };
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Correction: "Syed" in the Asana CSV is Syed Hossain, not Abdullah Sayed —
-  // adds Syed Hossain as a real teammate and reassigns the phases the import
-  // above mistakenly gave to Abdullah, scoped to just those imported
-  // locations so nothing else gets touched.
-  useEffect(() => {
-    rawSetData((cur) => {
-      if (cur.asanaSyedFixV1) return cur;
-      const abdullah = cur.team.find((t) => t.name.toLowerCase().startsWith("abdullah"));
-      const existingSyed = cur.team.find((t) => t.name.toLowerCase().startsWith("syed"));
-      const syedId = existingSyed?.id ?? newId();
-      const team = existingSyed
-        ? cur.team
-        : [
-            ...cur.team,
-            { id: syedId, name: "Syed Hossain", initials: initialsOf("Syed Hossain"), color: nextColor(cur.team), timeOff: [] },
-          ];
-      const locations = !abdullah
-        ? cur.locations
-        : cur.locations.map((l) => {
-            if (!ASANA_IMPORT_LOCATION_NAMES.has(l.name)) return l;
-            return {
-              ...l,
-              phases: l.phases.map((p) => (p.ownerId === abdullah.id ? { ...p, ownerId: syedId } : p)),
-            };
-          });
-      return { ...cur, asanaSyedFixV1: true, team, locations };
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Main calendar orders itself automatically — soonest Install/Go-Live date
   // at the top — rather than a manual drag order, so it always reflects
@@ -197,163 +192,9 @@ export default function ProjectTracker({ isAdmin = true }) {
     return flagged;
   }, [activeLocations]);
 
-  function addTeammate(name) {
-    setData((cur) => ({
-      ...cur,
-      team: [...cur.team, { id: newId(), name, initials: initialsOf(name), color: nextColor(cur.team) }],
-    }));
-  }
-
-  function updateTeammate(id, patch) {
-    setData((cur) => ({
-      ...cur,
-      team: cur.team.map((t) => (t.id !== id ? t : { ...t, ...patch })),
-    }));
-  }
-
-  function removeTeammate(id) {
-    setData((cur) => ({ ...cur, team: cur.team.filter((t) => t.id !== id) }));
-  }
-
-  function reorderTeam(newTeam) {
-    setData((cur) => ({ ...cur, team: newTeam }));
-  }
-
-  function addTimeOff(memberId, range) {
-    setData((cur) => ({
-      ...cur,
-      team: cur.team.map((t) =>
-        t.id !== memberId ? t : { ...t, timeOff: [...(t.timeOff || []), { id: newId(), ...range }] }
-      ),
-    }));
-  }
-
-  function updateTimeOff(memberId, timeOffId, patch) {
-    setData((cur) => ({
-      ...cur,
-      team: cur.team.map((t) =>
-        t.id !== memberId
-          ? t
-          : { ...t, timeOff: (t.timeOff || []).map((o) => (o.id !== timeOffId ? o : { ...o, ...patch })) }
-      ),
-    }));
-  }
-
-  function removeTimeOff(memberId, timeOffId) {
-    setData((cur) => ({
-      ...cur,
-      team: cur.team.map((t) =>
-        t.id !== memberId ? t : { ...t, timeOff: (t.timeOff || []).filter((o) => o.id !== timeOffId) }
-      ),
-    }));
-  }
-
-  function addLocation(loc) {
-    setData((cur) => ({
-      ...cur,
-      locations: [...cur.locations, { ...loc, id: newId(), archived: false }],
-    }));
-  }
-
-  function updatePhase(locId, phaseId, patch) {
-    setData((cur) => ({
-      ...cur,
-      locations: cur.locations.map((l) => {
-        if (l.id !== locId) return l;
-        const patched = l.phases.map((p) => (p.id !== phaseId ? p : { ...p, ...patch }));
-        const phases = "end" in patch ? cascadeDates(patched, phaseId) : patched;
-        return { ...l, phases };
-      }),
-    }));
-  }
-
-  // Shifts exactly the given phases (by id) by deltaDays, regardless of which
-  // location(s) they belong to. A plain drag passes just the one phase being
-  // dragged (independent move); a multi-select drag passes every selected
-  // phase id, so only the ones the user explicitly grouped move together.
-  function shiftPhasesByIds(phaseIds, deltaDays) {
-    const idSet = new Set(phaseIds);
-    setData((cur) => ({
-      ...cur,
-      locations: cur.locations.map((l) => ({
-        ...l,
-        phases: l.phases.map((p) =>
-          idSet.has(p.id)
-            ? {
-                ...p,
-                start: toISO(addDays(parseDate(p.start), deltaDays)),
-                end: toISO(addDays(parseDate(p.end), deltaDays)),
-              }
-            : p
-        ),
-      })),
-    }));
-  }
-
-  function deletePhase(locId, phaseId) {
-    setData((cur) => ({
-      ...cur,
-      locations: cur.locations.map((l) =>
-        l.id !== locId ? l : { ...l, phases: l.phases.filter((p) => p.id !== phaseId) }
-      ),
-    }));
-  }
-
-  // Checking a location off marks every one of its phases done too, so
-  // everything in the Completed section reads as fully wrapped up rather
-  // than showing lingering open phases. Restoring leaves phase state as-is —
-  // it doesn't guess which phase needs rework.
-  function setArchived(locId, archived) {
-    setData((cur) => ({
-      ...cur,
-      locations: cur.locations.map((l) => {
-        if (l.id !== locId) return l;
-        const phases = archived ? l.phases.map((p) => ({ ...p, done: true })) : l.phases;
-        return { ...l, archived, phases };
-      }),
-    }));
-    if (archived) setStripOpen(true);
-  }
-
-  function updateLocation(locId, patch) {
-    setData((cur) => ({
-      ...cur,
-      locations: cur.locations.map((l) => (l.id !== locId ? l : { ...l, ...patch })),
-    }));
-  }
-
-  function deleteLocation(locId) {
-    setData((cur) => ({ ...cur, locations: cur.locations.filter((l) => l.id !== locId) }));
-  }
-
   function openAddModal() {
     setAddKey((k) => k + 1);
     setShowAdd(true);
-  }
-
-  function addQueueItem(item) {
-    setData((cur) => ({ ...cur, queue: [...(cur.queue || []), { ...item, id: newId() }] }));
-  }
-
-  function addSalesRep(name) {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    setData((cur) => {
-      const existing = cur.salesReps || [];
-      if (existing.some((r) => r.toLowerCase() === trimmed.toLowerCase())) return cur;
-      return { ...cur, salesReps: [...existing, trimmed] };
-    });
-  }
-
-  function updateQueueItem(id, patch) {
-    setData((cur) => ({
-      ...cur,
-      queue: (cur.queue || []).map((q) => (q.id !== id ? q : { ...q, ...patch })),
-    }));
-  }
-
-  function removeQueueItem(id) {
-    setData((cur) => ({ ...cur, queue: (cur.queue || []).filter((q) => q.id !== id) }));
   }
 
   // "Add to calendar" opens the same name/place/phases modal used to create
@@ -365,23 +206,11 @@ export default function ProjectTracker({ isAdmin = true }) {
     if (item) setPromoteItem(item);
   }
 
-  function finalizePromotion({ name, place, phases }) {
-    setData((cur) => {
-      const item = (cur.queue || []).find((q) => q.id === promoteItem?.id);
-      if (!item) return cur;
-      const location = { ...item, id: newId(), archived: false, name, place, phases };
-      return {
-        ...cur,
-        locations: [...cur.locations, location],
-        queue: cur.queue.filter((q) => q.id !== item.id),
-      };
-    });
+  function finalizePromotion(fields) {
+    if (promoteItem) promoteQueueItem(promoteItem, fields);
     setPromoteItem(null);
   }
 
-  // Clicking a location's name opens the same modal as creating one, so its
-  // name/place and every phase (dates, owner, confirmed) can be edited
-  // together instead of just the name inline.
   function openEditLocation(loc) {
     setEditingLocation(loc);
   }
@@ -390,6 +219,11 @@ export default function ProjectTracker({ isAdmin = true }) {
     if (!editingLocation) return;
     updateLocation(editingLocation.id, patch);
     setEditingLocation(null);
+  }
+
+  function handleArchive(id, archived) {
+    setArchived(id, archived);
+    if (archived) setStripOpen(true);
   }
 
   return (
@@ -461,7 +295,7 @@ export default function ProjectTracker({ isAdmin = true }) {
             ownerFilter={ownerFilter}
             onUpdatePhase={updatePhase}
             onDeletePhase={deletePhase}
-            onArchive={(id) => setArchived(id, true)}
+            onArchive={(id) => handleArchive(id, true)}
             onDeleteLocation={deleteLocation}
             onEditLocation={openEditLocation}
             onAddLocation={openAddModal}
@@ -492,7 +326,7 @@ export default function ProjectTracker({ isAdmin = true }) {
           team={data.team}
           open={stripOpen}
           onToggle={() => setStripOpen((v) => !v)}
-          onRestore={(id) => setArchived(id, false)}
+          onRestore={(id) => handleArchive(id, false)}
           pxPerDay={pxPerDay}
           onUpdatePhase={updatePhase}
           onDeletePhase={deletePhase}

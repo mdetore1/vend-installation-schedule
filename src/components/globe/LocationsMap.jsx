@@ -5,14 +5,10 @@ import { Layers, Plus, Trash2, X } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
-import { useLocalStorage, newId } from "../../lib/storage";
-import { STORAGE_KEY, initialData } from "../../lib/projectData";
+import { useScheduleStore } from "../../lib/scheduleStore";
+import { useMapStore } from "../../lib/mapStore";
 import { geocodePlace } from "../../lib/geocode";
-import { LIVE_GARAGES } from "../../lib/liveGarages";
 import { Field, TextInput, Checkbox } from "../fields";
-
-const MAP_PINS_KEY = "vend.mapPins.v1";
-const MAP_GROUPS_KEY = "vend.mapGroups.v1";
 
 function normalizeName(s) {
   return (s || "")
@@ -99,7 +95,7 @@ function AddPinForm({ open, onClose, onSubmit }) {
   );
 }
 
-function ManageGroupsModal({ open, onClose, groups, onCreateGroup, onUpdateGroup, onDeleteGroup }) {
+function ManageGroupsModal({ open, onClose, groups, liveGarages, onCreateGroup, onUpdateGroup, onDeleteGroup }) {
   const [filter, setFilter] = useState("");
   const [selected, setSelected] = useState(() => new Set());
   const [groupName, setGroupName] = useState("");
@@ -111,7 +107,7 @@ function ManageGroupsModal({ open, onClose, groups, onCreateGroup, onUpdateGroup
   // can add/remove from them); garages already claimed by a DIFFERENT group
   // are excluded either way.
   const groupedElsewhere = new Set(groups.filter((g) => g.id !== editingId).flatMap((g) => g.memberNames));
-  const available = LIVE_GARAGES.filter(
+  const available = liveGarages.filter(
     (g) => !groupedElsewhere.has(g.name) && g.name.toLowerCase().includes(filter.toLowerCase())
   );
 
@@ -269,40 +265,22 @@ function ManageGroupsModal({ open, onClose, groups, onCreateGroup, onUpdateGroup
 }
 
 export default function LocationsMap({ isAdmin = true }) {
-  const [data] = useLocalStorage(STORAGE_KEY, initialData());
-  const [rawMapPins, rawSetMapPins] = useLocalStorage(MAP_PINS_KEY, []);
-  const [rawGroups, rawSetGroups] = useLocalStorage(MAP_GROUPS_KEY, []);
-  const mapPins = rawMapPins;
-  const groups = rawGroups;
+  const { data } = useScheduleStore();
+  const mapStore = useMapStore();
+  const { liveGarages, mapPins, groups } = mapStore;
   const denyWrite = () => window.alert("You have view-only access — ask an admin to make this change.");
-  const setMapPins = isAdmin ? rawSetMapPins : denyWrite;
-  const setGroups = isAdmin ? rawSetGroups : denyWrite;
+  const addPinRaw = isAdmin ? mapStore.addPin : denyWrite;
+  const toggleLive = isAdmin ? mapStore.toggleLive : denyWrite;
+  const removePin = isAdmin ? mapStore.removePin : denyWrite;
+  const createGroup = isAdmin ? mapStore.createGroup : denyWrite;
+  const updateGroup = isAdmin ? mapStore.updateGroup : denyWrite;
+  const deleteGroup = isAdmin ? mapStore.deleteGroup : denyWrite;
   const [showAdd, setShowAdd] = useState(false);
   const [showGroups, setShowGroups] = useState(false);
 
-  function addPin({ name, place, lat, lng }) {
-    setMapPins((cur) => [...cur, { id: newId(), name, place, lat, lng, live: false }]);
+  function addPin(fields) {
+    addPinRaw(fields);
     setShowAdd(false);
-  }
-  function toggleLive(id) {
-    setMapPins((cur) => cur.map((p) => (p.id === id ? { ...p, live: !p.live } : p)));
-  }
-  function removePin(id) {
-    setMapPins((cur) => cur.filter((p) => p.id !== id));
-  }
-  function createGroup({ name, memberNames }) {
-    setGroups((cur) => [...cur, { id: newId(), name, memberNames }]);
-  }
-  function updateGroup(id, { name, memberNames }) {
-    setGroups((cur) => {
-      // Editing down to a single member leaves nothing to group — just
-      // dissolve it back to an individual pin instead of keeping a group of one.
-      if (memberNames.length < 2) return cur.filter((g) => g.id !== id);
-      return cur.map((g) => (g.id === id ? { ...g, name, memberNames } : g));
-    });
-  }
-  function deleteGroup(id) {
-    setGroups((cur) => cur.filter((g) => g.id !== id));
   }
 
   // Garages that belong to a group render as one combined marker (at the
@@ -310,16 +288,12 @@ export default function LocationsMap({ isAdmin = true }) {
   // still renders individually.
   const liveMarkers = useMemo(() => {
     const grouped = new Set(groups.flatMap((g) => g.memberNames));
-    const ungrouped = LIVE_GARAGES.filter((g) => !grouped.has(g.name)).map((g) => ({
-      id: g.name,
-      name: g.name,
-      members: [g],
-      lat: g.lat,
-      lng: g.lng,
-    }));
+    const ungrouped = liveGarages
+      .filter((g) => !grouped.has(g.name))
+      .map((g) => ({ id: g.name, name: g.name, members: [g], lat: g.lat, lng: g.lng }));
     const groupMarkers = groups
       .map((g) => {
-        const members = LIVE_GARAGES.filter((garage) => g.memberNames.includes(garage.name));
+        const members = liveGarages.filter((garage) => g.memberNames.includes(garage.name));
         if (!members.length) return null;
         return {
           id: g.id,
@@ -331,7 +305,7 @@ export default function LocationsMap({ isAdmin = true }) {
       })
       .filter(Boolean);
     return [...ungrouped, ...groupMarkers];
-  }, [groups]);
+  }, [groups, liveGarages]);
 
   // Active (not-yet-completed) Installation Schedule locations that don't
   // match any live garage are the ones still in the pipeline — "not live
@@ -342,7 +316,7 @@ export default function LocationsMap({ isAdmin = true }) {
     const upcoming = [];
     const cantPlace = [];
     activeLocations.forEach((loc) => {
-      const isLive = LIVE_GARAGES.some((g) => namesMatch(loc.name, g.name));
+      const isLive = liveGarages.some((g) => namesMatch(loc.name, g.name));
       if (isLive) return;
       const geo = geocodePlace(loc.place);
       if (!geo) {
@@ -359,7 +333,7 @@ export default function LocationsMap({ isAdmin = true }) {
       });
     });
     return { upcomingPins: upcoming, unmapped: cantPlace };
-  }, [data.locations]);
+  }, [data.locations, liveGarages]);
 
   return (
     <div className="flex h-full w-full flex-col gap-4 p-6 sm:p-8">
@@ -372,7 +346,7 @@ export default function LocationsMap({ isAdmin = true }) {
         </div>
         <div className="flex items-center gap-4 text-xs font-semibold text-slate-500">
           <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-beacon" /> Live ({LIVE_GARAGES.length + mapPins.filter((p) => p.live).length})
+            <span className="h-2.5 w-2.5 rounded-full bg-beacon" /> Live ({liveGarages.length + mapPins.filter((p) => p.live).length})
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-caution-600" /> Not live yet (
@@ -517,6 +491,7 @@ export default function LocationsMap({ isAdmin = true }) {
         open={showGroups}
         onClose={() => setShowGroups(false)}
         groups={groups}
+        liveGarages={liveGarages}
         onCreateGroup={createGroup}
         onUpdateGroup={updateGroup}
         onDeleteGroup={deleteGroup}
