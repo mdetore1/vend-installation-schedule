@@ -22,6 +22,13 @@ function json(body, status = 200) {
   });
 }
 
+// Used when an admin sets someone up directly instead of emailing an invite
+// (e.g. the project's transactional email is rate-limited) — random enough
+// to be a real password, short enough to read aloud or paste into a message.
+function generatePassword() {
+  return crypto.randomUUID().replace(/-/g, "").slice(0, 14) + "!9";
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -49,13 +56,28 @@ Deno.serve(async (req) => {
     const { data: callerProfile } = await admin.from("profiles").select("role").eq("id", user.id).single();
     if (callerProfile?.role !== "admin") return json({ error: "Admins only" }, 403);
 
-    const { action, email, userId } = await req.json();
+    const { action, email, userId, displayName } = await req.json();
 
     if (action === "invite") {
       if (!email) return json({ error: "email required" }, 400);
       const { error } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo: SITE_URL });
       if (error) return json({ error: error.message }, 400);
       return json({ ok: true });
+    }
+
+    // Bypasses email entirely — creates the account with a generated
+    // password the admin hands over directly (Slack, in person, etc.).
+    if (action === "create") {
+      if (!email) return json({ error: "email required" }, 400);
+      const password = generatePassword();
+      const { error } = await admin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { display_name: displayName || email.split("@")[0] },
+      });
+      if (error) return json({ error: error.message }, 400);
+      return json({ ok: true, password });
     }
 
     if (action === "delete") {

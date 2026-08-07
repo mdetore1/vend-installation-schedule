@@ -100,6 +100,7 @@ export default function InstallsApp() {
         onRevoke={auth.revokeAccess}
         onInvite={auth.inviteUser}
         onDelete={auth.deleteUser}
+        onCreateLogin={auth.createLogin}
       />
     </div>
   );

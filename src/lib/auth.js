@@ -141,7 +141,7 @@ export function useAuth() {
       return { ok: false, error: message };
     }
     if (data?.error) return { ok: false, error: data.error };
-    return { ok: true };
+    return { ok: true, ...data };
   }
 
   async function inviteUser(email) {
@@ -150,6 +150,12 @@ export function useAuth() {
 
   async function deleteUser(id) {
     return invokeAdminAction({ action: "delete", userId: id });
+  }
+
+  // Bypasses email entirely — returns a generated password for the admin to
+  // hand the person directly, for when Supabase's email sender is rate-limited.
+  async function createLogin(email, displayName) {
+    return invokeAdminAction({ action: "create", email, displayName });
   }
 
   async function updateUserRole(id, role) {
@@ -180,5 +186,6 @@ export function useAuth() {
     revokeAccess,
     inviteUser,
     deleteUser,
+    createLogin,
   };
 }

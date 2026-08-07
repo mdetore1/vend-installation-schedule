@@ -168,10 +168,26 @@ export function PendingScreen({ email, onLogout }) {
   );
 }
 
-export function ManageUsersModal({ open, onClose, users, currentUser, onUpdateRole, onRevoke, onInvite, onDelete }) {
+export function ManageUsersModal({
+  open,
+  onClose,
+  users,
+  currentUser,
+  onUpdateRole,
+  onRevoke,
+  onInvite,
+  onDelete,
+  onCreateLogin,
+}) {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteBusy, setInviteBusy] = useState(false);
   const [inviteMsg, setInviteMsg] = useState("");
+
+  const [showCreate, setShowCreate] = useState(false);
+  const [createName, setCreateName] = useState("");
+  const [createEmail, setCreateEmail] = useState("");
+  const [createBusy, setCreateBusy] = useState(false);
+  const [createResult, setCreateResult] = useState(null); // { email, password } | { error }
 
   if (!open) return null;
 
@@ -187,6 +203,22 @@ export function ManageUsersModal({ open, onClose, users, currentUser, onUpdateRo
       setInviteEmail("");
     } else {
       setInviteMsg(res.error || "Failed to send invite.");
+    }
+  }
+
+  async function submitCreate(e) {
+    e.preventDefault();
+    if (!createEmail) return;
+    setCreateBusy(true);
+    setCreateResult(null);
+    const res = await onCreateLogin(createEmail, createName);
+    setCreateBusy(false);
+    if (res.ok) {
+      setCreateResult({ email: createEmail, password: res.password });
+      setCreateName("");
+      setCreateEmail("");
+    } else {
+      setCreateResult({ error: res.error });
     }
   }
 
@@ -222,6 +254,46 @@ export function ManageUsersModal({ open, onClose, users, currentUser, onUpdateRo
           </button>
         </form>
         {inviteMsg && <p className="px-6 pt-2 text-xs font-semibold text-slate-500">{inviteMsg}</p>}
+
+        <div className="border-b border-concrete-200 px-6 py-4">
+          <button
+            type="button"
+            onClick={() => setShowCreate((s) => !s)}
+            className="text-xs font-semibold text-slate-500 hover:text-vend-black"
+          >
+            {showCreate ? "Cancel" : "Invite email not arriving? Create a login yourself →"}
+          </button>
+          {showCreate && (
+            <form onSubmit={submitCreate} className="mt-3 space-y-2">
+              <TextInput value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder="Their name" />
+              <TextInput
+                type="email"
+                value={createEmail}
+                onChange={(e) => setCreateEmail(e.target.value)}
+                placeholder="Their work email"
+              />
+              <button
+                type="submit"
+                disabled={createBusy || !createEmail}
+                className="w-full rounded-full bg-vend-black px-3 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+              >
+                Create login
+              </button>
+            </form>
+          )}
+          {createResult?.password && (
+            <div className="mt-3 rounded-xl border border-go-100 bg-go-100/40 p-3 text-xs">
+              <p className="font-semibold text-vend-black">Give them these to log in — they can't be shown again:</p>
+              <p className="mt-1">
+                Email: <span className="font-mono font-semibold">{createResult.email}</span>
+              </p>
+              <p>
+                Password: <span className="font-mono font-semibold">{createResult.password}</span>
+              </p>
+            </div>
+          )}
+          {createResult?.error && <p className="mt-2 text-xs font-semibold text-alert-600">{createResult.error}</p>}
+        </div>
 
         <div className="flex-1 space-y-2 overflow-y-auto p-6">
           <p className="mb-1 text-xs text-slate-400">
