@@ -1,0 +1,212 @@
+@import "tailwindcss";
+
+/* ── Vend brand tokens (from Vend Branding Guidelines 2025) ────────────── */
+@theme {
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", "Manrope", ui-sans-serif, sans-serif;
+
+  /* Primaries */
+  --color-vend-black: #111114;
+  --color-vend-white: #fdfdfd;
+  --color-mint: #00ffe0;
+  --color-mint-200: #99fff1;
+  --color-mint-600: #00ccbe;
+  --color-mint-700: #009f95;
+
+  /* Grays — Slate */
+  --color-slate-100: #c6c6ca;
+  --color-slate-200: #afafb4;
+  --color-slate-300: #99999e;
+  --color-slate-400: #737378;
+  --color-slate-500: #4a4a50;
+
+  /* Grays — Warm Concrete */
+  --color-concrete-100: #f0efee;
+  --color-concrete-200: #e4e3e2;
+  --color-concrete-300: #d5d3d2;
+
+  /* Functional accents */
+  --color-go: #14d5a3;
+  --color-go-100: #a0f2dc;
+  --color-go-600: #0eb28a;
+  --color-go-700: #0b8f72;
+
+  --color-beacon: #3e8bff;
+  --color-beacon-100: #d1e4ff;
+  --color-beacon-600: #316fd1;
+  --color-beacon-700: #2453a5;
+
+  --color-caution: #ffc24b;
+  --color-caution-100: #fff0d1;
+  --color-caution-600: #d99e32;
+  --color-caution-700: #a7771f;
+
+  --color-alert: #ff4d4f;
+  --color-alert-100: #ffd6d7;
+  --color-alert-600: #d93738;
+  --color-alert-700: #b12829;
+
+  --radius-card: 16px;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--color-vend-white);
+  color: var(--color-vend-black);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Thin, on-brand scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-slate-100) transparent;
+}
+
+/* Always-visible horizontal scrollbar (for wide, scrollable rows) */
+.scrollx {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-slate-200) var(--color-concrete-100);
+}
+.scrollx::-webkit-scrollbar {
+  height: 10px;
+}
+.scrollx::-webkit-scrollbar-track {
+  background: var(--color-concrete-100);
+  border-radius: 999px;
+}
+.scrollx::-webkit-scrollbar-thumb {
+  background: var(--color-slate-200);
+  border-radius: 999px;
+}
+
+/* ── 3D kiosk preview ──────────────────────────────────────────────────── */
+.kio-scene {
+  perspective: 1400px;
+  /* camera looks down so the top cap reads as a rounded crown — kiosk stays
+     upright (no lean), verticals stay vertical */
+  perspective-origin: 50% 2%;
+  filter: drop-shadow(16px 22px 20px rgba(0, 0, 0, 0.18));
+}
+.kio-kiosk {
+  --w: 150px;
+  --h: 504px;
+  --d: 42px;
+  --body: #d4d5d9;
+  --bodyTop: #e0e1e4;
+  position: relative;
+  width: var(--w);
+  height: var(--h);
+  transform-style: preserve-3d;
+  transform: rotateY(var(--rot, -26deg));
+}
+.kio-face {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  overflow: hidden;
+  backface-visibility: hidden;
+}
+.kio-front,
+.kio-back {
+  width: var(--w);
+  height: var(--h);
+  margin: calc(var(--h) / -2) 0 0 calc(var(--w) / -2);
+  border-radius: 18px 18px 0 0;
+  background: #fff;
+}
+.kio-front { transform: translateZ(calc(var(--d) / 2)); }
+.kio-back { transform: rotateY(180deg) translateZ(calc(var(--d) / 2)); }
+.kio-front img,
+.kio-back img {
+  display: block;
+  width: 100%;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+.kio-bottom {
+  width: var(--w);
+  height: var(--d);
+  margin: calc(var(--d) / -2) 0 0 calc(var(--w) / -2);
+  transform: rotateX(-90deg) translateZ(calc(var(--h) / 2));
+  background: var(--wrap);
+}
+.kio-wrapfill {
+  position: absolute;
+  inset: var(--wrapTop) 0 0 0;
+  background: var(--wrap);
+}
+.kio-cover {
+  position: absolute;
+  inset: var(--wrapTop) 0 0 0;
+  background: #fff;
+}
+.kio-strip {
+  position: absolute;
+  top: var(--wrapTop);
+  bottom: 0;
+  width: 6%;
+  background: var(--wrap);
+}
+.kio-strip.left { left: 0; }
+.kio-strip.right { right: 0; }
+.kio-logo {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.kio-logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.kio-ph {
+  border: 1px dashed rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 8px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+.kio-logo.onwhite .kio-ph { border-color: rgba(11, 143, 114, 0.5); color: #0b8f72; }
+.kio-side {
+  width: var(--d);
+  height: var(--h);
+  margin: calc(var(--h) / -2) 0 0 calc(var(--d) / -2);
+  border-radius: 18px 18px 0 0;
+  background: linear-gradient(
+    to bottom,
+    var(--body) 0 var(--wrapTop),
+    color-mix(in srgb, var(--wrap) 88%, #000) var(--wrapTop) 100%
+  );
+}
+.kio-side.right { transform: rotateY(90deg) translateZ(calc(var(--w) / 2)); }
+.kio-side.left { transform: rotateY(-90deg) translateZ(calc(var(--w) / 2)); }
+.kio-pw {
+  position: absolute;
+  inset: var(--wrapTop) 0 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.kio-pw span {
+  transform: rotate(-90deg);
+  white-space: nowrap;
+  color: var(--pwc, #fff);
+  opacity: 0.92;
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.4px;
+}
+.kio-pw b { font-weight: 700; }
+.kio-top {
+  width: var(--w);
+  height: var(--d);
+  margin: calc(var(--d) / -2) 0 0 calc(var(--w) / -2);
+  transform: rotateX(90deg) translateZ(calc(var(--h) / 2));
+  background: linear-gradient(to bottom, var(--bodyTop), var(--body));
+  border-radius: 18px;
+}
