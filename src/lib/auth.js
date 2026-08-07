@@ -126,22 +126,30 @@ export function useAuth() {
   // reach the browser — they're proxied through the "admin-actions" edge
   // function, which checks the caller is actually an admin before doing
   // anything privileged.
-  async function inviteUser(email) {
-    const { data, error } = await supabase.functions.invoke("admin-actions", {
-      body: { action: "invite", email },
-    });
-    if (error) return { ok: false, error: error.message };
+  async function invokeAdminAction(body) {
+    const { data, error } = await supabase.functions.invoke("admin-actions", { body });
+    if (error) {
+      // supabase-js's error.message is a generic "non-2xx status code" —
+      // the function's actual { error } JSON body is on error.context.
+      let message = error.message;
+      try {
+        const parsed = await error.context?.json();
+        if (parsed?.error) message = parsed.error;
+      } catch {
+        // no JSON body to parse — stick with the generic message
+      }
+      return { ok: false, error: message };
+    }
     if (data?.error) return { ok: false, error: data.error };
     return { ok: true };
   }
 
+  async function inviteUser(email) {
+    return invokeAdminAction({ action: "invite", email });
+  }
+
   async function deleteUser(id) {
-    const { data, error } = await supabase.functions.invoke("admin-actions", {
-      body: { action: "delete", userId: id },
-    });
-    if (error) return { ok: false, error: error.message };
-    if (data?.error) return { ok: false, error: data.error };
-    return { ok: true };
+    return invokeAdminAction({ action: "delete", userId: id });
   }
 
   async function updateUserRole(id, role) {
