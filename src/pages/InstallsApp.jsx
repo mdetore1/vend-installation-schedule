@@ -38,11 +38,25 @@ export default function InstallsApp() {
     reader.readAsText(file);
   }
 
+  const importFileInput = (
+    <input ref={fileInputRef} type="file" accept="application/json" className="hidden" onChange={handleImportFile} />
+  );
+
   if (!auth.hasAnyUsers) {
-    return <FirstAdminSetup onCreate={auth.createFirstAdmin} />;
+    return (
+      <>
+        <FirstAdminSetup onCreate={auth.createFirstAdmin} onImportClick={() => fileInputRef.current?.click()} />
+        {importFileInput}
+      </>
+    );
   }
   if (!auth.currentUser) {
-    return <LoginForm onLogin={auth.login} />;
+    return (
+      <>
+        <LoginForm onLogin={auth.login} onImportClick={() => fileInputRef.current?.click()} />
+        {importFileInput}
+      </>
+    );
   }
 
   return (
@@ -93,7 +107,7 @@ export default function InstallsApp() {
               >
                 <Upload size={13} /> Import data
               </button>
-              <input ref={fileInputRef} type="file" accept="application/json" className="hidden" onChange={handleImportFile} />
+              {importFileInput}
             </>
           )}
           <button

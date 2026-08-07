@@ -18,7 +18,7 @@ function AuthShell({ title, subtitle, children }) {
   );
 }
 
-export function FirstAdminSetup({ onCreate }) {
+export function FirstAdminSetup({ onCreate, onImportClick }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -60,11 +60,20 @@ export function FirstAdminSetup({ onCreate }) {
           Create admin account
         </button>
       </form>
+      {onImportClick && (
+        <button
+          type="button"
+          onClick={onImportClick}
+          className="mt-4 w-full text-center text-xs font-semibold text-slate-400 hover:text-vend-black"
+        >
+          Someone already shared a backup file with you? Import it instead
+        </button>
+      )}
     </AuthShell>
   );
 }
 
-export function LoginForm({ onLogin }) {
+export function LoginForm({ onLogin, onImportClick }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -92,6 +101,15 @@ export function LoginForm({ onLogin }) {
           Log in
         </button>
       </form>
+      {onImportClick && (
+        <button
+          type="button"
+          onClick={onImportClick}
+          className="mt-4 w-full text-center text-xs font-semibold text-slate-400 hover:text-vend-black"
+        >
+          Have a backup file instead? Import it
+        </button>
+      )}
     </AuthShell>
   );
 }
