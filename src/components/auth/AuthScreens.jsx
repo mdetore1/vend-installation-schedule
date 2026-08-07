@@ -103,6 +103,51 @@ export function AuthForm({ onSignUp, onLogin }) {
   );
 }
 
+export function SetPasswordScreen({ onSubmit }) {
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e) {
+    e.preventDefault();
+    setError("");
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    if (password !== confirm) {
+      setError("Passwords don't match.");
+      return;
+    }
+    setBusy(true);
+    const res = await onSubmit(password);
+    setBusy(false);
+    if (!res.ok) setError(res.error);
+  }
+
+  return (
+    <AuthShell title="Set your password" subtitle="Finish setting up your account before continuing.">
+      <form onSubmit={submit} className="space-y-3">
+        <Field label="New password">
+          <TextInput autoFocus type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        </Field>
+        <Field label="Confirm password">
+          <TextInput type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+        </Field>
+        {error && <p className="text-xs font-semibold text-alert-600">{error}</p>}
+        <button
+          type="submit"
+          disabled={busy}
+          className="w-full rounded-full bg-vend-black px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+        >
+          Save password
+        </button>
+      </form>
+    </AuthShell>
+  );
+}
+
 export function PendingScreen({ email, onLogout }) {
   return (
     <AuthShell title="Waiting for approval" subtitle={email}>
@@ -123,8 +168,33 @@ export function PendingScreen({ email, onLogout }) {
   );
 }
 
-export function ManageUsersModal({ open, onClose, users, currentUser, onUpdateRole, onRevoke }) {
+export function ManageUsersModal({ open, onClose, users, currentUser, onUpdateRole, onRevoke, onInvite, onDelete }) {
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [inviteMsg, setInviteMsg] = useState("");
+
   if (!open) return null;
+
+  async function sendInvite(e) {
+    e.preventDefault();
+    if (!inviteEmail) return;
+    setInviteBusy(true);
+    setInviteMsg("");
+    const res = await onInvite(inviteEmail);
+    setInviteBusy(false);
+    if (res.ok) {
+      setInviteMsg(`Invite sent to ${inviteEmail}.`);
+      setInviteEmail("");
+    } else {
+      setInviteMsg(res.error || "Failed to send invite.");
+    }
+  }
+
+  function confirmDelete(u) {
+    if (window.confirm(`Permanently delete ${u.display_name}'s account? This can't be undone.`)) {
+      onDelete(u.id);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-vend-black/40 p-4">
@@ -136,9 +206,26 @@ export function ManageUsersModal({ open, onClose, users, currentUser, onUpdateRo
           </button>
         </div>
 
+        <form onSubmit={sendInvite} className="flex items-center gap-2 border-b border-concrete-200 px-6 py-4">
+          <TextInput
+            type="email"
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+            placeholder="Invite by email…"
+          />
+          <button
+            type="submit"
+            disabled={inviteBusy || !inviteEmail}
+            className="shrink-0 rounded-full bg-vend-black px-3 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+          >
+            Invite
+          </button>
+        </form>
+        {inviteMsg && <p className="px-6 pt-2 text-xs font-semibold text-slate-500">{inviteMsg}</p>}
+
         <div className="flex-1 space-y-2 overflow-y-auto p-6">
           <p className="mb-1 text-xs text-slate-400">
-            People show up here once they've signed up on the login screen — approve them below.
+            People show up here once they've signed up or accepted an invite — approve them below.
           </p>
           {users.map((u) => (
             <div key={u.id} className="flex items-center justify-between rounded-xl border border-concrete-200 px-3 py-2">
@@ -188,6 +275,15 @@ export function ManageUsersModal({ open, onClose, users, currentUser, onUpdateRo
                       </button>
                     )}
                   </>
+                )}
+                {u.id !== currentUser?.id && (
+                  <button
+                    type="button"
+                    onClick={() => confirmDelete(u)}
+                    className="text-xs font-semibold text-alert-600 hover:text-alert-700"
+                  >
+                    Delete
+                  </button>
                 )}
               </div>
             </div>

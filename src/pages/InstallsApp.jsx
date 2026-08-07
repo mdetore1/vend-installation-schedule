@@ -2,7 +2,7 @@ import { useState } from "react";
 import { LogOut, Users } from "lucide-react";
 import { VendMark } from "../components/Logo";
 import { useAuth } from "../lib/auth";
-import { AuthForm, PendingScreen, ManageUsersModal } from "../components/auth/AuthScreens";
+import { AuthForm, PendingScreen, ManageUsersModal, SetPasswordScreen } from "../components/auth/AuthScreens";
 import ProjectTracker from "./ProjectTracker";
 import LocationsMap from "../components/globe/LocationsMap";
 
@@ -22,6 +22,10 @@ export default function InstallsApp() {
         <VendMark size={36} />
       </div>
     );
+  }
+
+  if (auth.needsPasswordSet) {
+    return <SetPasswordScreen onSubmit={auth.updatePassword} />;
   }
 
   if (!auth.session) {
@@ -94,6 +98,8 @@ export default function InstallsApp() {
         currentUser={auth.profile}
         onUpdateRole={auth.updateUserRole}
         onRevoke={auth.revokeAccess}
+        onInvite={auth.inviteUser}
+        onDelete={auth.deleteUser}
       />
     </div>
   );
