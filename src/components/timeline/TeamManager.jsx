@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Reorder, useDragControls } from "framer-motion";
 import { Check, GripVertical, Palette, Plus, Trash2, X } from "lucide-react";
 import { TextInput } from "../fields";
-import { OWNER_PALETTE, contrastText, formatShort, initialsOf, parseDate } from "../../lib/dateUtils";
+import { OWNER_PALETTE, contrastText, formatShort, initialsOf, parseDate, todayStart } from "../../lib/dateUtils";
 import { useAnchoredPosition } from "../../lib/useAnchoredPosition";
 
 const isPreset = (bg) => OWNER_PALETTE.some((c) => c.bg.toLowerCase() === bg.toLowerCase());
@@ -104,9 +104,15 @@ function TimeOffEditor({ member, onAdd, onRemove }) {
     setAdding(false);
   }
 
+  // Once a time-off range is over there's nothing left to plan around, so
+  // it drops out of this list on its own instead of piling up forever —
+  // still removable early via the X, and still in the database if it's
+  // ever needed, just not shown here anymore.
+  const upcoming = (member.timeOff || []).filter((t) => parseDate(t.end) >= todayStart());
+
   return (
     <div className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-9">
-      {(member.timeOff || []).map((t) => (
+      {upcoming.map((t) => (
         <span
           key={t.id}
           className="inline-flex items-center gap-1 rounded-full bg-concrete-100 px-2 py-0.5 text-[11px] font-medium text-slate-500"
