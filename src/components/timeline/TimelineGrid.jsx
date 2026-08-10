@@ -20,7 +20,7 @@ function BlankRow({ labelWidth, onClick }) {
       style={{ height: ROW_HEIGHT }}
     >
       <div
-        className="sticky left-0 z-10 flex shrink-0 items-center gap-2 border-r border-concrete-200 bg-white px-4 text-slate-300 transition group-hover/blank:bg-concrete-100/50 group-hover/blank:text-slate-400"
+        className="sticky left-0 z-[45] flex shrink-0 items-center gap-2 border-r border-concrete-200 bg-white px-4 text-slate-300 transition group-hover/blank:bg-concrete-100/50 group-hover/blank:text-slate-400"
         style={{ width: labelWidth }}
       >
         <Plus size={15} className="opacity-0 transition group-hover/blank:opacity-100" />
@@ -129,10 +129,10 @@ export default function TimelineGrid({
 
   return (
     <div style={{ width: displayLabelWidth + totalWidth, minWidth: "100%" }}>
-      <div className="sticky top-0 z-20 bg-white">
+      <div className="sticky top-0 z-[50] bg-white">
         <div className="flex border-b border-concrete-100">
           <div
-            className="sticky left-0 z-20 flex shrink-0 items-center border-r border-concrete-200 bg-white px-3"
+            className="sticky left-0 z-[50] flex shrink-0 items-center border-r border-concrete-200 bg-white px-3"
             style={{ width: displayLabelWidth }}
           >
             {selectedPhaseIds.size > 0 && (
@@ -159,7 +159,7 @@ export default function TimelineGrid({
         </div>
         <div className="flex border-b border-concrete-200">
           <div
-            className="sticky left-0 z-20 shrink-0 border-r border-concrete-200 bg-white"
+            className="sticky left-0 z-[50] shrink-0 border-r border-concrete-200 bg-white"
             style={{ width: displayLabelWidth }}
           />
           <div className="relative" style={{ width: totalWidth, height: MONTH_HEIGHT }}>
@@ -175,7 +175,7 @@ export default function TimelineGrid({
             ))}
           </div>
         </div>
-        <div className="sticky top-0 z-30 h-0 w-0 overflow-visible" style={{ left: displayLabelWidth }}>
+        <div className="sticky top-0 z-[55] h-0 w-0 overflow-visible" style={{ left: displayLabelWidth }}>
           <div
             onPointerDown={startLabelResize}
             className="absolute -ml-1.5 w-3 cursor-col-resize hover:bg-beacon/20 active:bg-beacon/30"

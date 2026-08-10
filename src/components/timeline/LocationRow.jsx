@@ -65,7 +65,7 @@ export default function LocationRow({
       style={{ height: ROW_HEIGHT }}
     >
       <div
-        className="sticky left-0 z-10 flex shrink-0 items-center gap-2 border-r border-concrete-200 bg-white px-4"
+        className="sticky left-0 z-[45] flex shrink-0 items-center gap-2 border-r border-concrete-200 bg-white px-4"
         style={{ width: labelWidth }}
       >
         {draggable && (
