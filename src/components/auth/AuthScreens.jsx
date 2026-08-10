@@ -261,7 +261,7 @@ export function ManageUsersModal({
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-vend-black/40 p-4">
-      <div className="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+      <div className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-concrete-200 px-6 py-4">
           <h2 className="font-display text-lg font-bold text-vend-black">Manage users</h2>
           <button type="button" onClick={onClose} className="text-slate-300 hover:text-vend-black">
@@ -342,15 +342,22 @@ export function ManageUsersModal({
           {emailResetMsg && <p className="text-xs font-semibold text-slate-500">{emailResetMsg}</p>}
           {users.map((u) => (
             <div key={u.id}>
-            <div className="flex items-center justify-between rounded-xl border border-concrete-200 px-3 py-2">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-vend-black">
-                  {u.display_name}
-                  {u.id === currentUser?.id ? " (you)" : ""}
-                </p>
-                <p className="truncate text-xs text-slate-400">{u.email}</p>
+            <div className="rounded-xl border border-concrete-200 px-3 py-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-vend-black">
+                    {u.display_name}
+                    {u.id === currentUser?.id ? " (you)" : ""}
+                  </p>
+                  <p className="truncate text-xs text-slate-400">{u.email}</p>
+                </div>
+                {u.role !== "pending" && (
+                  <span className="shrink-0 rounded-full bg-concrete-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                    {u.role === "admin" ? "Admin" : "Viewer"}
+                  </span>
+                )}
               </div>
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-concrete-100 pt-2">
                 {u.role === "pending" && (
                   <>
                     <button
@@ -371,7 +378,6 @@ export function ManageUsersModal({
                 )}
                 {u.role !== "pending" && (
                   <>
-                    <span className="text-xs font-semibold text-slate-400">{u.role === "admin" ? "Admin" : "Viewer"}</span>
                     <button
                       type="button"
                       onClick={() => onUpdateRole(u.id, u.role === "admin" ? "viewer" : "admin")}
