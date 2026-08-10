@@ -101,6 +101,8 @@ export default function InstallsApp() {
         onInvite={auth.inviteUser}
         onDelete={auth.deleteUser}
         onCreateLogin={auth.createLogin}
+        onResetPassword={auth.resetPassword}
+        onSendPasswordReset={auth.sendPasswordReset}
       />
     </div>
   );

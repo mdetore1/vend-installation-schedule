@@ -178,6 +178,8 @@ export function ManageUsersModal({
   onInvite,
   onDelete,
   onCreateLogin,
+  onResetPassword,
+  onSendPasswordReset,
 }) {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteBusy, setInviteBusy] = useState(false);
@@ -188,6 +190,9 @@ export function ManageUsersModal({
   const [createEmail, setCreateEmail] = useState("");
   const [createBusy, setCreateBusy] = useState(false);
   const [createResult, setCreateResult] = useState(null); // { email, password } | { error }
+
+  const [pwResetResult, setPwResetResult] = useState(null); // { email, password } | { email, error }
+  const [emailResetMsg, setEmailResetMsg] = useState("");
 
   if (!open) return null;
 
@@ -226,6 +231,20 @@ export function ManageUsersModal({
     if (window.confirm(`Permanently delete ${u.display_name}'s account? This can't be undone.`)) {
       onDelete(u.id);
     }
+  }
+
+  async function handleResetPassword(u) {
+    setPwResetResult(null);
+    setEmailResetMsg("");
+    const res = await onResetPassword(u.id);
+    setPwResetResult(res.ok ? { email: u.email, password: res.password } : { email: u.email, error: res.error });
+  }
+
+  async function handleEmailReset(u) {
+    setPwResetResult(null);
+    setEmailResetMsg("");
+    const res = await onSendPasswordReset(u.email);
+    setEmailResetMsg(res.ok ? `Reset link emailed to ${u.email}.` : res.error || "Failed to send reset email.");
   }
 
   return (
@@ -299,6 +318,16 @@ export function ManageUsersModal({
           <p className="mb-1 text-xs text-slate-400">
             People show up here once they've signed up or accepted an invite — approve them below.
           </p>
+          {pwResetResult?.password && (
+            <div className="rounded-xl border border-go-100 bg-go-100/40 p-3 text-xs">
+              <p className="font-semibold text-vend-black">
+                New password for {pwResetResult.email} — give it to them directly, it can't be shown again:
+              </p>
+              <p className="mt-1 font-mono font-semibold">{pwResetResult.password}</p>
+            </div>
+          )}
+          {pwResetResult?.error && <p className="text-xs font-semibold text-alert-600">{pwResetResult.error}</p>}
+          {emailResetMsg && <p className="text-xs font-semibold text-slate-500">{emailResetMsg}</p>}
           {users.map((u) => (
             <div key={u.id} className="flex items-center justify-between rounded-xl border border-concrete-200 px-3 py-2">
               <div className="min-w-0">
@@ -349,13 +378,31 @@ export function ManageUsersModal({
                   </>
                 )}
                 {u.id !== currentUser?.id && (
-                  <button
-                    type="button"
-                    onClick={() => confirmDelete(u)}
-                    className="text-xs font-semibold text-alert-600 hover:text-alert-700"
-                  >
-                    Delete
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleResetPassword(u)}
+                      className="text-xs font-semibold text-slate-500 hover:text-vend-black"
+                      title="Generate a new password to hand them directly"
+                    >
+                      New password
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleEmailReset(u)}
+                      className="text-xs font-semibold text-slate-500 hover:text-vend-black"
+                      title="Email them a reset link to set their own password"
+                    >
+                      Email reset
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => confirmDelete(u)}
+                      className="text-xs font-semibold text-alert-600 hover:text-alert-700"
+                    >
+                      Delete
+                    </button>
+                  </>
                 )}
               </div>
             </div>

@@ -80,6 +80,17 @@ Deno.serve(async (req) => {
       return json({ ok: true, password });
     }
 
+    // Sets a fresh generated password for an existing account — for when an
+    // admin needs to hand someone new credentials directly (forgotten
+    // password, no working email, etc.) rather than the recovery-email flow.
+    if (action === "reset-password") {
+      if (!userId) return json({ error: "userId required" }, 400);
+      const password = generatePassword();
+      const { error } = await admin.auth.admin.updateUserById(userId, { password });
+      if (error) return json({ error: error.message }, 400);
+      return json({ ok: true, password });
+    }
+
     if (action === "delete") {
       if (!userId) return json({ error: "userId required" }, 400);
       if (userId === user.id) return json({ error: "You can't delete your own account" }, 400);
