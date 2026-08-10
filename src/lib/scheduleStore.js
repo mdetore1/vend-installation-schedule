@@ -5,7 +5,7 @@
 // so everyone's screen reflects the same shared schedule live.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabaseClient";
-import { nextColor, initialsOf, UNASSIGNED } from "./dateUtils";
+import { nextColor, initialsOf, UNASSIGNED, earliestScheduleDate } from "./dateUtils";
 
 function phaseToRow(p) {
   return {
@@ -44,7 +44,7 @@ export function useScheduleStore() {
     const [team, timeOff, locations, phases, queue, salesReps] = await Promise.all([
       supabase.from("team_members").select("*").order("sort_order"),
       supabase.from("time_off").select("*"),
-      supabase.from("locations").select("*").order("created_at"),
+      supabase.from("locations").select("*").order("sort_order"),
       supabase.from("phases").select("*"),
       supabase.from("queue_items").select("*").order("created_at"),
       supabase.from("sales_reps").select("*").order("name"),
@@ -181,16 +181,43 @@ export function useScheduleStore() {
   }
 
   // ---- locations + phases ----
+  // New locations slot themselves in chronologically among the current
+  // active order (by their earliest Install/Go-Live date) rather than
+  // always landing at the end — that keeps the "soonest first" default
+  // useful even after someone's manually dragged the rest into a custom
+  // order, instead of re-sorting everything by date on every add.
   async function addLocation(loc) {
+    const activeLocs = data.locations.filter((l) => !l.archived);
+    const newDate = earliestScheduleDate(loc.phases || []);
+    let insertAt = activeLocs.length;
+    for (let i = 0; i < activeLocs.length; i++) {
+      const d = earliestScheduleDate(activeLocs[i].phases);
+      if (newDate && (!d || newDate < d)) {
+        insertAt = i;
+        break;
+      }
+    }
     const { data: inserted, error } = await supabase
       .from("locations")
-      .insert({ ...locationToRow(loc), archived: false })
+      .insert({ ...locationToRow(loc), archived: false, sort_order: insertAt })
       .select()
       .single();
     if (error || !inserted) return;
     if (loc.phases?.length) {
       await supabase.from("phases").insert(loc.phases.map((p) => ({ ...phaseToRow(p), location_id: inserted.id })));
     }
+    // Make room by shifting everything from the insertion point down one slot.
+    const toShift = activeLocs.slice(insertAt);
+    await Promise.all(
+      toShift.map((l, i) => supabase.from("locations").update({ sort_order: insertAt + i + 1 }).eq("id", l.id))
+    );
+  }
+
+  // framer-motion's Reorder.Group hands back the full active-locations array
+  // in its new order — persist that as each row's position so a manual drag
+  // sticks instead of snapping back to date order on the next refetch.
+  async function reorderLocations(newLocations) {
+    await Promise.all(newLocations.map((l, i) => supabase.from("locations").update({ sort_order: i }).eq("id", l.id)));
   }
 
   // Only touches the one phase being changed — no auto-cascading sibling
@@ -318,6 +345,7 @@ export function useScheduleStore() {
     updateTimeOff,
     removeTimeOff,
     addLocation,
+    reorderLocations,
     updatePhase,
     shiftPhasesByIds,
     deletePhase,

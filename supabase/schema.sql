@@ -55,6 +55,7 @@ create table if not exists locations (
   sales_rep text,
   property_management text,
   ownership text,
+  sort_order integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

@@ -9,7 +9,6 @@ import {
   startOfMonth,
   canonPhaseLabel,
   rangesOverlap,
-  earliestScheduleDate,
   latestScheduleDate,
   UNASSIGNED,
 } from "../lib/dateUtils";
@@ -35,6 +34,7 @@ const MUTATOR_NAMES = [
   "updateTimeOff",
   "removeTimeOff",
   "addLocation",
+  "reorderLocations",
   "updatePhase",
   "shiftPhasesByIds",
   "deletePhase",
@@ -77,6 +77,7 @@ export default function ProjectTracker({ isAdmin = true }) {
     updateTimeOff,
     removeTimeOff,
     addLocation,
+    reorderLocations,
     updatePhase,
     shiftPhasesByIds,
     deletePhase,
@@ -100,22 +101,11 @@ export default function ProjectTracker({ isAdmin = true }) {
   const [promoteItem, setPromoteItem] = useState(null);
   const [manualLabelWidth, setManualLabelWidth] = useLocalStorage(LABEL_WIDTH_KEY, null);
 
-  // Main calendar orders itself automatically — soonest Install/Go-Live date
-  // at the top — rather than a manual drag order, so it always reflects
-  // what's coming up next without anyone having to maintain it by hand.
-  const activeLocations = useMemo(() => {
-    return data.locations
-      .filter((l) => !l.archived)
-      .slice()
-      .sort((a, b) => {
-        const da = earliestScheduleDate(a.phases);
-        const db = earliestScheduleDate(b.phases);
-        if (!da && !db) return 0;
-        if (!da) return 1;
-        if (!db) return -1;
-        return da - db;
-      });
-  }, [data.locations]);
+  // New locations slot in chronologically by soonest Install/Go-Live date
+  // (see scheduleStore's addLocation), but the order itself is a persisted
+  // column, not recomputed from dates on every render — so dragging a row
+  // to a custom spot sticks instead of snapping back to date order.
+  const activeLocations = useMemo(() => data.locations.filter((l) => !l.archived), [data.locations]);
 
   // Completed section orders itself most-recently-finished-first, same
   // auto-sort philosophy as the main calendar.
@@ -300,10 +290,11 @@ export default function ProjectTracker({ isAdmin = true }) {
             onEditLocation={openEditLocation}
             onAddLocation={openAddModal}
             onShiftPhases={shiftPhasesByIds}
+            onReorderLocations={reorderLocations}
             onUpdateTimeOff={updateTimeOff}
             onRemoveTimeOff={removeTimeOff}
             doubleBookedPhaseIds={doubleBookedPhaseIds}
-            sortable={false}
+            sortable={isAdmin}
             labelWidth={labelWidth}
             onResizeLabelWidth={setManualLabelWidth}
           />
