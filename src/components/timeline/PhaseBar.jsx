@@ -195,13 +195,18 @@ export default function PhaseBar({
         color: "#111114",
       };
 
+  // When two bars overlap, the shorter one should win the stacking order —
+  // otherwise a multi-week Onboarding bar can fully bury a one-day Go Live
+  // sitting on top of it. Idle z-index ranges 2–20, inversely by duration.
+  const idleZIndex = Math.max(2, 20 - durDays);
+
   return (
     <div
       className="absolute top-1/2 -translate-y-1/2"
       style={{
         left,
         width,
-        zIndex: dragMode ? 40 : open || conflictOpen ? 30 : hovering ? 25 : 1,
+        zIndex: dragMode ? 40 : open || conflictOpen ? 30 : hovering ? 25 : idleZIndex,
       }}
     >
       {dragMode && (

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { LayoutGroup } from "framer-motion";
-import { Minus, Plus } from "lucide-react";
+import { Minus, Plus, X } from "lucide-react";
 import { useLocalStorage } from "../lib/storage";
 import { useScheduleStore } from "../lib/scheduleStore";
 import {
@@ -25,22 +25,20 @@ const LABEL_WIDTH_MIN = 160;
 const LABEL_WIDTH_MAX = 560;
 const LABEL_FIXED_CHROME = 100; // grip + checkbox/restore + delete + paddings
 
+// updatePhase/deletePhase/setArchived/deleteLocation/removeTeammate are
+// deliberately left out here — they're wrapped below with undo support
+// instead of going through the plain deny-for-viewers path.
 const MUTATOR_NAMES = [
   "addTeammate",
   "updateTeammate",
-  "removeTeammate",
   "reorderTeam",
   "addTimeOff",
   "updateTimeOff",
   "removeTimeOff",
   "addLocation",
   "reorderLocations",
-  "updatePhase",
   "shiftPhasesByIds",
-  "deletePhase",
-  "setArchived",
   "updateLocation",
-  "deleteLocation",
   "addQueueItem",
   "addSalesRep",
   "updateQueueItem",
@@ -71,25 +69,89 @@ export default function ProjectTracker({ isAdmin = true }) {
   const {
     addTeammate,
     updateTeammate,
-    removeTeammate,
     reorderTeam,
     addTimeOff,
     updateTimeOff,
     removeTimeOff,
     addLocation,
     reorderLocations,
-    updatePhase,
     shiftPhasesByIds,
-    deletePhase,
-    setArchived,
     updateLocation,
-    deleteLocation,
     addQueueItem,
     addSalesRep,
     updateQueueItem,
     removeQueueItem,
     promoteQueueItem,
   } = mutators;
+
+  // A single-slot "undo my last action" — covers the handful of things
+  // most likely to be an "oops" (dragged the wrong bar, deleted the wrong
+  // phase/location, misclicked archive or remove-teammate). Each wrapped
+  // mutator below snapshots the prior state before writing, then a plain
+  // inverse write on undo restores it.
+  const [undoAction, setUndoAction] = useState(null); // { label, run }
+
+  async function updatePhase(locId, phaseId, patch) {
+    if (!isAdmin) return denyWrite();
+    const prevPhase = data.locations.find((l) => l.id === locId)?.phases.find((p) => p.id === phaseId);
+    await store.updatePhase(locId, phaseId, patch);
+    if (prevPhase) {
+      setUndoAction({ label: `Updated "${prevPhase.label}"`, run: () => store.updatePhase(locId, phaseId, prevPhase) });
+    }
+  }
+
+  async function deletePhase(locId, phaseId) {
+    if (!isAdmin) return denyWrite();
+    const prevPhase = data.locations.find((l) => l.id === locId)?.phases.find((p) => p.id === phaseId);
+    await store.deletePhase(locId, phaseId);
+    if (prevPhase) {
+      setUndoAction({ label: `Deleted "${prevPhase.label}"`, run: () => store.restorePhase(locId, prevPhase) });
+    }
+  }
+
+  async function deleteLocation(locId) {
+    if (!isAdmin) return denyWrite();
+    const prevLoc = data.locations.find((l) => l.id === locId);
+    await store.deleteLocation(locId);
+    if (prevLoc) {
+      setUndoAction({ label: `Deleted "${prevLoc.name}"`, run: () => store.restoreLocation(prevLoc) });
+    }
+  }
+
+  async function setArchived(locId, archived) {
+    if (!isAdmin) return denyWrite();
+    const prevLoc = data.locations.find((l) => l.id === locId);
+    await store.setArchived(locId, archived);
+    if (prevLoc) {
+      setUndoAction({
+        label: archived ? `Marked "${prevLoc.name}" complete` : `Restored "${prevLoc.name}"`,
+        run: async () => {
+          await store.setArchived(locId, prevLoc.archived);
+          // Archiving force-marks every phase done — undo has to put each
+          // phase's own prior done state back, not just flip the flag.
+          if (archived) {
+            await Promise.all(prevLoc.phases.map((p) => store.updatePhase(locId, p.id, { done: p.done })));
+          }
+        },
+      });
+    }
+  }
+
+  async function removeTeammate(id) {
+    if (!isAdmin) return denyWrite();
+    const prevMember = data.team.find((t) => t.id === id);
+    await store.removeTeammate(id);
+    if (prevMember) {
+      setUndoAction({ label: `Removed "${prevMember.name}"`, run: () => store.restoreTeammate(prevMember) });
+    }
+  }
+
+  async function runUndo() {
+    const action = undoAction;
+    if (!action) return;
+    setUndoAction(null);
+    await action.run();
+  }
 
   const [pxPerDay, setPxPerDay] = useState(9);
   const [ownerFilter, setOwnerFilter] = useState(null);
@@ -364,6 +426,27 @@ export default function ProjectTracker({ isAdmin = true }) {
         initialPhases={editingLocation?.phases}
         onSubmit={finalizeEditLocation}
       />
+
+      {undoAction && (
+        <div className="fixed bottom-6 left-1/2 z-[9999] flex -translate-x-1/2 items-center gap-3 rounded-full bg-vend-black px-4 py-2.5 text-sm font-semibold text-white shadow-xl">
+          <span>{undoAction.label}</span>
+          <button
+            type="button"
+            onClick={runUndo}
+            className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-wide transition hover:bg-white/25"
+          >
+            Undo
+          </button>
+          <button
+            type="button"
+            onClick={() => setUndoAction(null)}
+            aria-label="Dismiss"
+            className="text-white/50 transition hover:text-white"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

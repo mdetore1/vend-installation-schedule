@@ -161,6 +161,23 @@ export function useScheduleStore() {
   async function removeTeammate(id) {
     await supabase.from("team_members").delete().eq("id", id);
   }
+  // Re-inserts a removed teammate with their original id, so an undo lands
+  // back in the same identity (any historical phases still owned by them
+  // stay correctly linked) rather than becoming a new person.
+  async function restoreTeammate(member) {
+    await supabase.from("team_members").insert({
+      id: member.id,
+      name: member.name,
+      initials: member.initials,
+      color_bg: member.color.bg,
+      color_text: member.color.text,
+    });
+    if (member.timeOff?.length) {
+      await supabase
+        .from("time_off")
+        .insert(member.timeOff.map((t) => ({ id: t.id, team_member_id: member.id, start_date: t.start, end_date: t.end })));
+    }
+  }
   // framer-motion's Reorder.Group hands back the full array in its new
   // order — persist that as each row's position so it survives a refetch.
   async function reorderTeam(newTeam) {
@@ -253,6 +270,11 @@ export function useScheduleStore() {
   async function deletePhase(locId, phaseId) {
     await supabase.from("phases").delete().eq("id", phaseId);
   }
+  // Keeps the original id so anything else that referenced it (unlikely,
+  // but cheap to preserve) still resolves correctly after an undo.
+  async function restorePhase(locId, phase) {
+    await supabase.from("phases").insert({ id: phase.id, location_id: locId, ...phaseToRow(phase) });
+  }
 
   async function setArchived(locId, archived) {
     await supabase.from("locations").update({ archived }).eq("id", locId);
@@ -273,6 +295,16 @@ export function useScheduleStore() {
 
   async function deleteLocation(locId) {
     await supabase.from("locations").delete().eq("id", locId);
+  }
+  // Deleting a location cascades to its phases (FK), so restoring has to
+  // re-insert both — same ids, so it lands back exactly as it was.
+  async function restoreLocation(location) {
+    await supabase.from("locations").insert({ id: location.id, ...locationToRow(location), archived: location.archived });
+    if (location.phases?.length) {
+      await supabase
+        .from("phases")
+        .insert(location.phases.map((p) => ({ id: p.id, location_id: location.id, ...phaseToRow(p) })));
+    }
   }
 
   // ---- sales queue ----
@@ -340,6 +372,7 @@ export function useScheduleStore() {
     addTeammate,
     updateTeammate,
     removeTeammate,
+    restoreTeammate,
     reorderTeam,
     addTimeOff,
     updateTimeOff,
@@ -349,9 +382,11 @@ export function useScheduleStore() {
     updatePhase,
     shiftPhasesByIds,
     deletePhase,
+    restorePhase,
     setArchived,
     updateLocation,
     deleteLocation,
+    restoreLocation,
     addQueueItem,
     addSalesRep,
     updateQueueItem,
