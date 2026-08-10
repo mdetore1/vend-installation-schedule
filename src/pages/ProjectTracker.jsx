@@ -35,6 +35,9 @@ const MUTATOR_NAMES = [
   "addTimeOff",
   "updateTimeOff",
   "removeTimeOff",
+  "addCompanyEvent",
+  "updateCompanyEvent",
+  "removeCompanyEvent",
   "addLocation",
   "reorderLocations",
   "shiftPhasesByIds",
@@ -74,6 +77,9 @@ export default function ProjectTracker({ isAdmin = true }) {
     addTimeOff,
     updateTimeOff,
     removeTimeOff,
+    addCompanyEvent,
+    updateCompanyEvent,
+    removeCompanyEvent,
     addLocation,
     reorderLocations,
     shiftPhasesByIds,
@@ -204,7 +210,11 @@ export default function ProjectTracker({ isAdmin = true }) {
   const labelWidth = manualLabelWidth ?? autoLabelWidth;
 
   const { rangeStart, rangeEnd } = useMemo(() => {
-    const all = [...activeLocations.flatMap((l) => l.phases), ...data.team.flatMap((t) => t.timeOff || [])];
+    const all = [
+      ...activeLocations.flatMap((l) => l.phases),
+      ...data.team.flatMap((t) => t.timeOff || []),
+      ...(data.companyEvents || []),
+    ];
     if (!all.length) {
       const start = startOfMonth(new Date());
       return { rangeStart: start, rangeEnd: addDays(start, 120) };
@@ -217,7 +227,7 @@ export default function ProjectTracker({ isAdmin = true }) {
       rangeStart: startOfMonth(addDays(min, -10)),
       rangeEnd: addDays(max, 21),
     };
-  }, [activeLocations, data.team]);
+  }, [activeLocations, data.team, data.companyEvents]);
 
   // Flags a phase when its owner is booked on another install/go-live at an
   // overlapping time — onboarding is excluded since one person can run
@@ -358,6 +368,10 @@ export default function ProjectTracker({ isAdmin = true }) {
             onReorderLocations={reorderLocations}
             onUpdateTimeOff={updateTimeOff}
             onRemoveTimeOff={removeTimeOff}
+            companyEvents={data.companyEvents || []}
+            onAddCompanyEvent={addCompanyEvent}
+            onUpdateCompanyEvent={updateCompanyEvent}
+            onRemoveCompanyEvent={removeCompanyEvent}
             doubleBookedPhaseIds={doubleBookedPhaseIds}
             sortable={isAdmin}
             labelWidth={labelWidth}

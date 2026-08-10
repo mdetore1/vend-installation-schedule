@@ -51,6 +51,10 @@ export default function TimelineGrid({
   onReorderLocations,
   onUpdateTimeOff,
   onRemoveTimeOff,
+  companyEvents = [],
+  onAddCompanyEvent,
+  onUpdateCompanyEvent,
+  onRemoveCompanyEvent,
   showOOO = true,
   showBlankRows = true,
   restoreMode = false,
@@ -210,6 +214,10 @@ export default function TimelineGrid({
             labelWidth={displayLabelWidth}
             onUpdateTimeOff={onUpdateTimeOff}
             onRemoveTimeOff={onRemoveTimeOff}
+            companyEvents={companyEvents}
+            onAddCompanyEvent={onAddCompanyEvent}
+            onUpdateCompanyEvent={onUpdateCompanyEvent}
+            onRemoveCompanyEvent={onRemoveCompanyEvent}
           />
         )}
 

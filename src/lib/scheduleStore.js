@@ -38,16 +38,18 @@ export function useScheduleStore() {
   const [phaseRows, setPhaseRows] = useState([]);
   const [queueRows, setQueueRows] = useState([]);
   const [salesRepRows, setSalesRepRows] = useState([]);
+  const [companyEventRows, setCompanyEventRows] = useState([]);
   const [loaded, setLoaded] = useState(false);
 
   const refetchAll = useCallback(async () => {
-    const [team, timeOff, locations, phases, queue, salesReps] = await Promise.all([
+    const [team, timeOff, locations, phases, queue, salesReps, companyEvents] = await Promise.all([
       supabase.from("team_members").select("*").order("sort_order"),
       supabase.from("time_off").select("*"),
       supabase.from("locations").select("*").order("sort_order"),
       supabase.from("phases").select("*"),
       supabase.from("queue_items").select("*").order("created_at"),
       supabase.from("sales_reps").select("*").order("name"),
+      supabase.from("company_events").select("*").order("start_date"),
     ]);
     setTeamRows(team.data ?? []);
     setTimeOffRows(timeOff.data ?? []);
@@ -55,6 +57,7 @@ export function useScheduleStore() {
     setPhaseRows(phases.data ?? []);
     setQueueRows(queue.data ?? []);
     setSalesRepRows(salesReps.data ?? []);
+    setCompanyEventRows(companyEvents.data ?? []);
     setLoaded(true);
   }, []);
 
@@ -69,6 +72,7 @@ export function useScheduleStore() {
       .on("postgres_changes", { event: "*", schema: "public", table: "phases" }, refetchAll)
       .on("postgres_changes", { event: "*", schema: "public", table: "queue_items" }, refetchAll)
       .on("postgres_changes", { event: "*", schema: "public", table: "sales_reps" }, refetchAll)
+      .on("postgres_changes", { event: "*", schema: "public", table: "company_events" }, refetchAll)
       .subscribe();
     return () => supabase.removeChannel(channel);
   }, [refetchAll]);
@@ -81,7 +85,7 @@ export function useScheduleStore() {
       color: { bg: t.color_bg, text: t.color_text },
       timeOff: timeOffRows
         .filter((o) => o.team_member_id === t.id)
-        .map((o) => ({ id: o.id, start: o.start_date, end: o.end_date })),
+        .map((o) => ({ id: o.id, start: o.start_date, end: o.end_date, reason: o.reason || "" })),
     }));
     const locations = locationRows.map((l) => ({
       id: l.id,
@@ -119,8 +123,9 @@ export function useScheduleStore() {
       ownership: q.ownership,
     }));
     const salesReps = salesRepRows.map((r) => r.name);
-    return { team, locations, queue, salesReps };
-  }, [teamRows, timeOffRows, locationRows, phaseRows, queueRows, salesRepRows]);
+    const companyEvents = companyEventRows.map((e) => ({ id: e.id, name: e.name, start: e.start_date, end: e.end_date }));
+    return { team, locations, queue, salesReps, companyEvents };
+  }, [teamRows, timeOffRows, locationRows, phaseRows, queueRows, salesRepRows, companyEventRows]);
 
   // Reconciles a submitted phases array (from a bulk edit modal — a mix of
   // existing DB rows and freshly-typed new ones) against what's actually in
@@ -185,16 +190,37 @@ export function useScheduleStore() {
   }
 
   async function addTimeOff(memberId, range) {
-    await supabase.from("time_off").insert({ team_member_id: memberId, start_date: range.start, end_date: range.end });
+    await supabase.from("time_off").insert({
+      team_member_id: memberId,
+      start_date: range.start,
+      end_date: range.end,
+      reason: range.reason || null,
+    });
   }
   async function updateTimeOff(memberId, timeOffId, patch) {
     const row = {};
     if (patch.start !== undefined) row.start_date = patch.start;
     if (patch.end !== undefined) row.end_date = patch.end;
+    if (patch.reason !== undefined) row.reason = patch.reason || null;
     await supabase.from("time_off").update(row).eq("id", timeOffId);
   }
   async function removeTimeOff(memberId, timeOffId) {
     await supabase.from("time_off").delete().eq("id", timeOffId);
+  }
+
+  // ---- company-wide events/holidays (not tied to any one teammate) ----
+  async function addCompanyEvent(name, range) {
+    await supabase.from("company_events").insert({ name, start_date: range.start, end_date: range.end });
+  }
+  async function updateCompanyEvent(id, patch) {
+    const row = {};
+    if (patch.name !== undefined) row.name = patch.name;
+    if (patch.start !== undefined) row.start_date = patch.start;
+    if (patch.end !== undefined) row.end_date = patch.end;
+    await supabase.from("company_events").update(row).eq("id", id);
+  }
+  async function removeCompanyEvent(id) {
+    await supabase.from("company_events").delete().eq("id", id);
   }
 
   // ---- locations + phases ----
@@ -386,6 +412,9 @@ export function useScheduleStore() {
     addTimeOff,
     updateTimeOff,
     removeTimeOff,
+    addCompanyEvent,
+    updateCompanyEvent,
+    removeCompanyEvent,
     addLocation,
     reorderLocations,
     updatePhase,

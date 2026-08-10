@@ -93,12 +93,14 @@ const dateInputCls =
 
 function TimeOffEditor({ member, onAdd, onRemove }) {
   const [adding, setAdding] = useState(false);
+  const [reason, setReason] = useState("");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
 
   function submit() {
     if (!start) return;
-    onAdd(member.id, { start, end: end && end >= start ? end : start });
+    onAdd(member.id, { start, end: end && end >= start ? end : start, reason: reason.trim() });
+    setReason("");
     setStart("");
     setEnd("");
     setAdding(false);
@@ -117,6 +119,7 @@ function TimeOffEditor({ member, onAdd, onRemove }) {
           key={t.id}
           className="inline-flex items-center gap-1 rounded-full bg-concrete-100 px-2 py-0.5 text-[11px] font-medium text-slate-500"
         >
+          {t.reason ? `${t.reason} · ` : ""}
           {formatShort(parseDate(t.start))}
           {t.end !== t.start && <>–{formatShort(parseDate(t.end))}</>}
           <button
@@ -132,6 +135,12 @@ function TimeOffEditor({ member, onAdd, onRemove }) {
 
       {adding ? (
         <div className="flex flex-wrap items-center gap-1.5">
+          <input
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Reason (optional)"
+            className="w-32 shrink-0 rounded-md border border-concrete-300 px-1.5 py-0.5 text-[11px] text-vend-black outline-none focus:border-vend-black"
+          />
           <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className={dateInputCls} />
           <span className="shrink-0 text-slate-300">–</span>
           <input type="date" value={end} min={start} onChange={(e) => setEnd(e.target.value)} className={dateInputCls} />

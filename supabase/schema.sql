@@ -41,7 +41,18 @@ create table if not exists time_off (
   id uuid primary key default gen_random_uuid(),
   team_member_id uuid not null references team_members(id) on delete cascade,
   start_date date not null,
-  end_date date not null
+  end_date date not null,
+  reason text
+);
+
+-- Company-wide holidays/events — not tied to any one teammate, so they show
+-- up on everyone's calendar instead of needing to be added person-by-person.
+create table if not exists company_events (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  start_date date not null,
+  end_date date not null,
+  created_at timestamptz not null default now()
 );
 
 -- ── Locations + phases (the main schedule) ──────────────────────────────────
@@ -131,6 +142,7 @@ alter table sales_reps enable row level security;
 alter table live_garages enable row level security;
 alter table map_pins enable row level security;
 alter table map_groups enable row level security;
+alter table company_events enable row level security;
 
 -- Any signed-in user with an approved profile (viewer or admin) can read
 -- everything; only admins can write. "pending" users can't read anything
@@ -158,7 +170,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array array['team_members','time_off','locations','phases','queue_items','sales_reps','live_garages','map_pins','map_groups']
+  foreach t in array array['team_members','time_off','locations','phases','queue_items','sales_reps','live_garages','map_pins','map_groups','company_events']
   loop
     execute format('create policy "%1$s readable by approved users" on %1$I for select using (is_approved());', t);
     execute format('create policy "%1$s writable by admins" on %1$I for insert with check (is_admin());', t);
@@ -168,4 +180,4 @@ begin
 end $$;
 
 -- ── Realtime (so edits show up live for everyone without refreshing) ─────
-alter publication supabase_realtime add table locations, phases, team_members, time_off, queue_items, sales_reps, map_pins, map_groups, live_garages, profiles;
+alter publication supabase_realtime add table locations, phases, team_members, time_off, queue_items, sales_reps, map_pins, map_groups, live_garages, profiles, company_events;
