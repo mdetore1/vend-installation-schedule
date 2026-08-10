@@ -192,9 +192,14 @@ export function ManageUsersModal({
   const [createResult, setCreateResult] = useState(null); // { email, password } | { error }
 
   const [pwResetResult, setPwResetResult] = useState(null); // { email, password } | { email, error }
-  const [emailResetMsg, setEmailResetMsg] = useState("");
   const [resetOpenId, setResetOpenId] = useState(null);
   const [manualPassword, setManualPassword] = useState("");
+
+  // Keyed to the specific user so the confirmation/error shows right under
+  // the row that was clicked — a top-of-list banner was easy to miss when
+  // the row you clicked was scrolled further down.
+  const [emailResetBusyId, setEmailResetBusyId] = useState(null);
+  const [emailResetResult, setEmailResetResult] = useState(null); // { userId, message, isError }
 
   if (!open) return null;
 
@@ -243,7 +248,7 @@ export function ManageUsersModal({
   async function submitResetPassword(e, u) {
     e.preventDefault();
     setPwResetResult(null);
-    setEmailResetMsg("");
+    setEmailResetResult(null);
     const res = await onResetPassword(u.id, manualPassword || undefined);
     setPwResetResult(res.ok ? { email: u.email, password: res.password } : { email: u.email, error: res.error });
     if (res.ok) {
@@ -254,9 +259,15 @@ export function ManageUsersModal({
 
   async function handleEmailReset(u) {
     setPwResetResult(null);
-    setEmailResetMsg("");
+    setEmailResetResult(null);
+    setEmailResetBusyId(u.id);
     const res = await onSendPasswordReset(u.email);
-    setEmailResetMsg(res.ok ? `Reset link emailed to ${u.email}.` : res.error || "Failed to send reset email.");
+    setEmailResetBusyId(null);
+    setEmailResetResult({
+      userId: u.id,
+      message: res.ok ? `Reset link emailed to ${u.email}.` : res.error || "Failed to send reset email.",
+      isError: !res.ok,
+    });
   }
 
   return (
@@ -339,7 +350,6 @@ export function ManageUsersModal({
             </div>
           )}
           {pwResetResult?.error && <p className="text-xs font-semibold text-alert-600">{pwResetResult.error}</p>}
-          {emailResetMsg && <p className="text-xs font-semibold text-slate-500">{emailResetMsg}</p>}
           {users.map((u) => (
             <div key={u.id}>
             <div className="rounded-xl border border-concrete-200 px-3 py-2.5">
@@ -409,10 +419,11 @@ export function ManageUsersModal({
                     <button
                       type="button"
                       onClick={() => handleEmailReset(u)}
-                      className="text-xs font-semibold text-slate-500 hover:text-vend-black"
+                      disabled={emailResetBusyId === u.id}
+                      className="text-xs font-semibold text-slate-500 hover:text-vend-black disabled:opacity-50"
                       title="Email them a reset link to set their own password"
                     >
-                      Email reset
+                      {emailResetBusyId === u.id ? "Sending…" : "Email reset"}
                     </button>
                     <button
                       type="button"
@@ -442,6 +453,15 @@ export function ManageUsersModal({
                   Set
                 </button>
               </form>
+            )}
+            {emailResetResult?.userId === u.id && (
+              <p
+                className={`mt-1.5 px-1 text-xs font-semibold ${
+                  emailResetResult.isError ? "text-alert-600" : "text-go-700"
+                }`}
+              >
+                {emailResetResult.message}
+              </p>
             )}
             </div>
           ))}
