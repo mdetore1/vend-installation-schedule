@@ -152,10 +152,10 @@ export function useAuth() {
     return invokeAdminAction({ action: "delete", userId: id });
   }
 
-  // Returns a freshly generated password for the admin to hand the person
-  // directly — same rationale as createLogin (email may not be an option).
-  async function resetPassword(id) {
-    return invokeAdminAction({ action: "reset-password", userId: id });
+  // Sets a password for an existing account — pass one in to choose it
+  // yourself, or omit it to get a generated one back to hand over.
+  async function resetPassword(id, password) {
+    return invokeAdminAction({ action: "reset-password", userId: id, password });
   }
 
   // The other option: let them reset it themselves via Supabase's own

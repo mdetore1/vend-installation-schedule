@@ -193,6 +193,8 @@ export function ManageUsersModal({
 
   const [pwResetResult, setPwResetResult] = useState(null); // { email, password } | { email, error }
   const [emailResetMsg, setEmailResetMsg] = useState("");
+  const [resetOpenId, setResetOpenId] = useState(null);
+  const [manualPassword, setManualPassword] = useState("");
 
   if (!open) return null;
 
@@ -233,11 +235,21 @@ export function ManageUsersModal({
     }
   }
 
-  async function handleResetPassword(u) {
+  function toggleResetForm(u) {
+    setResetOpenId((id) => (id === u.id ? null : u.id));
+    setManualPassword("");
+  }
+
+  async function submitResetPassword(e, u) {
+    e.preventDefault();
     setPwResetResult(null);
     setEmailResetMsg("");
-    const res = await onResetPassword(u.id);
+    const res = await onResetPassword(u.id, manualPassword || undefined);
     setPwResetResult(res.ok ? { email: u.email, password: res.password } : { email: u.email, error: res.error });
+    if (res.ok) {
+      setResetOpenId(null);
+      setManualPassword("");
+    }
   }
 
   async function handleEmailReset(u) {
@@ -329,7 +341,8 @@ export function ManageUsersModal({
           {pwResetResult?.error && <p className="text-xs font-semibold text-alert-600">{pwResetResult.error}</p>}
           {emailResetMsg && <p className="text-xs font-semibold text-slate-500">{emailResetMsg}</p>}
           {users.map((u) => (
-            <div key={u.id} className="flex items-center justify-between rounded-xl border border-concrete-200 px-3 py-2">
+            <div key={u.id}>
+            <div className="flex items-center justify-between rounded-xl border border-concrete-200 px-3 py-2">
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-vend-black">
                   {u.display_name}
@@ -381,9 +394,9 @@ export function ManageUsersModal({
                   <>
                     <button
                       type="button"
-                      onClick={() => handleResetPassword(u)}
+                      onClick={() => toggleResetForm(u)}
                       className="text-xs font-semibold text-slate-500 hover:text-vend-black"
-                      title="Generate a new password to hand them directly"
+                      title="Set or generate a new password to hand them directly"
                     >
                       New password
                     </button>
@@ -405,6 +418,25 @@ export function ManageUsersModal({
                   </>
                 )}
               </div>
+            </div>
+            {resetOpenId === u.id && (
+              <form
+                onSubmit={(e) => submitResetPassword(e, u)}
+                className="mt-1.5 flex items-center gap-2 rounded-xl border border-concrete-200 bg-concrete-100/40 px-3 py-2"
+              >
+                <TextInput
+                  value={manualPassword}
+                  onChange={(e) => setManualPassword(e.target.value)}
+                  placeholder="Type a password, or leave blank to generate one"
+                />
+                <button
+                  type="submit"
+                  className="shrink-0 rounded-full bg-vend-black px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
+                >
+                  Set
+                </button>
+              </form>
+            )}
             </div>
           ))}
         </div>

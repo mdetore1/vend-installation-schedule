@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
     const { data: callerProfile } = await admin.from("profiles").select("role").eq("id", user.id).single();
     if (callerProfile?.role !== "admin") return json({ error: "Admins only" }, 403);
 
-    const { action, email, userId, displayName } = await req.json();
+    const { action, email, userId, displayName, password: requestedPassword } = await req.json();
 
     if (action === "invite") {
       if (!email) return json({ error: "email required" }, 400);
@@ -80,12 +80,16 @@ Deno.serve(async (req) => {
       return json({ ok: true, password });
     }
 
-    // Sets a fresh generated password for an existing account — for when an
-    // admin needs to hand someone new credentials directly (forgotten
-    // password, no working email, etc.) rather than the recovery-email flow.
+    // Sets a password for an existing account — either one the admin typed
+    // themselves or, if left blank, a generated one — for when an admin
+    // needs to hand someone new credentials directly (forgotten password,
+    // no working email, etc.) rather than the recovery-email flow.
     if (action === "reset-password") {
       if (!userId) return json({ error: "userId required" }, 400);
-      const password = generatePassword();
+      if (requestedPassword && requestedPassword.length < 6) {
+        return json({ error: "Password must be at least 6 characters" }, 400);
+      }
+      const password = requestedPassword || generatePassword();
       const { error } = await admin.auth.admin.updateUserById(userId, { password });
       if (error) return json({ error: error.message }, 400);
       return json({ ok: true, password });
