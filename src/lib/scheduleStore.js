@@ -42,7 +42,7 @@ export function useScheduleStore() {
 
   const refetchAll = useCallback(async () => {
     const [team, timeOff, locations, phases, queue, salesReps] = await Promise.all([
-      supabase.from("team_members").select("*").order("created_at"),
+      supabase.from("team_members").select("*").order("sort_order"),
       supabase.from("time_off").select("*"),
       supabase.from("locations").select("*").order("created_at"),
       supabase.from("phases").select("*"),
@@ -143,7 +143,10 @@ export function useScheduleStore() {
   // ---- team ----
   async function addTeammate(name) {
     const color = nextColor(teamRows);
-    await supabase.from("team_members").insert({ name, initials: initialsOf(name), color_bg: color.bg, color_text: color.text });
+    const nextOrder = teamRows.reduce((max, t) => Math.max(max, t.sort_order ?? 0), -1) + 1;
+    await supabase
+      .from("team_members")
+      .insert({ name, initials: initialsOf(name), color_bg: color.bg, color_text: color.text, sort_order: nextOrder });
   }
   async function updateTeammate(id, patch) {
     const row = {};
@@ -158,9 +161,11 @@ export function useScheduleStore() {
   async function removeTeammate(id) {
     await supabase.from("team_members").delete().eq("id", id);
   }
-  // Manual drag-reorder isn't persisted yet (no ordering column) — the
-  // roster always reflects creation order until that's added.
-  function reorderTeam() {}
+  // framer-motion's Reorder.Group hands back the full array in its new
+  // order — persist that as each row's position so it survives a refetch.
+  async function reorderTeam(newTeam) {
+    await Promise.all(newTeam.map((t, i) => supabase.from("team_members").update({ sort_order: i }).eq("id", t.id)));
+  }
 
   async function addTimeOff(memberId, range) {
     await supabase.from("time_off").insert({ team_member_id: memberId, start_date: range.start, end_date: range.end });

@@ -33,6 +33,7 @@ create table if not exists team_members (
   initials text not null,
   color_bg text not null,
   color_text text not null,
+  sort_order integer not null default 0,
   created_at timestamptz not null default now()
 );
 
