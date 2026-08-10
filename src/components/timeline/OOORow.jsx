@@ -7,10 +7,10 @@ import { useAnchoredPosition, useCenteredTooltipPosition } from "../../lib/useAn
 
 const LANE_HEIGHT = 30;
 const ROW_PADDING = 8;
-const POPOVER_WIDTH = 220;
+const POPOVER_WIDTH = 270;
 const POPOVER_HEIGHT = 150;
 const EVENT_POPOVER_HEIGHT = 180;
-const ADD_POPOVER_WIDTH = 240;
+const ADD_POPOVER_WIDTH = 270;
 const ADD_POPOVER_HEIGHT = 190;
 
 // Greedy interval partitioning — each entry goes in the first lane whose
@@ -40,6 +40,20 @@ function TimeOffBar({ entry, pxPerDay, dimmed, onUpdate, onRemove }) {
   const popoverRef = useRef(null);
   const pos = useAnchoredPosition(open, barRef, { width: POPOVER_WIDTH, height: POPOVER_HEIGHT });
   const hoverPos = useCenteredTooltipPosition(hovering && !open, barRef, { width: 200, height: 50 });
+
+  // Local, immediately-responsive copies — typing shouldn't feel gated on a
+  // database round-trip. Committed on blur/change; re-synced from the real
+  // value if it changes from outside (e.g. someone else edited it, or the
+  // save failed and the field needs to reflect what's actually saved).
+  const [reason, setReason] = useState(entry.reason || "");
+  const [start, setStart] = useState(entry.start);
+  const [end, setEnd] = useState(entry.end);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- resyncing local edit buffers when the source value changes externally, not a data fetch
+  useEffect(() => setReason(entry.reason || ""), [entry.reason]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- same as above
+  useEffect(() => setStart(entry.start), [entry.start]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- same as above
+  useEffect(() => setEnd(entry.end), [entry.end]);
 
   useEffect(() => {
     if (!open) return;
@@ -117,26 +131,29 @@ function TimeOffBar({ entry, pxPerDay, dimmed, onUpdate, onRemove }) {
             </div>
             <div className="space-y-2">
               <TextInput
-                value={entry.reason || ""}
-                onChange={(e) => onUpdate({ reason: e.target.value })}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                onBlur={() => reason !== (entry.reason || "") && onUpdate({ reason })}
                 placeholder="Reason (e.g. Vacation, Conference)"
                 className="!py-1.5 !text-xs"
               />
               <div className="flex items-center gap-1.5">
                 <TextInput
                   type="date"
-                  value={entry.start}
-                  max={entry.end}
-                  onChange={(e) => onUpdate({ start: e.target.value })}
-                  className="!py-1.5 !text-xs"
+                  value={start}
+                  max={end}
+                  onChange={(e) => setStart(e.target.value)}
+                  onBlur={() => start !== entry.start && onUpdate({ start })}
+                  className="min-w-0 flex-1 !py-1.5 !text-xs"
                 />
-                <span className="text-slate-300">–</span>
+                <span className="shrink-0 text-slate-300">–</span>
                 <TextInput
                   type="date"
-                  value={entry.end}
-                  min={entry.start}
-                  onChange={(e) => onUpdate({ end: e.target.value })}
-                  className="!py-1.5 !text-xs"
+                  value={end}
+                  min={start}
+                  onChange={(e) => setEnd(e.target.value)}
+                  onBlur={() => end !== entry.end && onUpdate({ end })}
+                  className="min-w-0 flex-1 !py-1.5 !text-xs"
                 />
               </div>
               <button
@@ -161,6 +178,18 @@ function CompanyEventBar({ entry, pxPerDay, onUpdate, onRemove }) {
   const popoverRef = useRef(null);
   const pos = useAnchoredPosition(open, barRef, { width: POPOVER_WIDTH, height: EVENT_POPOVER_HEIGHT });
   const hoverPos = useCenteredTooltipPosition(hovering && !open, barRef, { width: 200, height: 50 });
+
+  // Same local-buffer-then-commit pattern as TimeOffBar — typing shouldn't
+  // feel gated on a database round-trip.
+  const [name, setName] = useState(entry.name);
+  const [start, setStart] = useState(entry.start);
+  const [end, setEnd] = useState(entry.end);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- resyncing local edit buffers when the source value changes externally, not a data fetch
+  useEffect(() => setName(entry.name), [entry.name]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- same as above
+  useEffect(() => setStart(entry.start), [entry.start]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- same as above
+  useEffect(() => setEnd(entry.end), [entry.end]);
 
   useEffect(() => {
     if (!open) return;
@@ -233,26 +262,29 @@ function CompanyEventBar({ entry, pxPerDay, onUpdate, onRemove }) {
             </div>
             <div className="space-y-2">
               <TextInput
-                value={entry.name}
-                onChange={(e) => onUpdate({ name: e.target.value })}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onBlur={() => name !== entry.name && onUpdate({ name })}
                 placeholder="e.g. Thanksgiving, Company offsite"
                 className="!py-1.5 !text-xs"
               />
               <div className="flex items-center gap-1.5">
                 <TextInput
                   type="date"
-                  value={entry.start}
-                  max={entry.end}
-                  onChange={(e) => onUpdate({ start: e.target.value })}
-                  className="!py-1.5 !text-xs"
+                  value={start}
+                  max={end}
+                  onChange={(e) => setStart(e.target.value)}
+                  onBlur={() => start !== entry.start && onUpdate({ start })}
+                  className="min-w-0 flex-1 !py-1.5 !text-xs"
                 />
-                <span className="text-slate-300">–</span>
+                <span className="shrink-0 text-slate-300">–</span>
                 <TextInput
                   type="date"
-                  value={entry.end}
-                  min={entry.start}
-                  onChange={(e) => onUpdate({ end: e.target.value })}
-                  className="!py-1.5 !text-xs"
+                  value={end}
+                  min={start}
+                  onChange={(e) => setEnd(e.target.value)}
+                  onBlur={() => end !== entry.end && onUpdate({ end })}
+                  className="min-w-0 flex-1 !py-1.5 !text-xs"
                 />
               </div>
               <button
