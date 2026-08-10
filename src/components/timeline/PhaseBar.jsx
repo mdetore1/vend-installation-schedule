@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
-import { AlertTriangle, Check, Trash2, UserX, X } from "lucide-react";
+import { AlertTriangle, Check, Copy, Trash2, UserX, X } from "lucide-react";
 import { Field, TextInput, Select, Toggle, Checkbox } from "../fields";
 import { parseDate, toISO, addDays, diffDays, formatShort, UNASSIGNED } from "../../lib/dateUtils";
 import { useAnchoredPosition } from "../../lib/useAnchoredPosition";
@@ -48,6 +48,8 @@ export default function PhaseBar({
   onOpenChange,
   labelStagger = 0,
   labelLayer,
+  onDuplicate,
+  otherLocations = [],
 }) {
   const startDate = parseDate(phase.start);
   const endDate = parseDate(phase.end);
@@ -446,6 +448,17 @@ export default function PhaseBar({
                 description={phase.confirmed ? "Dates are locked in" : "Dates are still proposed"}
               />
               <Checkbox checked={phase.done} onChange={(v) => onChange({ done: v })} label="Phase complete" />
+              {onDuplicate && otherLocations.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <Copy size={13} className="shrink-0 text-slate-400" />
+                  <Select
+                    value=""
+                    placeholder="Duplicate to another location…"
+                    onChange={(e) => e.target.value && onDuplicate(e.target.value)}
+                    options={otherLocations.map((l) => ({ value: l.id, label: l.name }))}
+                  />
+                </div>
+              )}
               <button
                 type="button"
                 onClick={onDelete}

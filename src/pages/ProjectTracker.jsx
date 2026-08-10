@@ -38,6 +38,7 @@ const MUTATOR_NAMES = [
   "addLocation",
   "reorderLocations",
   "shiftPhasesByIds",
+  "duplicatePhase",
   "updateLocation",
   "addQueueItem",
   "addSalesRep",
@@ -76,6 +77,7 @@ export default function ProjectTracker({ isAdmin = true }) {
     addLocation,
     reorderLocations,
     shiftPhasesByIds,
+    duplicatePhase,
     updateLocation,
     addQueueItem,
     addSalesRep,
@@ -352,6 +354,7 @@ export default function ProjectTracker({ isAdmin = true }) {
             onEditLocation={openEditLocation}
             onAddLocation={openAddModal}
             onShiftPhases={shiftPhasesByIds}
+            onDuplicatePhase={duplicatePhase}
             onReorderLocations={reorderLocations}
             onUpdateTimeOff={updateTimeOff}
             onRemoveTimeOff={removeTimeOff}

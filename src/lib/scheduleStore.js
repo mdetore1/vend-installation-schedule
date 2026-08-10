@@ -276,6 +276,15 @@ export function useScheduleStore() {
     await supabase.from("phases").insert({ id: phase.id, location_id: locId, ...phaseToRow(phase) });
   }
 
+  // Copies a phase onto a different location — a fresh row (new id), left
+  // in the source location untouched. Resets done/conflict-acknowledged
+  // since those are specific to the original site, not the new one.
+  async function duplicatePhase(phase, targetLocationId) {
+    await supabase
+      .from("phases")
+      .insert({ location_id: targetLocationId, ...phaseToRow({ ...phase, done: false, conflictAcknowledged: false }) });
+  }
+
   async function setArchived(locId, archived) {
     await supabase.from("locations").update({ archived }).eq("id", locId);
     if (archived) {
@@ -383,6 +392,7 @@ export function useScheduleStore() {
     shiftPhasesByIds,
     deletePhase,
     restorePhase,
+    duplicatePhase,
     setArchived,
     updateLocation,
     deleteLocation,

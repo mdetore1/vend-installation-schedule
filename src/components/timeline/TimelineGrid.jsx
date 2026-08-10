@@ -47,6 +47,7 @@ export default function TimelineGrid({
   onEditLocation,
   onAddLocation,
   onShiftPhases,
+  onDuplicatePhase,
   onReorderLocations,
   onUpdateTimeOff,
   onRemoveTimeOff,
@@ -234,6 +235,8 @@ export default function TimelineGrid({
                 onDeleteLocation={onDeleteLocation}
                 onEditLocation={onEditLocation}
                 onShiftPhases={onShiftPhases}
+                onDuplicatePhase={onDuplicatePhase}
+                allLocations={locations}
                 labelWidth={displayLabelWidth}
                 restoreMode={restoreMode}
                 draggable={sortable}

@@ -22,6 +22,8 @@ export default function LocationRow({
   onDeleteLocation,
   onEditLocation,
   onShiftPhases,
+  onDuplicatePhase,
+  allLocations,
   labelWidth,
   restoreMode = false,
   draggable = true,
@@ -40,6 +42,7 @@ export default function LocationRow({
   // bar's opaque pill can never paint over an earlier phase's label text —
   // see PhaseBar's externalLabel portal.
   const [labelLayer, setLabelLayer] = useState(null);
+  const otherLocations = (allLocations || []).filter((l) => l.id !== location.id);
 
   // Alternates each phase's narrow-bar label above/below the shared
   // midline, by chronological order rather than array order (seed data
@@ -150,6 +153,8 @@ export default function LocationRow({
               onMoving={(dx, groupIds) => onDragGroupChange({ draggerId: phase.id, ids: new Set(groupIds), dx })}
               onMoveEnd={() => onDragGroupChange(null)}
               onMove={(deltaDays, groupIds) => onShiftPhases(groupIds, deltaDays)}
+              onDuplicate={onDuplicatePhase && ((targetId) => onDuplicatePhase(phase, targetId))}
+              otherLocations={otherLocations}
               labelLayer={labelLayer}
             />
           );
