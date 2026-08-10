@@ -47,6 +47,7 @@ export default function PhaseBar({
   open,
   onOpenChange,
   labelStagger = 0,
+  labelLayer,
 }) {
   const startDate = parseDate(phase.start);
   const endDate = parseDate(phase.end);
@@ -286,16 +287,27 @@ export default function PhaseBar({
           <span className="absolute right-0.5 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded bg-white/70" />
         </span>
       </div>
-      {externalLabel && (
-        <span
-          className={`pointer-events-none absolute left-full ml-1.5 whitespace-nowrap text-xs font-semibold text-vend-black ${
-            phase.done ? "opacity-50 line-through" : ""
-          } ${dimmed ? "opacity-25" : ""}`}
-          style={{ top: "50%", transform: `translateY(calc(-50% + ${labelStagger ? 9 : -9}px))` }}
-        >
-          {phase.label}
-        </span>
-      )}
+      {externalLabel &&
+        labelLayer &&
+        createPortal(
+          // Portaled into a shared layer above every bar in the row (see
+          // LocationRow) instead of nesting inside this phase's own
+          // z-index'd wrapper — otherwise whichever overlapping bar happens
+          // to sit later in the array paints over this label's text.
+          <span
+            className={`pointer-events-none absolute whitespace-nowrap text-xs font-semibold text-vend-black ${
+              phase.done ? "opacity-50 line-through" : ""
+            } ${dimmed ? "opacity-25" : ""}`}
+            style={{
+              left: left + width + 6,
+              top: "50%",
+              transform: `translateY(calc(-50% + ${labelStagger ? 9 : -9}px))`,
+            }}
+          >
+            {phase.label}
+          </span>,
+          labelLayer
+        )}
 
       {conflict && !phase.conflictAcknowledged && (
         <span

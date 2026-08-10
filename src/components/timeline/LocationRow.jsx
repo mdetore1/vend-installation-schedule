@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Reorder, useDragControls } from "framer-motion";
 import { GripVertical, MapPin, RotateCcw, Trash2 } from "lucide-react";
 import { Checkbox } from "../fields";
@@ -35,6 +36,10 @@ export default function LocationRow({
   const allDone = location.phases.length > 0 && location.phases.every((p) => p.done);
   const teamById = Object.fromEntries(team.map((t) => [t.id, t]));
   const controls = useDragControls();
+  // A shared layer all phase labels portal into, so a later/overlapping
+  // bar's opaque pill can never paint over an earlier phase's label text —
+  // see PhaseBar's externalLabel portal.
+  const [labelLayer, setLabelLayer] = useState(null);
 
   // Alternates each phase's narrow-bar label above/below the shared
   // midline, by chronological order rather than array order (seed data
@@ -145,9 +150,11 @@ export default function LocationRow({
               onMoving={(dx, groupIds) => onDragGroupChange({ draggerId: phase.id, ids: new Set(groupIds), dx })}
               onMoveEnd={() => onDragGroupChange(null)}
               onMove={(deltaDays, groupIds) => onShiftPhases(groupIds, deltaDays)}
+              labelLayer={labelLayer}
             />
           );
         })}
+        <div ref={setLabelLayer} className="pointer-events-none absolute inset-0" style={{ zIndex: 50 }} />
       </div>
     </Reorder.Item>
   );

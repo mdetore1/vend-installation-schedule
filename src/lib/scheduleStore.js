@@ -5,7 +5,7 @@
 // so everyone's screen reflects the same shared schedule live.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabaseClient";
-import { cascadeDates, nextColor, initialsOf, UNASSIGNED } from "./dateUtils";
+import { nextColor, initialsOf, UNASSIGNED } from "./dateUtils";
 
 function phaseToRow(p) {
   return {
@@ -188,16 +188,19 @@ export function useScheduleStore() {
     }
   }
 
+  // Only touches the one phase being changed — no auto-cascading sibling
+  // phases here, since this is the mutator behind dragging/editing directly
+  // on the calendar, where nudging one bar shouldn't silently reshuffle the
+  // others in that location. Cascading still happens in AddLocationForm's
+  // own local state, which is a deliberate "lay out the whole pipeline" tool.
   async function updatePhase(locId, phaseId, patch) {
     const loc = data.locations.find((l) => l.id === locId);
-    if (!loc) return;
-    const patched = loc.phases.map((p) => (p.id !== phaseId ? p : { ...p, ...patch }));
-    const finalPhases = "end" in patch ? cascadeDates(patched, phaseId) : patched;
-    const changed = finalPhases.filter((p) => {
-      const before = loc.phases.find((x) => x.id === p.id);
-      return before && JSON.stringify(before) !== JSON.stringify(p);
-    });
-    await Promise.all(changed.map((p) => supabase.from("phases").update(phaseToRow(p)).eq("id", p.id)));
+    const phase = loc?.phases.find((p) => p.id === phaseId);
+    if (!phase) return;
+    await supabase
+      .from("phases")
+      .update(phaseToRow({ ...phase, ...patch }))
+      .eq("id", phaseId);
   }
 
   async function shiftPhasesByIds(phaseIds, deltaDays) {
