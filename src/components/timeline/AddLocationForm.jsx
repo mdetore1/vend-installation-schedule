@@ -18,13 +18,19 @@ export default function AddLocationForm({
   const [name, setName] = useState(initialName);
   const [place, setPlace] = useState(initialPlace);
   const [phases, setPhases] = useState(() => initialPhases ?? defaultPhases(team));
+  // Auto-cascading (push Install/Go-Live to the next Monday etc.) is a
+  // useful default when phases don't have real dates yet, but it actively
+  // fights an intentional overlap — e.g. Onboarding running long past
+  // Install's start — on a location that's already scheduled. So it only
+  // applies while adding a brand-new location, never while editing one.
+  const isEditing = !!initialPhases;
 
   if (!open) return null;
 
   function updatePhase(i, patch) {
     setPhases((ph) => {
       const patched = ph.map((p, idx) => (idx === i ? { ...p, ...patch } : p));
-      return "end" in patch ? cascadeDates(patched, ph[i].id) : patched;
+      return "end" in patch && !isEditing ? cascadeDates(patched, ph[i].id) : patched;
     });
   }
 
