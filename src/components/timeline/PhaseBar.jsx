@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { AlertTriangle, Check, Copy, Trash2, UserX, X } from "lucide-react";
 import { Field, TextInput, Select, Toggle, Checkbox } from "../fields";
 import { parseDate, toISO, addDays, diffDays, formatShort, UNASSIGNED } from "../../lib/dateUtils";
-import { useAnchoredPosition } from "../../lib/useAnchoredPosition";
+import { useAnchoredPosition, useCenteredTooltipPosition } from "../../lib/useAnchoredPosition";
 
 const MOVE_THRESHOLD = 3;
 const POPOVER_WIDTH = 270;
@@ -90,6 +90,12 @@ export default function PhaseBar({
   const conflictPos = useAnchoredPosition(conflictOpen, conflictBadgeRef, {
     width: CONFLICT_POPOVER_WIDTH,
     height: CONFLICT_POPOVER_HEIGHT,
+  });
+  // Portaled (not just a high z-index) so it can never end up behind a
+  // sticky header/column, which sits in its own, higher stacking tier.
+  const hoverPos = useCenteredTooltipPosition(!dragMode && hovering && !open, barRef, {
+    width: 200,
+    height: 50,
   });
 
   useEffect(() => {
@@ -208,7 +214,9 @@ export default function PhaseBar({
       style={{
         left,
         width,
-        zIndex: dragMode ? 40 : open || conflictOpen ? 30 : hovering ? 25 : idleZIndex,
+        // While dragging, this needs to beat every sticky header/column too
+        // (not just other bars) so the live date preview stays visible.
+        zIndex: dragMode ? 60 : open || conflictOpen ? 30 : hovering ? 25 : idleZIndex,
       }}
     >
       {dragMode && (
@@ -220,20 +228,28 @@ export default function PhaseBar({
             : `${formatShort(previewStart)} → ${formatShort(previewEnd)}`}
         </div>
       )}
-      {!dragMode && hovering && !open && (
-        <div className="pointer-events-none absolute -top-11 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-md bg-vend-black px-2.5 py-1.5 text-xs text-white shadow-lg">
-          <div className="font-bold">
-            {phase.label}{" "}
-            <span className="font-normal text-white/70">
-              ({diffDays(startDate, endDate) + 1} day{diffDays(startDate, endDate) === 0 ? "" : "s"})
-            </span>
-          </div>
-          <div className="text-white/70">
-            {formatShort(startDate)} → {formatShort(endDate)}
-            {phase.confirmed ? "" : " (proposed)"}
-          </div>
-        </div>
-      )}
+      {!dragMode &&
+        hovering &&
+        !open &&
+        hoverPos &&
+        createPortal(
+          <div
+            style={{ position: "fixed", top: hoverPos.top, left: hoverPos.left, zIndex: 100 }}
+            className="pointer-events-none whitespace-nowrap rounded-md bg-vend-black px-2.5 py-1.5 text-xs text-white shadow-lg"
+          >
+            <div className="font-bold">
+              {phase.label}{" "}
+              <span className="font-normal text-white/70">
+                ({diffDays(startDate, endDate) + 1} day{diffDays(startDate, endDate) === 0 ? "" : "s"})
+              </span>
+            </div>
+            <div className="text-white/70">
+              {formatShort(startDate)} → {formatShort(endDate)}
+              {phase.confirmed ? "" : " (proposed)"}
+            </div>
+          </div>,
+          document.body
+        )}
       <div
         ref={barRef}
         data-phase-id={phase.id}

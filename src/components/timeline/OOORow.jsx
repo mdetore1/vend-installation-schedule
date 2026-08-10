@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Trash2, X } from "lucide-react";
 import { TextInput } from "../fields";
 import { diffDays, formatShort, parseDate } from "../../lib/dateUtils";
-import { useAnchoredPosition } from "../../lib/useAnchoredPosition";
+import { useAnchoredPosition, useCenteredTooltipPosition } from "../../lib/useAnchoredPosition";
 
 const LANE_HEIGHT = 30;
 const ROW_PADDING = 8;
@@ -35,6 +35,9 @@ function TimeOffBar({ entry, pxPerDay, dimmed, onUpdate, onRemove }) {
   const barRef = useRef(null);
   const popoverRef = useRef(null);
   const pos = useAnchoredPosition(open, barRef, { width: POPOVER_WIDTH, height: POPOVER_HEIGHT });
+  // Portaled so it can never end up behind a sticky header/column, which
+  // sits in its own, higher stacking tier than this bar's local z-index.
+  const hoverPos = useCenteredTooltipPosition(hovering && !open, barRef, { width: 200, height: 50 });
 
   useEffect(() => {
     if (!open) return;
@@ -61,19 +64,26 @@ function TimeOffBar({ entry, pxPerDay, dimmed, onUpdate, onRemove }) {
         zIndex: open ? 30 : hovering ? 25 : 1,
       }}
     >
-      {hovering && !open && (
-        <div className="pointer-events-none absolute -top-11 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-md bg-vend-black px-2.5 py-1.5 text-xs text-white shadow-lg">
-          <div className="font-bold">
-            {entry.name} — Out of office{" "}
-            <span className="font-normal text-white/70">
-              ({entry.endDay - entry.startDay + 1} day{entry.endDay === entry.startDay ? "" : "s"})
-            </span>
-          </div>
-          <div className="text-white/70">
-            {formatShort(parseDate(entry.start))} → {formatShort(parseDate(entry.end))}
-          </div>
-        </div>
-      )}
+      {hovering &&
+        !open &&
+        hoverPos &&
+        createPortal(
+          <div
+            style={{ position: "fixed", top: hoverPos.top, left: hoverPos.left, zIndex: 100 }}
+            className="pointer-events-none whitespace-nowrap rounded-md bg-vend-black px-2.5 py-1.5 text-xs text-white shadow-lg"
+          >
+            <div className="font-bold">
+              {entry.name} — Out of office{" "}
+              <span className="font-normal text-white/70">
+                ({entry.endDay - entry.startDay + 1} day{entry.endDay === entry.startDay ? "" : "s"})
+              </span>
+            </div>
+            <div className="text-white/70">
+              {formatShort(parseDate(entry.start))} → {formatShort(parseDate(entry.end))}
+            </div>
+          </div>,
+          document.body
+        )}
       <button
         ref={barRef}
         type="button"
@@ -162,7 +172,7 @@ export default function OOORow({ team, pxPerDay, rangeStart, ownerFilter, labelW
   return (
     <div className="flex border-b-2 border-concrete-200 bg-concrete-100/30" style={{ height: rowHeight }}>
       <div
-        className="sticky left-0 z-10 flex shrink-0 items-center gap-2 border-r border-concrete-200 bg-concrete-100/30 px-4"
+        className="sticky left-0 z-[45] flex shrink-0 items-center gap-2 border-r border-concrete-200 bg-concrete-100/30 px-4"
         style={{ width: labelWidth }}
       >
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Out of office</span>
