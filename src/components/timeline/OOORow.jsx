@@ -5,8 +5,8 @@ import { TextInput } from "../fields";
 import { diffDays, formatShort, parseDate } from "../../lib/dateUtils";
 import { useAnchoredPosition, useCenteredTooltipPosition } from "../../lib/useAnchoredPosition";
 
-const LANE_HEIGHT = 30;
-const ROW_PADDING = 8;
+const LANE_HEIGHT = 24;
+const ROW_PADDING = 5;
 const POPOVER_WIDTH = 300;
 const POPOVER_HEIGHT = 150;
 const EVENT_POPOVER_HEIGHT = 180;
@@ -77,7 +77,7 @@ function TimeOffBar({ entry, pxPerDay, dimmed, onUpdate, onRemove }) {
         left,
         width,
         top: ROW_PADDING + entry.lane * LANE_HEIGHT,
-        height: LANE_HEIGHT - 6,
+        height: LANE_HEIGHT - 4,
         zIndex: open ? 30 : hovering ? 25 : 1,
       }}
     >
@@ -214,7 +214,7 @@ function CompanyEventBar({ entry, pxPerDay, onUpdate, onRemove }) {
         left,
         width,
         top: ROW_PADDING + entry.lane * LANE_HEIGHT,
-        height: LANE_HEIGHT - 6,
+        height: LANE_HEIGHT - 4,
         zIndex: open ? 30 : hovering ? 25 : 1,
       }}
     >
@@ -460,7 +460,7 @@ export default function OOORow({
   }, [team, rangeStart]);
 
   const companyRowHeight = companyLaneCount * LANE_HEIGHT + ROW_PADDING * 2;
-  const personalRowHeight = personalPlaced.length === 0 ? 44 : personalLaneCount * LANE_HEIGHT + ROW_PADDING * 2;
+  const personalRowHeight = personalPlaced.length === 0 ? 34 : personalLaneCount * LANE_HEIGHT + ROW_PADDING * 2;
   const hasCompanyEvents = companyPlaced.length > 0;
 
   return (
@@ -471,7 +471,7 @@ export default function OOORow({
             className="sticky left-0 z-[45] flex shrink-0 items-center gap-2 border-r border-concrete-200 bg-concrete-100/30 px-4"
             style={{ width: labelWidth }}
           >
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Company events</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Company Events/Holidays</span>
             {onAddCompanyEvent && <AddCompanyEventButton onAdd={onAddCompanyEvent} />}
           </div>
           <div className="relative flex-1">
