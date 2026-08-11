@@ -7,10 +7,10 @@ import { useAnchoredPosition, useCenteredTooltipPosition } from "../../lib/useAn
 
 const LANE_HEIGHT = 30;
 const ROW_PADDING = 8;
-const POPOVER_WIDTH = 270;
+const POPOVER_WIDTH = 300;
 const POPOVER_HEIGHT = 150;
 const EVENT_POPOVER_HEIGHT = 180;
-const ADD_POPOVER_WIDTH = 270;
+const ADD_POPOVER_WIDTH = 300;
 const ADD_POPOVER_HEIGHT = 190;
 
 // Greedy interval partitioning — each entry goes in the first lane whose
@@ -363,15 +363,15 @@ function AddCompanyEventButton({ onAdd }) {
                 type="date"
                 value={start}
                 onChange={(e) => setStart(e.target.value)}
-                className="!py-1.5 !text-xs"
+                className="min-w-0 flex-1 !py-1.5 !text-xs"
               />
-              <span className="text-slate-300">–</span>
+              <span className="shrink-0 text-slate-300">–</span>
               <TextInput
                 type="date"
                 value={end}
                 min={start}
                 onChange={(e) => setEnd(e.target.value)}
-                className="!py-1.5 !text-xs"
+                className="min-w-0 flex-1 !py-1.5 !text-xs"
               />
             </div>
             <button
