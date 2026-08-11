@@ -193,6 +193,16 @@ export default function TimelineGrid({
 
       <div className="relative">
         <div className="pointer-events-none absolute inset-0" style={{ left: displayLabelWidth }}>
+          {monthTicks.map(
+            (t, i) =>
+              i % 2 === 1 && (
+                <div
+                  key={`month-${i}`}
+                  className="absolute top-0 h-full bg-concrete-100/40"
+                  style={{ left: t.dayOffset * pxPerDay, width: t.widthDays * pxPerDay }}
+                />
+              )
+          )}
           {weekendBands.map((b, i) => (
             <div
               key={i}
