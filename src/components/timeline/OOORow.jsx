@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Plus, Trash2, X } from "lucide-react";
+import { Flag, Plus, Trash2, X } from "lucide-react";
 import { TextInput } from "../fields";
 import { diffDays, formatShort, parseDate } from "../../lib/dateUtils";
 import { useAnchoredPosition, useCenteredTooltipPosition } from "../../lib/useAnchoredPosition";
@@ -203,6 +203,9 @@ function CompanyEventBar({ entry, pxPerDay, onUpdate, onRemove }) {
 
   const left = entry.startDay * pxPerDay;
   const width = Math.max((entry.endDay - entry.startDay + 1) * pxPerDay, 26);
+  // Too narrow for the name to read inside the bar — show it just outside
+  // instead of letting it truncate down to a single letter.
+  const externalLabel = width < 70;
 
   return (
     <div
@@ -241,10 +244,21 @@ function CompanyEventBar({ entry, pxPerDay, onUpdate, onRemove }) {
         onClick={() => setOpen((v) => !v)}
         onMouseEnter={() => setHovering(true)}
         onMouseLeave={() => setHovering(false)}
-        className="flex h-full w-full items-center overflow-hidden rounded-md border border-dashed border-vend-black/40 bg-concrete-200 px-2 text-xs font-semibold text-vend-black shadow-sm"
+        className={`flex h-full w-full items-center gap-1 overflow-hidden rounded-md bg-vend-black text-xs font-semibold text-white shadow-sm ${
+          externalLabel ? "justify-center px-1" : "px-2"
+        }`}
       >
-        <span className="truncate">{entry.name}</span>
+        <Flag size={11} className="shrink-0" />
+        {!externalLabel && <span className="truncate">{entry.name}</span>}
       </button>
+      {externalLabel && (
+        <span
+          className="pointer-events-none absolute left-full ml-1.5 whitespace-nowrap text-xs font-semibold text-vend-black"
+          style={{ top: "50%", transform: "translateY(-50%)" }}
+        >
+          {entry.name}
+        </span>
+      )}
 
       {open &&
         pos &&
