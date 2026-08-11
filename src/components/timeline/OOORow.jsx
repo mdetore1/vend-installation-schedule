@@ -416,7 +416,27 @@ export default function OOORow({
   onUpdateCompanyEvent,
   onRemoveCompanyEvent,
 }) {
-  const { placed, laneCount } = useMemo(() => {
+  // Company events get their own lane-packing pool, entirely separate from
+  // personal time off — sharing one pool meant a short event's outside-the-
+  // bar label (see externalLabel above) could visually collide with the
+  // next unrelated person's bar landing in the same lane right after it.
+  // Two independent rows means that can never happen.
+  const { placed: companyPlaced, laneCount: companyLaneCount } = useMemo(() => {
+    const entries = companyEvents
+      .map((e) => ({
+        kind: "event",
+        id: e.id,
+        start: e.start,
+        end: e.end,
+        name: e.name,
+        startDay: diffDays(rangeStart, parseDate(e.start)),
+        endDay: diffDays(rangeStart, parseDate(e.end)),
+      }))
+      .sort((a, b) => a.startDay - b.startDay);
+    return assignLanes(entries);
+  }, [companyEvents, rangeStart]);
+
+  const { placed: personalPlaced, laneCount: personalLaneCount } = useMemo(() => {
     const entries = [];
     team.forEach((member) => {
       (member.timeOff || []).forEach((t) => {
@@ -435,48 +455,54 @@ export default function OOORow({
         });
       });
     });
-    companyEvents.forEach((e) => {
-      entries.push({
-        kind: "event",
-        id: e.id,
-        start: e.start,
-        end: e.end,
-        name: e.name,
-        startDay: diffDays(rangeStart, parseDate(e.start)),
-        endDay: diffDays(rangeStart, parseDate(e.end)),
-      });
-    });
     entries.sort((a, b) => a.startDay - b.startDay);
     return assignLanes(entries);
-  }, [team, companyEvents, rangeStart]);
+  }, [team, rangeStart]);
 
-  const rowHeight = placed.length === 0 ? 44 : laneCount * LANE_HEIGHT + ROW_PADDING * 2;
+  const companyRowHeight = companyLaneCount * LANE_HEIGHT + ROW_PADDING * 2;
+  const personalRowHeight = personalPlaced.length === 0 ? 44 : personalLaneCount * LANE_HEIGHT + ROW_PADDING * 2;
+  const hasCompanyEvents = companyPlaced.length > 0;
 
   return (
-    <div className="flex border-b-2 border-concrete-200 bg-concrete-100/30" style={{ height: rowHeight }}>
-      <div
-        className="sticky left-0 z-[45] flex shrink-0 items-center gap-2 border-r border-concrete-200 bg-concrete-100/30 px-4"
-        style={{ width: labelWidth }}
-      >
-        <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Out of office</span>
-        {onAddCompanyEvent && <AddCompanyEventButton onAdd={onAddCompanyEvent} />}
-      </div>
-      <div className="relative flex-1">
-        {placed.length === 0 && (
-          <p className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-300">
-            Nobody's time off is on the books — add some under Manage team.
-          </p>
-        )}
-        {placed.map((entry) =>
-          entry.kind === "event" ? (
-            <CompanyEventBar
-              key={entry.id}
-              entry={entry}
-              pxPerDay={pxPerDay}
-              onUpdate={(patch) => onUpdateCompanyEvent(entry.id, patch)}
-              onRemove={() => onRemoveCompanyEvent(entry.id)}
-            />
-          ) : (
+    <div className="flex flex-col border-b-2 border-concrete-200 bg-concrete-100/30">
+      {hasCompanyEvents && (
+        <div className="flex border-b border-concrete-200" style={{ height: companyRowHeight }}>
+          <div
+            className="sticky left-0 z-[45] flex shrink-0 items-center gap-2 border-r border-concrete-200 bg-concrete-100/30 px-4"
+            style={{ width: labelWidth }}
+          >
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Company events</span>
+            {onAddCompanyEvent && <AddCompanyEventButton onAdd={onAddCompanyEvent} />}
+          </div>
+          <div className="relative flex-1">
+            {companyPlaced.map((entry) => (
+              <CompanyEventBar
+                key={entry.id}
+                entry={entry}
+                pxPerDay={pxPerDay}
+                onUpdate={(patch) => onUpdateCompanyEvent(entry.id, patch)}
+                onRemove={() => onRemoveCompanyEvent(entry.id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex" style={{ height: personalRowHeight }}>
+        <div
+          className="sticky left-0 z-[45] flex shrink-0 items-center gap-2 border-r border-concrete-200 bg-concrete-100/30 px-4"
+          style={{ width: labelWidth }}
+        >
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Out of office</span>
+          {!hasCompanyEvents && onAddCompanyEvent && <AddCompanyEventButton onAdd={onAddCompanyEvent} />}
+        </div>
+        <div className="relative flex-1">
+          {personalPlaced.length === 0 && (
+            <p className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-300">
+              Nobody's time off is on the books — add some under Manage team.
+            </p>
+          )}
+          {personalPlaced.map((entry) => (
             <TimeOffBar
               key={entry.id}
               entry={entry}
@@ -485,8 +511,8 @@ export default function OOORow({
               onUpdate={(patch) => onUpdateTimeOff(entry.memberId, entry.id, patch)}
               onRemove={() => onRemoveTimeOff(entry.memberId, entry.id)}
             />
-          )
-        )}
+          ))}
+        </div>
       </div>
     </div>
   );
