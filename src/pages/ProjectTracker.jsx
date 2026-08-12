@@ -244,7 +244,7 @@ export default function ProjectTracker({ isAdmin = true }) {
     const threeWeeksAgo = addDays(todayStart(), -21);
     const monday = addDays(threeWeeksAgo, -((threeWeeksAgo.getDay() + 6) % 7));
     const offsetDays = diffDays(rangeStart, monday);
-    scrollRef.current.scrollLeft = Math.max(0, labelWidth + offsetDays * pxPerDay);
+    scrollRef.current.scrollLeft = Math.max(0, offsetDays * pxPerDay);
   }, [store.loaded, rangeStart, pxPerDay, labelWidth]);
 
   // Flags a phase when its owner is booked on another install/go-live at an
