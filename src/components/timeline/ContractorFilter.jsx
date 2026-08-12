@@ -43,7 +43,7 @@ export default function ContractorFilter({ contractors, filter, onFilterChange }
         }`}
       >
         <HardHat size={15} className="shrink-0 text-slate-400" />
-        <span>{filter || "Contractor"}</span>
+        <span>{filter || "Filter"}</span>
         <ChevronDown size={14} className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
