@@ -28,6 +28,7 @@ function locationToRow(l) {
     sales_rep: l.salesRep ?? null,
     property_management: l.propertyManagement ?? null,
     ownership: l.ownership ?? null,
+    contractor: l.contractor || "Task Force",
   };
 }
 
@@ -97,6 +98,7 @@ export function useScheduleStore() {
       salesRep: l.sales_rep,
       propertyManagement: l.property_management,
       ownership: l.ownership,
+      contractor: l.contractor || "Task Force",
       phases: phaseRows
         .filter((p) => p.location_id === l.id)
         .map((p) => ({
@@ -379,7 +381,7 @@ export function useScheduleStore() {
     await supabase.from("queue_items").delete().eq("id", id);
   }
 
-  async function promoteQueueItem(queueItem, { name, place, phases }) {
+  async function promoteQueueItem(queueItem, { name, place, phases, contractor }) {
     const { data: inserted, error } = await supabase
       .from("locations")
       .insert({
@@ -391,6 +393,7 @@ export function useScheduleStore() {
         sales_rep: queueItem.salesRep ?? null,
         property_management: queueItem.propertyManagement ?? null,
         ownership: queueItem.ownership ?? null,
+        contractor: contractor || "Task Force",
       })
       .select()
       .single();

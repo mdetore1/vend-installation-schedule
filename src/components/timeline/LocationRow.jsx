@@ -100,6 +100,12 @@ export default function LocationRow({
           <span className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate rounded-full bg-concrete-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
             <MapPin size={10} className="shrink-0 text-slate-400" />
             {location.place || "Add city, state"}
+            {location.contractor && (
+              <>
+                <span className="text-slate-300">·</span>
+                {location.contractor}
+              </>
+            )}
           </span>
         </button>
         <button

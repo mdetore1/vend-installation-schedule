@@ -15,6 +15,7 @@ import {
   UNASSIGNED,
 } from "../lib/dateUtils";
 import OwnerLegend from "../components/timeline/OwnerLegend";
+import ContractorFilter from "../components/timeline/ContractorFilter";
 import TimelineGrid from "../components/timeline/TimelineGrid";
 import CompletedStrip from "../components/timeline/CompletedStrip";
 import QueueStrip from "../components/timeline/QueueStrip";
@@ -165,6 +166,11 @@ export default function ProjectTracker({ isAdmin = true }) {
 
   const [pxPerDay, setPxPerDay] = useState(9);
   const [ownerFilter, setOwnerFilter] = useState(null);
+  // Unlike ownerFilter (which just dims non-matching phase bars), this
+  // hides non-matching locations entirely — the point is being able to
+  // screenshot the calendar for one contractor without any other
+  // contractor's locations visible at all, even dimmed.
+  const [contractorFilter, setContractorFilter] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [addKey, setAddKey] = useState(0);
   const [stripOpen, setStripOpen] = useState(false);
@@ -177,7 +183,21 @@ export default function ProjectTracker({ isAdmin = true }) {
   // (see scheduleStore's addLocation), but the order itself is a persisted
   // column, not recomputed from dates on every render — so dragging a row
   // to a custom spot sticks instead of snapping back to date order.
-  const activeLocations = useMemo(() => data.locations.filter((l) => !l.archived), [data.locations]);
+  const activeLocations = useMemo(
+    () =>
+      data.locations.filter(
+        (l) => !l.archived && (!contractorFilter || l.contractor === contractorFilter)
+      ),
+    [data.locations, contractorFilter]
+  );
+
+  // Distinct contractors currently in use, for the filter dropdown —
+  // derived from all active locations regardless of the filter itself, so
+  // the option list doesn't shrink to just the currently-selected one.
+  const contractors = useMemo(() => {
+    const set = new Set(data.locations.filter((l) => !l.archived).map((l) => l.contractor || "Task Force"));
+    return [...set].sort();
+  }, [data.locations]);
 
   // Completed section orders itself most-recently-finished-first, same
   // auto-sort philosophy as the main calendar.
@@ -349,7 +369,7 @@ export default function ProjectTracker({ isAdmin = true }) {
         </div>
       </div>
 
-      <div className="mb-4">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <OwnerLegend
           team={data.team}
           filter={ownerFilter}
@@ -361,6 +381,7 @@ export default function ProjectTracker({ isAdmin = true }) {
           onAddTimeOff={addTimeOff}
           onRemoveTimeOff={removeTimeOff}
         />
+        <ContractorFilter contractors={contractors} filter={contractorFilter} onFilterChange={setContractorFilter} />
       </div>
 
       <LayoutGroup>
@@ -459,6 +480,7 @@ export default function ProjectTracker({ isAdmin = true }) {
         submitLabel="Save changes"
         initialName={editingLocation?.name || ""}
         initialPlace={editingLocation?.place || ""}
+        initialContractor={editingLocation?.contractor || ""}
         initialPhases={editingLocation?.phases}
         onSubmit={finalizeEditLocation}
       />

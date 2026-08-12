@@ -13,10 +13,12 @@ export default function AddLocationForm({
   submitLabel = "Add location",
   initialName = "",
   initialPlace = "",
+  initialContractor = "",
   initialPhases,
 }) {
   const [name, setName] = useState(initialName);
   const [place, setPlace] = useState(initialPlace);
+  const [contractor, setContractor] = useState(initialContractor || "Task Force");
   const [phases, setPhases] = useState(() => initialPhases ?? defaultPhases(team));
   // Auto-cascading (push Install/Go-Live to the next Monday etc.) is a
   // useful default when phases don't have real dates yet, but it actively
@@ -36,7 +38,7 @@ export default function AddLocationForm({
 
   function submit() {
     if (!name.trim() || phases.length === 0) return;
-    onSubmit({ name: name.trim(), place: place.trim(), phases });
+    onSubmit({ name: name.trim(), place: place.trim(), contractor: contractor.trim() || "Task Force", phases });
   }
 
   return (
@@ -63,6 +65,14 @@ export default function AddLocationForm({
               value={place}
               onChange={(e) => setPlace(e.target.value)}
               placeholder="e.g. Dallas, TX"
+            />
+          </Field>
+
+          <Field label="Contractor">
+            <TextInput
+              value={contractor}
+              onChange={(e) => setContractor(e.target.value)}
+              placeholder="e.g. Task Force"
             />
           </Field>
 
