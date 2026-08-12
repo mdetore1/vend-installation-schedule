@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { LayoutGroup } from "framer-motion";
 import { Minus, Plus, X } from "lucide-react";
 import { useLocalStorage } from "../lib/storage";
@@ -10,6 +10,8 @@ import {
   canonPhaseLabel,
   rangesOverlap,
   latestScheduleDate,
+  todayStart,
+  diffDays,
   UNASSIGNED,
 } from "../lib/dateUtils";
 import OwnerLegend from "../components/timeline/OwnerLegend";
@@ -229,6 +231,18 @@ export default function ProjectTracker({ isAdmin = true }) {
     };
   }, [activeLocations, data.team, data.companyEvents]);
 
+  // Opens scrolled to today instead of the earliest date in the schedule —
+  // that's what's actually relevant day-to-day, not whatever's oldest.
+  // Runs once, the first time there's real data to scroll against.
+  const scrollRef = useRef(null);
+  const scrolledToToday = useRef(false);
+  useEffect(() => {
+    if (scrolledToToday.current || !store.loaded || !scrollRef.current) return;
+    scrolledToToday.current = true;
+    const todayOffset = diffDays(rangeStart, todayStart()) * pxPerDay;
+    scrollRef.current.scrollLeft = Math.max(0, labelWidth + todayOffset - 200);
+  }, [store.loaded, rangeStart, pxPerDay, labelWidth]);
+
   // Flags a phase when its owner is booked on another install/go-live at an
   // overlapping time — onboarding is excluded since one person can run
   // several of those in parallel, but installs/go-lives need them on-site.
@@ -347,6 +361,7 @@ export default function ProjectTracker({ isAdmin = true }) {
 
       <LayoutGroup>
         <div
+          ref={scrollRef}
           className="scrollx overflow-auto rounded-2xl border border-concrete-200 bg-white"
           style={{ maxHeight: "calc(100vh - 300px)" }}
         >
