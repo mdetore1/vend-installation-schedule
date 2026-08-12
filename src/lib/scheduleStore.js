@@ -247,7 +247,12 @@ export function useScheduleStore() {
       .insert({ ...locationToRow(loc), archived: false, sort_order: insertAt })
       .select()
       .single();
-    if (error || !inserted) return;
+    if (error || !inserted) {
+      // Fails silently otherwise — someone just sees "nothing happened"
+      // with no clue a migration is missing or a write got rejected.
+      window.alert(`Couldn't add the location: ${error?.message || "unknown error"}`);
+      return;
+    }
     if (loc.phases?.length) {
       await supabase.from("phases").insert(loc.phases.map((p) => ({ ...phaseToRow(p), location_id: inserted.id })));
     }
@@ -397,7 +402,10 @@ export function useScheduleStore() {
       })
       .select()
       .single();
-    if (error || !inserted) return;
+    if (error || !inserted) {
+      window.alert(`Couldn't add to the calendar: ${error?.message || "unknown error"}`);
+      return;
+    }
     if (phases?.length) {
       await supabase.from("phases").insert(phases.map((p) => ({ ...phaseToRow(p), location_id: inserted.id })));
     }
