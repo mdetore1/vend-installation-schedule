@@ -231,16 +231,20 @@ export default function ProjectTracker({ isAdmin = true }) {
     };
   }, [activeLocations, data.team, data.companyEvents]);
 
-  // Opens scrolled to today instead of the earliest date in the schedule —
-  // that's what's actually relevant day-to-day, not whatever's oldest.
-  // Runs once, the first time there's real data to scroll against.
+  // Opens scrolled to 3 weeks before today, rounded back to that week's
+  // Monday — instead of the earliest date in the schedule, and instead of
+  // just today itself — so there's a little recent-past context on-screen
+  // alongside what's current. Runs once, the first time there's real data
+  // to scroll against.
   const scrollRef = useRef(null);
   const scrolledToToday = useRef(false);
   useEffect(() => {
     if (scrolledToToday.current || !store.loaded || !scrollRef.current) return;
     scrolledToToday.current = true;
-    const todayOffset = diffDays(rangeStart, todayStart()) * pxPerDay;
-    scrollRef.current.scrollLeft = Math.max(0, labelWidth + todayOffset - 200);
+    const threeWeeksAgo = addDays(todayStart(), -21);
+    const monday = addDays(threeWeeksAgo, -((threeWeeksAgo.getDay() + 6) % 7));
+    const offsetDays = diffDays(rangeStart, monday);
+    scrollRef.current.scrollLeft = Math.max(0, labelWidth + offsetDays * pxPerDay);
   }, [store.loaded, rangeStart, pxPerDay, labelWidth]);
 
   // Flags a phase when its owner is booked on another install/go-live at an
