@@ -16,21 +16,33 @@ const ADD_POPOVER_HEIGHT = 190;
 // Greedy interval partitioning — each entry goes in the first lane whose
 // last-placed entry doesn't overlap it, so simultaneous OOO/events for
 // different people (or the whole company) stack instead of rendering on
-// top of each other.
+// top of each other. Uses packEndDay (if set) instead of endDay for the
+// overlap check — a narrow entry whose label spills outside its own bar
+// (see externalLabel) needs that extra space reserved too, or the next
+// entry placed right after it in the same lane visually collides with it.
 function assignLanes(entries) {
   const laneEnds = [];
   const placed = [];
   for (const entry of entries) {
+    const occupiedEnd = entry.packEndDay ?? entry.endDay;
     let lane = laneEnds.findIndex((end) => end < entry.startDay);
     if (lane === -1) {
       lane = laneEnds.length;
-      laneEnds.push(entry.endDay);
+      laneEnds.push(occupiedEnd);
     } else {
-      laneEnds[lane] = entry.endDay;
+      laneEnds[lane] = occupiedEnd;
     }
     placed.push({ ...entry, lane });
   }
   return { placed, laneCount: Math.max(laneEnds.length, 1) };
+}
+
+// Rough estimate of an external label's width in days at the current zoom,
+// so lane-packing can reserve room for it. Text-xs semibold runs ~6.5px/char;
+// the flag icon + gaps add a fixed ~34px before that.
+function estimateLabelDays(text, pxPerDay) {
+  const labelPx = text.length * 6.5 + 34;
+  return Math.ceil(labelPx / pxPerDay);
 }
 
 function TimeOffBar({ entry, pxPerDay, dimmed, onUpdate, onRemove }) {
@@ -423,18 +435,16 @@ export default function OOORow({
   // Two independent rows means that can never happen.
   const { placed: companyPlaced, laneCount: companyLaneCount } = useMemo(() => {
     const entries = companyEvents
-      .map((e) => ({
-        kind: "event",
-        id: e.id,
-        start: e.start,
-        end: e.end,
-        name: e.name,
-        startDay: diffDays(rangeStart, parseDate(e.start)),
-        endDay: diffDays(rangeStart, parseDate(e.end)),
-      }))
+      .map((e) => {
+        const startDay = diffDays(rangeStart, parseDate(e.start));
+        const endDay = diffDays(rangeStart, parseDate(e.end));
+        const widthPx = Math.max((endDay - startDay + 1) * pxPerDay, 26);
+        const packEndDay = widthPx < 70 ? endDay + estimateLabelDays(e.name, pxPerDay) : endDay;
+        return { kind: "event", id: e.id, start: e.start, end: e.end, name: e.name, startDay, endDay, packEndDay };
+      })
       .sort((a, b) => a.startDay - b.startDay);
     return assignLanes(entries);
-  }, [companyEvents, rangeStart]);
+  }, [companyEvents, rangeStart, pxPerDay]);
 
   const { placed: personalPlaced, laneCount: personalLaneCount } = useMemo(() => {
     const entries = [];
