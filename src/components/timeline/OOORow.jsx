@@ -266,7 +266,16 @@ function CompanyEventBar({ entry, pxPerDay, onUpdate, onRemove, labelLayer }) {
           // is the point: it should stay legible over anything beneath it.
           <span
             className="pointer-events-none absolute whitespace-nowrap text-xs font-bold text-mint"
-            style={{ left: left + width + 6, top: "50%", transform: "translateY(-50%)" }}
+            style={{
+              left: left + width + 6,
+              top: "50%",
+              transform: "translateY(-50%)",
+              // A soft glow alone washes out against light backgrounds — a
+              // solid dark outline keeps it legible over anything: white,
+              // a striped weekend band, or another bar's own color.
+              textShadow:
+                "-1px -1px 0 #111114, 1px -1px 0 #111114, -1px 1px 0 #111114, 1px 1px 0 #111114, 0 1px 3px rgba(17,17,20,0.5)",
+            }}
           >
             {entry.name}
           </span>,
