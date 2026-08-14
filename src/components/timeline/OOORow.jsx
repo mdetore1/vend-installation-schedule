@@ -16,33 +16,25 @@ const ADD_POPOVER_HEIGHT = 190;
 // Greedy interval partitioning — each entry goes in the first lane whose
 // last-placed entry doesn't overlap it, so simultaneous OOO/events for
 // different people (or the whole company) stack instead of rendering on
-// top of each other. Uses packEndDay (if set) instead of endDay for the
-// overlap check — a narrow entry whose label spills outside its own bar
-// (see externalLabel) needs that extra space reserved too, or the next
-// entry placed right after it in the same lane visually collides with it.
+// top of each other. Only actual date ranges count here — a narrow
+// entry's label spilling outside its own bar (see externalLabel) is left
+// to overlap the next bar rather than reserving it a whole extra lane;
+// CompanyEventBar boosts its own z-index in that case so the label/icon
+// still stays legible on top instead of getting buried.
 function assignLanes(entries) {
   const laneEnds = [];
   const placed = [];
   for (const entry of entries) {
-    const occupiedEnd = entry.packEndDay ?? entry.endDay;
     let lane = laneEnds.findIndex((end) => end < entry.startDay);
     if (lane === -1) {
       lane = laneEnds.length;
-      laneEnds.push(occupiedEnd);
+      laneEnds.push(entry.endDay);
     } else {
-      laneEnds[lane] = occupiedEnd;
+      laneEnds[lane] = entry.endDay;
     }
     placed.push({ ...entry, lane });
   }
   return { placed, laneCount: Math.max(laneEnds.length, 1) };
-}
-
-// Rough estimate of an external label's width in days at the current zoom,
-// so lane-packing can reserve room for it. Text-xs semibold runs ~6.5px/char;
-// the flag icon + gaps add a fixed ~34px before that.
-function estimateLabelDays(text, pxPerDay) {
-  const labelPx = text.length * 6.5 + 34;
-  return Math.ceil(labelPx / pxPerDay);
 }
 
 function TimeOffBar({ entry, pxPerDay, dimmed, onUpdate, onRemove }) {
@@ -227,7 +219,11 @@ function CompanyEventBar({ entry, pxPerDay, onUpdate, onRemove }) {
         width,
         top: ROW_PADDING + entry.lane * LANE_HEIGHT,
         height: LANE_HEIGHT - 4,
-        zIndex: open ? 30 : hovering ? 25 : 1,
+        // A narrow event's label spills past its own bar and can land on
+        // top of the next event sharing this lane — bump it above idle
+        // bars (but still below hover/open) so the text stays legible
+        // instead of getting covered, rather than reserving it a lane.
+        zIndex: open ? 30 : hovering ? 25 : externalLabel ? 15 : 1,
       }}
     >
       {hovering &&
@@ -435,16 +431,18 @@ export default function OOORow({
   // Two independent rows means that can never happen.
   const { placed: companyPlaced, laneCount: companyLaneCount } = useMemo(() => {
     const entries = companyEvents
-      .map((e) => {
-        const startDay = diffDays(rangeStart, parseDate(e.start));
-        const endDay = diffDays(rangeStart, parseDate(e.end));
-        const widthPx = Math.max((endDay - startDay + 1) * pxPerDay, 26);
-        const packEndDay = widthPx < 70 ? endDay + estimateLabelDays(e.name, pxPerDay) : endDay;
-        return { kind: "event", id: e.id, start: e.start, end: e.end, name: e.name, startDay, endDay, packEndDay };
-      })
+      .map((e) => ({
+        kind: "event",
+        id: e.id,
+        start: e.start,
+        end: e.end,
+        name: e.name,
+        startDay: diffDays(rangeStart, parseDate(e.start)),
+        endDay: diffDays(rangeStart, parseDate(e.end)),
+      }))
       .sort((a, b) => a.startDay - b.startDay);
     return assignLanes(entries);
-  }, [companyEvents, rangeStart, pxPerDay]);
+  }, [companyEvents, rangeStart]);
 
   const { placed: personalPlaced, laneCount: personalLaneCount } = useMemo(() => {
     const entries = [];
