@@ -275,7 +275,7 @@ function CompanyEventBar({ entry, pxPerDay, onUpdate, onRemove, labelLayer }) {
               // striped weekend band, another bar's color) without reading
               // as a hard black stroke.
               textShadow:
-                "-1px -1px 0 rgba(74,74,80,0.55), 1px -1px 0 rgba(74,74,80,0.55), -1px 1px 0 rgba(74,74,80,0.55), 1px 1px 0 rgba(74,74,80,0.55), 0 1px 2px rgba(74,74,80,0.3)",
+                "-1px -1px 0 rgba(74,74,80,0.35), 1px -1px 0 rgba(74,74,80,0.35), -1px 1px 0 rgba(74,74,80,0.35), 1px 1px 0 rgba(74,74,80,0.35), 0 1px 2px rgba(74,74,80,0.18)",
             }}
           >
             {entry.name}
