@@ -478,7 +478,7 @@ export default function OOORow({
       {hasCompanyEvents && (
         <div className="flex border-b border-concrete-200" style={{ height: companyRowHeight }}>
           <div
-            className="sticky left-0 z-[45] flex shrink-0 items-center gap-2 border-r border-concrete-200 bg-concrete-100/30 px-4"
+            className="sticky left-0 z-[45] flex shrink-0 items-center gap-2 border-r border-concrete-200 bg-concrete-100 px-4"
             style={{ width: labelWidth }}
           >
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Company Events/Holidays</span>
@@ -500,7 +500,7 @@ export default function OOORow({
 
       <div className="flex" style={{ height: personalRowHeight }}>
         <div
-          className="sticky left-0 z-[45] flex shrink-0 items-center gap-2 border-r border-concrete-200 bg-concrete-100/30 px-4"
+          className="sticky left-0 z-[45] flex shrink-0 items-center gap-2 border-r border-concrete-200 bg-concrete-100 px-4"
           style={{ width: labelWidth }}
         >
           <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Out of office</span>
