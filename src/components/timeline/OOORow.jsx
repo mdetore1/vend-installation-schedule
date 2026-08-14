@@ -175,7 +175,7 @@ function TimeOffBar({ entry, pxPerDay, dimmed, onUpdate, onRemove }) {
   );
 }
 
-function CompanyEventBar({ entry, pxPerDay, onUpdate, onRemove }) {
+function CompanyEventBar({ entry, pxPerDay, onUpdate, onRemove, labelLayer }) {
   const [open, setOpen] = useState(false);
   const [hovering, setHovering] = useState(false);
   const barRef = useRef(null);
@@ -219,11 +219,7 @@ function CompanyEventBar({ entry, pxPerDay, onUpdate, onRemove }) {
         width,
         top: ROW_PADDING + entry.lane * LANE_HEIGHT,
         height: LANE_HEIGHT - 4,
-        // A narrow event's label spills past its own bar and can land on
-        // top of the next event sharing this lane — bump it above idle
-        // bars (but still below hover/open) so the text stays legible
-        // instead of getting covered, rather than reserving it a lane.
-        zIndex: open ? 30 : hovering ? 25 : externalLabel ? 15 : 1,
+        zIndex: open ? 30 : hovering ? 25 : 1,
       }}
     >
       {hovering &&
@@ -259,14 +255,23 @@ function CompanyEventBar({ entry, pxPerDay, onUpdate, onRemove }) {
         <Flag size={11} className="shrink-0" />
         {!externalLabel && <span className="truncate">{entry.name}</span>}
       </button>
-      {externalLabel && (
-        <span
-          className="pointer-events-none absolute left-full ml-1.5 whitespace-nowrap text-xs font-semibold text-vend-black"
-          style={{ top: "50%", transform: "translateY(-50%)" }}
-        >
-          {entry.name}
-        </span>
-      )}
+      {externalLabel &&
+        labelLayer &&
+        createPortal(
+          // Portaled into a shared layer above every bar in this row (see
+          // OOORow) instead of living inside this event's own z-indexed
+          // wrapper — otherwise whichever event happens to render later
+          // fully covers an earlier, overlapping one's label text. Mint on
+          // top of another bar (rather than avoiding overlap altogether)
+          // is the point: it should stay legible over anything beneath it.
+          <span
+            className="pointer-events-none absolute whitespace-nowrap text-xs font-bold text-mint"
+            style={{ left: left + width + 6, top: "50%", transform: "translateY(-50%)" }}
+          >
+            {entry.name}
+          </span>,
+          labelLayer
+        )}
 
       {open &&
         pos &&
@@ -471,6 +476,11 @@ export default function OOORow({
   const personalRowHeight = personalPlaced.length === 0 ? 34 : personalLaneCount * LANE_HEIGHT + ROW_PADDING * 2;
   const hasCompanyEvents = companyPlaced.length > 0;
 
+  // Shared layer every company-event label portals into, so a later event's
+  // opaque bar can never bury an earlier, overlapping one's label text —
+  // same trick as the phase-bar labels on the main calendar.
+  const [companyLabelLayer, setCompanyLabelLayer] = useState(null);
+
   return (
     <div className="flex flex-col border-b-2 border-concrete-200 bg-concrete-100/30">
       {hasCompanyEvents && (
@@ -490,8 +500,10 @@ export default function OOORow({
                 pxPerDay={pxPerDay}
                 onUpdate={(patch) => onUpdateCompanyEvent(entry.id, patch)}
                 onRemove={() => onRemoveCompanyEvent(entry.id)}
+                labelLayer={companyLabelLayer}
               />
             ))}
+            <div ref={setCompanyLabelLayer} className="pointer-events-none absolute inset-0" style={{ zIndex: 35 }} />
           </div>
         </div>
       )}

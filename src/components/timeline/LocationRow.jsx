@@ -159,7 +159,7 @@ export default function LocationRow({
             />
           );
         })}
-        <div ref={setLabelLayer} className="pointer-events-none absolute inset-0" style={{ zIndex: 50 }} />
+        <div ref={setLabelLayer} className="pointer-events-none absolute inset-0" style={{ zIndex: 42 }} />
       </div>
     </Reorder.Item>
   );
