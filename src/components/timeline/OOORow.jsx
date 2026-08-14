@@ -271,10 +271,11 @@ function CompanyEventBar({ entry, pxPerDay, onUpdate, onRemove, labelLayer }) {
               top: "50%",
               transform: "translateY(-50%)",
               // A soft glow alone washes out against light backgrounds — a
-              // solid dark outline keeps it legible over anything: white,
-              // a striped weekend band, or another bar's own color.
+              // faint outline keeps it legible over anything (white, a
+              // striped weekend band, another bar's color) without reading
+              // as a hard black stroke.
               textShadow:
-                "-1px -1px 0 #111114, 1px -1px 0 #111114, -1px 1px 0 #111114, 1px 1px 0 #111114, 0 1px 3px rgba(17,17,20,0.5)",
+                "-1px -1px 0 rgba(74,74,80,0.55), 1px -1px 0 rgba(74,74,80,0.55), -1px 1px 0 rgba(74,74,80,0.55), 1px 1px 0 rgba(74,74,80,0.55), 0 1px 2px rgba(74,74,80,0.3)",
             }}
           >
             {entry.name}
