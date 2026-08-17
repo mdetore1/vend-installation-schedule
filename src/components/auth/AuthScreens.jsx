@@ -175,17 +175,10 @@ export function ManageUsersModal({
   currentUser,
   onUpdateRole,
   onRevoke,
-  onInvite,
   onDelete,
   onCreateLogin,
   onResetPassword,
-  onSendPasswordReset,
 }) {
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteBusy, setInviteBusy] = useState(false);
-  const [inviteMsg, setInviteMsg] = useState("");
-
-  const [showCreate, setShowCreate] = useState(false);
   const [createName, setCreateName] = useState("");
   const [createEmail, setCreateEmail] = useState("");
   const [createBusy, setCreateBusy] = useState(false);
@@ -195,28 +188,7 @@ export function ManageUsersModal({
   const [resetOpenId, setResetOpenId] = useState(null);
   const [manualPassword, setManualPassword] = useState("");
 
-  // Keyed to the specific user so the confirmation/error shows right under
-  // the row that was clicked — a top-of-list banner was easy to miss when
-  // the row you clicked was scrolled further down.
-  const [emailResetBusyId, setEmailResetBusyId] = useState(null);
-  const [emailResetResult, setEmailResetResult] = useState(null); // { userId, message, isError }
-
   if (!open) return null;
-
-  async function sendInvite(e) {
-    e.preventDefault();
-    if (!inviteEmail) return;
-    setInviteBusy(true);
-    setInviteMsg("");
-    const res = await onInvite(inviteEmail);
-    setInviteBusy(false);
-    if (res.ok) {
-      setInviteMsg(`Invite sent to ${inviteEmail}.`);
-      setInviteEmail("");
-    } else {
-      setInviteMsg(res.error || "Failed to send invite.");
-    }
-  }
 
   async function submitCreate(e) {
     e.preventDefault();
@@ -248,26 +220,12 @@ export function ManageUsersModal({
   async function submitResetPassword(e, u) {
     e.preventDefault();
     setPwResetResult(null);
-    setEmailResetResult(null);
     const res = await onResetPassword(u.id, manualPassword || undefined);
     setPwResetResult(res.ok ? { email: u.email, password: res.password } : { email: u.email, error: res.error });
     if (res.ok) {
       setResetOpenId(null);
       setManualPassword("");
     }
-  }
-
-  async function handleEmailReset(u) {
-    setPwResetResult(null);
-    setEmailResetResult(null);
-    setEmailResetBusyId(u.id);
-    const res = await onSendPasswordReset(u.email);
-    setEmailResetBusyId(null);
-    setEmailResetResult({
-      userId: u.id,
-      message: res.ok ? `Reset link emailed to ${u.email}.` : res.error || "Failed to send reset email.",
-      isError: !res.ok,
-    });
   }
 
   return (
@@ -280,49 +238,24 @@ export function ManageUsersModal({
           </button>
         </div>
 
-        <form onSubmit={sendInvite} className="flex items-center gap-2 border-b border-concrete-200 px-6 py-4">
-          <TextInput
-            type="email"
-            value={inviteEmail}
-            onChange={(e) => setInviteEmail(e.target.value)}
-            placeholder="Invite by email…"
-          />
-          <button
-            type="submit"
-            disabled={inviteBusy || !inviteEmail}
-            className="shrink-0 rounded-full bg-vend-black px-3 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
-          >
-            Invite
-          </button>
-        </form>
-        {inviteMsg && <p className="px-6 pt-2 text-xs font-semibold text-slate-500">{inviteMsg}</p>}
-
         <div className="border-b border-concrete-200 px-6 py-4">
-          <button
-            type="button"
-            onClick={() => setShowCreate((s) => !s)}
-            className="text-xs font-semibold text-slate-500 hover:text-vend-black"
-          >
-            {showCreate ? "Cancel" : "Invite email not arriving? Create a login yourself →"}
-          </button>
-          {showCreate && (
-            <form onSubmit={submitCreate} className="mt-3 space-y-2">
-              <TextInput value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder="Their name" />
-              <TextInput
-                type="email"
-                value={createEmail}
-                onChange={(e) => setCreateEmail(e.target.value)}
-                placeholder="Their work email"
-              />
-              <button
-                type="submit"
-                disabled={createBusy || !createEmail}
-                className="w-full rounded-full bg-vend-black px-3 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
-              >
-                Create login
-              </button>
-            </form>
-          )}
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Add a teammate</p>
+          <form onSubmit={submitCreate} className="space-y-2">
+            <TextInput value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder="Their name" />
+            <TextInput
+              type="email"
+              value={createEmail}
+              onChange={(e) => setCreateEmail(e.target.value)}
+              placeholder="Their work email"
+            />
+            <button
+              type="submit"
+              disabled={createBusy || !createEmail}
+              className="w-full rounded-full bg-vend-black px-3 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+            >
+              Create login
+            </button>
+          </form>
           {createResult?.password && (
             <div className="mt-3 rounded-xl border border-go-100 bg-go-100/40 p-3 text-xs">
               <p className="font-semibold text-vend-black">Give them these to log in — they can't be shown again:</p>
@@ -338,9 +271,7 @@ export function ManageUsersModal({
         </div>
 
         <div className="flex-1 space-y-2 overflow-y-auto p-6">
-          <p className="mb-1 text-xs text-slate-400">
-            People show up here once they've signed up or accepted an invite — approve them below.
-          </p>
+          <p className="mb-1 text-xs text-slate-400">People you've created a login for above show up here — approve them below.</p>
           {pwResetResult?.password && (
             <div className="rounded-xl border border-go-100 bg-go-100/40 p-3 text-xs">
               <p className="font-semibold text-vend-black">
@@ -418,15 +349,6 @@ export function ManageUsersModal({
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleEmailReset(u)}
-                      disabled={emailResetBusyId === u.id}
-                      className="text-xs font-semibold text-slate-500 hover:text-vend-black disabled:opacity-50"
-                      title="Email them a reset link to set their own password"
-                    >
-                      {emailResetBusyId === u.id ? "Sending…" : "Email reset"}
-                    </button>
-                    <button
-                      type="button"
                       onClick={() => confirmDelete(u)}
                       className="text-xs font-semibold text-alert-600 hover:text-alert-700"
                     >
@@ -453,15 +375,6 @@ export function ManageUsersModal({
                   Set
                 </button>
               </form>
-            )}
-            {emailResetResult?.userId === u.id && (
-              <p
-                className={`mt-1.5 px-1 text-xs font-semibold ${
-                  emailResetResult.isError ? "text-alert-600" : "text-go-700"
-                }`}
-              >
-                {emailResetResult.message}
-              </p>
             )}
             </div>
           ))}

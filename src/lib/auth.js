@@ -144,10 +144,6 @@ export function useAuth() {
     return { ok: true, ...data };
   }
 
-  async function inviteUser(email) {
-    return invokeAdminAction({ action: "invite", email });
-  }
-
   async function deleteUser(id) {
     return invokeAdminAction({ action: "delete", userId: id });
   }
@@ -158,19 +154,10 @@ export function useAuth() {
     return invokeAdminAction({ action: "reset-password", userId: id, password });
   }
 
-  // The other option: let them reset it themselves via Supabase's own
-  // recovery email — a public call, no service_role/edge function needed.
-  // Lands on the same SetPasswordScreen as an invite link.
-  async function sendPasswordReset(email) {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin,
-    });
-    if (error) return { ok: false, error: error.message };
-    return { ok: true };
-  }
-
-  // Bypasses email entirely — returns a generated password for the admin to
-  // hand the person directly, for when Supabase's email sender is rate-limited.
+  // The only way to add someone — no email invite/self-signup flow, since
+  // Supabase's email sender (rate limits, redirect-domain config) kept
+  // breaking and confusing people. Returns a generated password for the
+  // admin to hand over directly.
   async function createLogin(email, displayName) {
     return invokeAdminAction({ action: "create", email, displayName });
   }
@@ -201,10 +188,8 @@ export function useAuth() {
     updatePassword,
     updateUserRole,
     revokeAccess,
-    inviteUser,
     deleteUser,
     createLogin,
     resetPassword,
-    sendPasswordReset,
   };
 }

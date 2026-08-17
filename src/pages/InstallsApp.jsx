@@ -98,11 +98,9 @@ export default function InstallsApp() {
         currentUser={auth.profile}
         onUpdateRole={auth.updateUserRole}
         onRevoke={auth.revokeAccess}
-        onInvite={auth.inviteUser}
         onDelete={auth.deleteUser}
         onCreateLogin={auth.createLogin}
         onResetPassword={auth.resetPassword}
-        onSendPasswordReset={auth.sendPasswordReset}
       />
     </div>
   );
