@@ -263,15 +263,16 @@ function highlightBorderClass(highlight) {
   return "";
 }
 
-// A colored bubble beside the city tag naming who sold this location — same
-// idea as the mint "Spark" bubble, but using that Sales team member's own
-// color so different reps are visually distinct at a glance.
+// A quiet bubble beside the city tag naming who sold this location — an
+// outline only (no fill), with just the name colored in that Sales team
+// member's own color, so different reps stay visually distinct without
+// competing with everything else in the row the way a solid fill did.
 function SalesPersonBubble({ salesPerson }) {
   if (!salesPerson) return null;
   return (
     <span
-      className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold"
-      style={{ backgroundColor: salesPerson.color.bg, color: salesPerson.color.text }}
+      className="shrink-0 rounded-full border border-concrete-300 px-2 py-0.5 text-[10px] font-bold"
+      style={{ color: salesPerson.color.bg }}
     >
       {salesPerson.name}
     </span>
