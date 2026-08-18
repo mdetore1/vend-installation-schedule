@@ -261,6 +261,17 @@ export function ManageUsersModal({
             <div className="mt-3 rounded-xl border border-go-100 bg-go-100/40 p-3 text-xs">
               <p className="font-semibold text-vend-black">Give them these to log in — they can't be shown again:</p>
               <p className="mt-1">
+                Link:{" "}
+                <a
+                  href="https://vend-installation-schedule.vercel.app"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono font-semibold underline"
+                >
+                  vend-installation-schedule.vercel.app
+                </a>
+              </p>
+              <p>
                 Email: <span className="font-mono font-semibold">{createResult.email}</span>
               </p>
               <p>
