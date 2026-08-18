@@ -263,6 +263,21 @@ function highlightBorderClass(highlight) {
   return "";
 }
 
+// A colored bubble beside the city tag naming who sold this location — same
+// idea as the mint "Spark" bubble, but using that Sales team member's own
+// color so different reps are visually distinct at a glance.
+function SalesPersonBubble({ salesPerson }) {
+  if (!salesPerson) return null;
+  return (
+    <span
+      className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold"
+      style={{ backgroundColor: salesPerson.color.bg, color: salesPerson.color.text }}
+    >
+      {salesPerson.name}
+    </span>
+  );
+}
+
 function CalendarHighlightBadge({ highlight }) {
   if (!highlight) return null;
   const isInstall = highlight === "install";
@@ -1048,6 +1063,7 @@ function LocationRow({ location, team, open, onToggle, onUpdate, onAddTask, onRe
               {location.hasOnsiteStaff && (
                 <span className="shrink-0 rounded-full bg-mint-200 px-2 py-0.5 text-[10px] font-bold text-mint-700">Spark</span>
               )}
+              <SalesPersonBubble salesPerson={team.find((t) => t.id === location.salesPersonId)} />
               <CalendarHighlightBadge highlight={highlight} />
             </div>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">

@@ -63,3 +63,8 @@ alter table queue_items add column if not exists has_onsite_staff boolean not nu
 -- Groups each team member into one of three buckets for Manage Team and the
 -- calendar filter — Operations (installers), Sales, or Contractors/Other.
 alter table team_members add column if not exists department text not null default 'Operations' check (department in ('Operations', 'Sales', 'Contractors/Other'));
+
+-- Links a location to the Sales team member who sold it, so it can show a
+-- colored bubble beside the city tag (Dashboard + calendar) using that
+-- person's own color, same convention as phase owners.
+alter table locations add column if not exists sales_person_id uuid references team_members(id) on delete set null;

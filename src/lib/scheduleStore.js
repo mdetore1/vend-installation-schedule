@@ -48,6 +48,7 @@ function locationToRow(l) {
     ownership: l.ownership ?? null,
     contractor: l.contractor || "Task Force",
     has_onsite_staff: !!l.hasOnsiteStaff,
+    sales_person_id: l.salesPersonId && l.salesPersonId !== UNASSIGNED ? l.salesPersonId : null,
   };
 }
 
@@ -154,6 +155,7 @@ export function useScheduleStore() {
         ownership: l.ownership,
         contractor: l.contractor || "Task Force",
         hasOnsiteStaff: !!l.has_onsite_staff,
+        salesPersonId: l.sales_person_id || UNASSIGNED,
         // Overrides the auto-computed "current stage" (lowest stage with an
         // incomplete item) — e.g. still waiting on one Pre-Onboarding task but
         // the team has already moved on to Onboarding work. Null means "just
@@ -525,7 +527,7 @@ export function useScheduleStore() {
     await supabase.from("queue_items").delete().eq("id", id);
   }
 
-  async function promoteQueueItem(queueItem, { name, place, phases, contractor, hasOnsiteStaff }) {
+  async function promoteQueueItem(queueItem, { name, place, phases, contractor, hasOnsiteStaff, salesPersonId }) {
     const { data: inserted, error } = await supabase
       .from("locations")
       .insert({
@@ -539,6 +541,7 @@ export function useScheduleStore() {
         ownership: queueItem.ownership ?? null,
         contractor: contractor || "Task Force",
         has_onsite_staff: !!hasOnsiteStaff,
+        sales_person_id: salesPersonId && salesPersonId !== UNASSIGNED ? salesPersonId : null,
       })
       .select()
       .single();

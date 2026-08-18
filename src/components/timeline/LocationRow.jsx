@@ -113,6 +113,14 @@ export default function LocationRow({
             {location.hasOnsiteStaff && (
               <span className="shrink-0 rounded-full bg-mint-200 px-2 py-0.5 text-[10px] font-bold text-mint-700">Spark</span>
             )}
+            {teamById[location.salesPersonId] && (
+              <span
+                className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold"
+                style={{ backgroundColor: teamById[location.salesPersonId].color.bg, color: teamById[location.salesPersonId].color.text }}
+              >
+                {teamById[location.salesPersonId].name}
+              </span>
+            )}
             {location.onHold && (
               <span className="shrink-0 rounded-full bg-caution-100 px-2 py-0.5 text-[10px] font-bold text-caution-700">
                 On Hold

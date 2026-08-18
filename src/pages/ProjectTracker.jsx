@@ -505,6 +505,11 @@ export default function ProjectTracker({ isAdmin = true }) {
         initialName={promoteItem?.name || ""}
         initialPlace={promoteItem?.place || ""}
         initialHasOnsiteStaff={promoteItem?.hasOnsiteStaff || false}
+        initialSalesPersonId={
+          data.team.find(
+            (t) => t.department === "Sales" && t.name.toLowerCase() === (promoteItem?.salesRep || "").toLowerCase()
+          )?.id || UNASSIGNED
+        }
         onSubmit={finalizePromotion}
       />
 
@@ -519,6 +524,7 @@ export default function ProjectTracker({ isAdmin = true }) {
         initialPlace={editingLocation?.place || ""}
         initialContractor={editingLocation?.contractor || ""}
         initialHasOnsiteStaff={editingLocation?.hasOnsiteStaff || false}
+        initialSalesPersonId={editingLocation?.salesPersonId || UNASSIGNED}
         initialPhases={editingLocation?.phases}
         onSubmit={finalizeEditLocation}
       />
