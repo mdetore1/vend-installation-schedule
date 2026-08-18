@@ -312,7 +312,6 @@ function MarkAllButton({ items, onUpdate }) {
 }
 
 function ChecklistTaskRow({ item, team, onUpdate, onRemove, onMarkNA, reorderable }) {
-  const [showNotes, setShowNotes] = useState(false);
   const [notes, setNotes] = useState(item.locationNotes);
   const controls = useDragControls();
 
@@ -323,10 +322,6 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onMarkNA, reorderabl
 
   const addLink = (link) => onUpdate(item.itemId, { links: [...(item.links || []), link] });
   const removeLink = (idx) => onUpdate(item.itemId, { links: item.links.filter((_, i) => i !== idx) });
-  // Lets the "Notes" toggle hint that there's something worth opening,
-  // since everything (instructions, links, the note itself) is hidden by
-  // default now instead of always taking up space on every row.
-  const hasNotesContent = !!(item.instructions || item.referenceLinks?.length || item.links?.length || item.locationNotes);
 
   const rowContent = (
     <div className={`rounded-lg border px-3.5 py-3 transition ${item.done ? "border-concrete-200 bg-concrete-100/40" : "border-concrete-200 bg-white"}`}>
@@ -359,41 +354,31 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onMarkNA, reorderabl
                 options={[{ value: UNASSIGNED, label: "Unassigned" }, ...team.map((t) => ({ value: t.id, label: t.name }))]}
               />
             </div>
-            <button
-              type="button"
-              onClick={() => setShowNotes((v) => !v)}
-              className="inline-flex items-center gap-1 text-xs font-medium text-slate-400 underline decoration-dotted hover:text-vend-black"
-            >
-              {hasNotesContent && <span className="h-1.5 w-1.5 rounded-full bg-beacon-600" />}
-              {showNotes ? "Hide notes" : "Notes"}
-            </button>
           </div>
-          {showNotes && (
-            <div className="mt-2 space-y-2 rounded-lg bg-concrete-100/60 p-3">
-              {item.instructions && <p className="whitespace-pre-wrap text-xs text-slate-500">{linkify(item.instructions)}</p>}
-              {item.referenceLinks?.map((l, i) => (
-                <a
-                  key={i}
-                  href={l.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-xs font-semibold text-beacon-700 hover:underline"
-                >
-                  <ExternalLink size={11} /> {l.label || "Reference link"}
-                </a>
-              ))}
-              <LinkChips links={item.links} onRemove={removeLink} />
-              <AddLinkControl onAdd={addLink} />
-              <TextInput
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                onBlur={() => {
-                  if (notes !== item.locationNotes) onUpdate(item.itemId, { notes });
-                }}
-                placeholder="Add a note…"
-              />
-            </div>
-          )}
+          <div className="mt-2 space-y-2 rounded-lg bg-concrete-100/60 p-3">
+            {item.instructions && <p className="whitespace-pre-wrap text-xs text-slate-500">{linkify(item.instructions)}</p>}
+            {item.referenceLinks?.map((l, i) => (
+              <a
+                key={i}
+                href={l.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs font-semibold text-beacon-700 hover:underline"
+              >
+                <ExternalLink size={11} /> {l.label || "Reference link"}
+              </a>
+            ))}
+            <LinkChips links={item.links} onRemove={removeLink} />
+            <AddLinkControl onAdd={addLink} />
+            <TextInput
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              onBlur={() => {
+                if (notes !== item.locationNotes) onUpdate(item.itemId, { notes });
+              }}
+              placeholder="Add a note…"
+            />
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {onMarkNA && (
