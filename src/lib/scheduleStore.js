@@ -155,6 +155,7 @@ export function useScheduleStore() {
         // the team has already moved on to Onboarding work. Null means "just
         // use the automatic calculation."
         stageOverride: l.stage_override || null,
+        onHold: !!l.on_hold,
         phases: locPhases,
         // Archived locations read from their frozen snapshot (taken the moment
         // they were archived) instead of the live template — this is what
@@ -419,6 +420,10 @@ export function useScheduleStore() {
     await supabase.from("locations").update({ stage_override: stage }).eq("id", locId);
   }
 
+  async function setOnHold(locId, onHold) {
+    await supabase.from("locations").update({ on_hold: onHold }).eq("id", locId);
+  }
+
   // The "mark everything complete and move to Launched Locations" shortcut —
   // checks off every remaining checklist item and archives in one go. Builds
   // the frozen snapshot from the just-completed checklist directly instead
@@ -649,6 +654,7 @@ export function useScheduleStore() {
     reorderChecklistCategories,
     reorderChecklistTasks,
     setStageOverride,
+    setOnHold,
     markLocationComplete,
   };
 }
