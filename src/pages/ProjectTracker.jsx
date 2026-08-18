@@ -176,10 +176,6 @@ export default function ProjectTracker({ isAdmin = true }) {
   const [promoteItem, setPromoteItem] = useState(null);
   const [manualLabelWidth, setManualLabelWidth] = useLocalStorage(LABEL_WIDTH_KEY, null);
 
-  // Always auto-sorted soonest-Go-Live-first — recomputed from each
-  // location's phase dates on every render, so the calendar re-shuffles
-  // itself automatically as dates change instead of relying on a persisted
-  // manual order.
   // A location matches the combined filter if any of its phases (for the
   // owner filter) or its own fields (contractor, onsite staff) match —
   // non-matching locations are dropped from the array entirely below.
@@ -196,6 +192,10 @@ export default function ProjectTracker({ isAdmin = true }) {
     };
   }, [data.team, locationFilter]);
 
+  // Always auto-sorted soonest-Go-Live-first — recomputed from each
+  // location's phase dates on every render, so the calendar re-shuffles
+  // itself automatically as dates change instead of relying on a persisted
+  // manual order.
   const activeLocations = useMemo(() => {
     return data.locations
       .filter((l) => !l.archived && matchesLocationFilter(l))
@@ -224,10 +224,12 @@ export default function ProjectTracker({ isAdmin = true }) {
   }, [data.locations]);
 
   // Completed section orders itself most-recently-finished-first, same
-  // auto-sort philosophy as the main calendar.
+  // auto-sort philosophy as the main calendar — and respects the same
+  // combined filter as the active calendar (a completed location's real
+  // owner/contractor/onsite-staff data is just as filterable as a live one).
   const archivedLocations = useMemo(() => {
     return data.locations
-      .filter((l) => l.archived)
+      .filter((l) => l.archived && matchesLocationFilter(l))
       .slice()
       .sort((a, b) => {
         const da = latestScheduleDate(a.phases);
@@ -237,7 +239,20 @@ export default function ProjectTracker({ isAdmin = true }) {
         if (!db) return -1;
         return db - da;
       });
-  }, [data.locations]);
+  }, [data.locations, matchesLocationFilter]);
+
+  // Sales Queue items haven't been assigned an installer or a contractor
+  // yet, so the owner/contractor filters can't meaningfully match one —
+  // selecting either simply empties the queue view, same as if you asked
+  // "show me only Sarah's locations" and nothing in the queue is Sarah's
+  // yet. Onsite staff is already known pre-calendar, so that filter applies
+  // directly.
+  const filteredQueue = useMemo(() => {
+    const queue = data.queue || [];
+    if (!locationFilter) return queue;
+    if (locationFilter.type === "onsite") return queue.filter((q) => !!q.hasOnsiteStaff);
+    return [];
+  }, [data.queue, locationFilter]);
 
   // Label column auto-fits to the longest current name/place so nothing
   // truncates; dragging the column's resize handle pins an explicit width
@@ -441,7 +456,7 @@ export default function ProjectTracker({ isAdmin = true }) {
         </div>
 
         <QueueStrip
-          queue={data.queue || []}
+          queue={filteredQueue}
           salesReps={data.salesReps || []}
           onAddSalesRep={addSalesRep}
           open={queueOpen}
