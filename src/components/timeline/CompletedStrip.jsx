@@ -63,7 +63,6 @@ export default function CompletedStrip({
               pxPerDay={pxPerDay}
               rangeStart={rangeStart}
               rangeEnd={rangeEnd}
-              ownerFilter={null}
               onUpdatePhase={onUpdatePhase}
               onDeletePhase={onDeletePhase}
               onArchive={onRestore}

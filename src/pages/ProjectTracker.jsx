@@ -15,8 +15,8 @@ import {
   diffDays,
   UNASSIGNED,
 } from "../lib/dateUtils";
-import OwnerLegend from "../components/timeline/OwnerLegend";
-import ContractorFilter from "../components/timeline/ContractorFilter";
+import TeamManagerButton from "../components/timeline/TeamManagerButton";
+import LocationFilter from "../components/timeline/LocationFilter";
 import TimelineGrid from "../components/timeline/TimelineGrid";
 import CompletedStrip from "../components/timeline/CompletedStrip";
 import QueueStrip from "../components/timeline/QueueStrip";
@@ -164,12 +164,10 @@ export default function ProjectTracker({ isAdmin = true }) {
   }
 
   const [pxPerDay, setPxPerDay] = useState(9);
-  const [ownerFilter, setOwnerFilter] = useState(null);
-  // Unlike ownerFilter (which just dims non-matching phase bars), this
-  // hides non-matching locations entirely — the point is being able to
-  // screenshot the calendar for one contractor without any other
-  // contractor's locations visible at all, even dimmed.
-  const [contractorFilter, setContractorFilter] = useState(null);
+  // One combined filter — { type: "owner"|"contractor"|"onsite", value } or
+  // null — hides non-matching locations entirely rather than dimming their
+  // phase bars, so a filtered view is a clean subset of the calendar.
+  const [locationFilter, setLocationFilter] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [addKey, setAddKey] = useState(0);
   const [stripOpen, setStripOpen] = useState(false);
@@ -182,9 +180,25 @@ export default function ProjectTracker({ isAdmin = true }) {
   // location's phase dates on every render, so the calendar re-shuffles
   // itself automatically as dates change instead of relying on a persisted
   // manual order.
+  // A location matches the combined filter if any of its phases (for the
+  // owner filter) or its own fields (contractor, onsite staff) match —
+  // non-matching locations are dropped from the array entirely below.
+  const matchesLocationFilter = useMemo(() => {
+    const teamIds = new Set(data.team.map((t) => t.id));
+    return (l) => {
+      if (!locationFilter) return true;
+      if (locationFilter.type === "contractor") return (l.contractor || "Task Force") === locationFilter.value;
+      if (locationFilter.type === "onsite") return !!l.hasOnsiteStaff;
+      if (locationFilter.type === "owner") {
+        return l.phases.some((p) => (teamIds.has(p.ownerId) ? p.ownerId : UNASSIGNED) === locationFilter.value);
+      }
+      return true;
+    };
+  }, [data.team, locationFilter]);
+
   const activeLocations = useMemo(() => {
     return data.locations
-      .filter((l) => !l.archived && (!contractorFilter || l.contractor === contractorFilter))
+      .filter((l) => !l.archived && matchesLocationFilter(l))
       .slice()
       .sort((a, b) => {
         const da = goLiveStart(a.phases);
@@ -194,7 +208,12 @@ export default function ProjectTracker({ isAdmin = true }) {
         if (!db) return -1;
         return da - db;
       });
-  }, [data.locations, contractorFilter]);
+  }, [data.locations, matchesLocationFilter]);
+
+  // The OOO row still just dims non-matching team members (it's a single
+  // summary row, not a set of locations that can disappear), so it only
+  // reacts to the owner half of the combined filter.
+  const ownerFilterForOOO = locationFilter?.type === "owner" ? locationFilter.value : null;
 
   // Distinct contractors currently in use, for the filter dropdown —
   // derived from all active locations regardless of the filter itself, so
@@ -375,10 +394,9 @@ export default function ProjectTracker({ isAdmin = true }) {
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <OwnerLegend
+        <LocationFilter team={data.team} contractors={contractors} filter={locationFilter} onFilterChange={setLocationFilter} />
+        <TeamManagerButton
           team={data.team}
-          filter={ownerFilter}
-          onFilterChange={setOwnerFilter}
           onAddTeammate={addTeammate}
           onUpdateTeammate={updateTeammate}
           onRemoveTeammate={removeTeammate}
@@ -386,7 +404,6 @@ export default function ProjectTracker({ isAdmin = true }) {
           onAddTimeOff={addTimeOff}
           onRemoveTimeOff={removeTimeOff}
         />
-        <ContractorFilter contractors={contractors} filter={contractorFilter} onFilterChange={setContractorFilter} />
       </div>
 
       <LayoutGroup>
@@ -401,7 +418,7 @@ export default function ProjectTracker({ isAdmin = true }) {
             pxPerDay={pxPerDay}
             rangeStart={rangeStart}
             rangeEnd={rangeEnd}
-            ownerFilter={ownerFilter}
+            ownerFilter={ownerFilterForOOO}
             onUpdatePhase={updatePhase}
             onDeletePhase={deletePhase}
             onArchive={(id) => handleArchive(id, true)}

@@ -246,7 +246,6 @@ export default function TimelineGrid({
                 team={team}
                 pxPerDay={pxPerDay}
                 rangeStart={rangeStart}
-                ownerFilter={ownerFilter}
                 onUpdatePhase={onUpdatePhase}
                 onDeletePhase={onDeletePhase}
                 onArchive={onArchive}

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Reorder, useDragControls } from "framer-motion";
 import { GripVertical, MapPin, RotateCcw, Trash2 } from "lucide-react";
 import { Checkbox } from "../fields";
-import { canonPhaseLabel, rangesOverlap, UNASSIGNED } from "../../lib/dateUtils";
+import { canonPhaseLabel, rangesOverlap } from "../../lib/dateUtils";
 import PhaseBar from "./PhaseBar";
 
 export const ROW_HEIGHT = 68;
@@ -15,7 +15,6 @@ export default function LocationRow({
   team,
   pxPerDay,
   rangeStart,
-  ownerFilter,
   onUpdatePhase,
   onDeletePhase,
   onArchive,
@@ -133,7 +132,6 @@ export default function LocationRow({
       <div className="relative flex-1">
         {location.phases.map((phase) => {
           const owner = teamById[phase.ownerId] ?? null;
-          const ownerKey = owner ? phase.ownerId : UNASSIGNED;
           const inDragGroup = !!dragGroup && dragGroup.ids.has(phase.id);
           const isDragger = !!dragGroup && dragGroup.draggerId === phase.id;
           const externalOffsetPx = inDragGroup && !isDragger ? dragGroup.dx : 0;
@@ -157,7 +155,6 @@ export default function LocationRow({
               team={team}
               pxPerDay={pxPerDay}
               rangeStart={rangeStart}
-              dimmed={!!ownerFilter && ownerKey !== ownerFilter}
               conflict={conflict}
               conflictReasons={conflictReasons}
               externalOffsetPx={externalOffsetPx}
