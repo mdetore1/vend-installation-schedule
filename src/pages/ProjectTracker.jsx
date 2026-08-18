@@ -9,6 +9,7 @@ import {
   startOfMonth,
   canonPhaseLabel,
   rangesOverlap,
+  goLiveStart,
   latestScheduleDate,
   todayStart,
   diffDays,
@@ -42,7 +43,6 @@ const MUTATOR_NAMES = [
   "updateCompanyEvent",
   "removeCompanyEvent",
   "addLocation",
-  "reorderLocations",
   "shiftPhasesByIds",
   "duplicatePhase",
   "updateLocation",
@@ -84,7 +84,6 @@ export default function ProjectTracker({ isAdmin = true }) {
     updateCompanyEvent,
     removeCompanyEvent,
     addLocation,
-    reorderLocations,
     shiftPhasesByIds,
     duplicatePhase,
     updateLocation,
@@ -179,17 +178,23 @@ export default function ProjectTracker({ isAdmin = true }) {
   const [promoteItem, setPromoteItem] = useState(null);
   const [manualLabelWidth, setManualLabelWidth] = useLocalStorage(LABEL_WIDTH_KEY, null);
 
-  // New locations slot in chronologically by soonest Install/Go-Live date
-  // (see scheduleStore's addLocation), but the order itself is a persisted
-  // column, not recomputed from dates on every render — so dragging a row
-  // to a custom spot sticks instead of snapping back to date order.
-  const activeLocations = useMemo(
-    () =>
-      data.locations.filter(
-        (l) => !l.archived && (!contractorFilter || l.contractor === contractorFilter)
-      ),
-    [data.locations, contractorFilter]
-  );
+  // Always auto-sorted soonest-Go-Live-first — recomputed from each
+  // location's phase dates on every render, so the calendar re-shuffles
+  // itself automatically as dates change instead of relying on a persisted
+  // manual order.
+  const activeLocations = useMemo(() => {
+    return data.locations
+      .filter((l) => !l.archived && (!contractorFilter || l.contractor === contractorFilter))
+      .slice()
+      .sort((a, b) => {
+        const da = goLiveStart(a.phases);
+        const db = goLiveStart(b.phases);
+        if (!da && !db) return 0;
+        if (!da) return 1;
+        if (!db) return -1;
+        return da - db;
+      });
+  }, [data.locations, contractorFilter]);
 
   // Distinct contractors currently in use, for the filter dropdown —
   // derived from all active locations regardless of the filter itself, so
@@ -405,7 +410,6 @@ export default function ProjectTracker({ isAdmin = true }) {
             onAddLocation={openAddModal}
             onShiftPhases={shiftPhasesByIds}
             onDuplicatePhase={duplicatePhase}
-            onReorderLocations={reorderLocations}
             onUpdateTimeOff={updateTimeOff}
             onRemoveTimeOff={removeTimeOff}
             companyEvents={data.companyEvents || []}
@@ -413,7 +417,7 @@ export default function ProjectTracker({ isAdmin = true }) {
             onUpdateCompanyEvent={updateCompanyEvent}
             onRemoveCompanyEvent={removeCompanyEvent}
             doubleBookedPhaseIds={doubleBookedPhaseIds}
-            sortable={isAdmin}
+            sortable={false}
             labelWidth={labelWidth}
             onResizeLabelWidth={setManualLabelWidth}
           />

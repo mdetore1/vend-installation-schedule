@@ -240,6 +240,15 @@ export function earliestScheduleDate(phases) {
   }, null);
 }
 
+// Go Live phase's start date — used to auto-order the main calendar
+// soonest-go-live-first. Falls back to earliestScheduleDate (Install, or any
+// phase) when a location has no Go Live phase yet, so brand-new locations
+// still sort sensibly instead of vanishing to one end.
+export function goLiveStart(phases) {
+  const golive = phases.find((p) => canonPhaseLabel(p.label) === "golive");
+  return golive ? parseDate(golive.start) : earliestScheduleDate(phases);
+}
+
 // Latest end date among a location's phases — used to auto-order the
 // Completed section most-recently-finished-first.
 export function latestScheduleDate(phases) {
