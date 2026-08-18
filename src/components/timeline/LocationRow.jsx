@@ -97,10 +97,15 @@ export default function LocationRow({
           title="Edit location & phases"
         >
           <p className="truncate text-sm font-semibold text-vend-black">{location.name}</p>
-          <span className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate rounded-full bg-concrete-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
-            <MapPin size={10} className="shrink-0 text-slate-400" />
-            {location.place || "Add city, state"}
-          </span>
+          <div className="mt-0.5 flex flex-wrap items-center gap-1">
+            <span className="inline-flex max-w-full items-center gap-1 truncate rounded-full bg-concrete-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+              <MapPin size={10} className="shrink-0 text-slate-400" />
+              {location.place || "Add city, state"}
+            </span>
+            {location.hasOnsiteStaff && (
+              <span className="shrink-0 rounded-full bg-mint-200 px-2 py-0.5 text-[10px] font-bold text-mint-700">Spark</span>
+            )}
+          </div>
         </button>
         <button
           type="button"
