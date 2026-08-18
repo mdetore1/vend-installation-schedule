@@ -272,8 +272,8 @@ function SalesPersonBubble({ salesPerson }) {
   return (
     <span
       title={salesPerson.name}
-      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold"
-      style={{ backgroundColor: salesPerson.color.bg, color: salesPerson.color.text }}
+      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-concrete-300 text-[9px] font-bold"
+      style={{ color: salesPerson.color.bg }}
     >
       {salesPerson.initials}
     </span>

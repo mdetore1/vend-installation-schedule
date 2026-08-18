@@ -116,11 +116,8 @@ export default function LocationRow({
             {teamById[location.salesPersonId] && (
               <span
                 title={teamById[location.salesPersonId].name}
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold"
-                style={{
-                  backgroundColor: teamById[location.salesPersonId].color.bg,
-                  color: teamById[location.salesPersonId].color.text,
-                }}
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-concrete-300 text-[9px] font-bold"
+                style={{ color: teamById[location.salesPersonId].color.bg }}
               >
                 {teamById[location.salesPersonId].initials}
               </span>
