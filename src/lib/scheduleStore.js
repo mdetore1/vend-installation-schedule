@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabaseClient";
 import { nextColor, initialsOf, UNASSIGNED, earliestScheduleDate, canonPhaseLabel } from "./dateUtils";
+import { DEFAULT_DEPARTMENT } from "./locationDefaults";
 
 // Onboarding-owned tasks (including "Onboarding/Implementation") default to
 // whoever owns that location's Onboarding phase; Implementation-owned tasks
@@ -109,6 +110,7 @@ export function useScheduleStore() {
       id: t.id,
       name: t.name,
       initials: t.initials,
+      department: t.department || DEFAULT_DEPARTMENT,
       color: { bg: t.color_bg, text: t.color_text },
       timeOff: timeOffRows
         .filter((o) => o.team_member_id === t.id)
@@ -232,17 +234,23 @@ export function useScheduleStore() {
   }
 
   // ---- team ----
-  async function addTeammate(name) {
+  async function addTeammate(name, department = DEFAULT_DEPARTMENT) {
     const color = nextColor(teamRows);
     const nextOrder = teamRows.reduce((max, t) => Math.max(max, t.sort_order ?? 0), -1) + 1;
-    await supabase
-      .from("team_members")
-      .insert({ name, initials: initialsOf(name), color_bg: color.bg, color_text: color.text, sort_order: nextOrder });
+    await supabase.from("team_members").insert({
+      name,
+      initials: initialsOf(name),
+      department,
+      color_bg: color.bg,
+      color_text: color.text,
+      sort_order: nextOrder,
+    });
   }
   async function updateTeammate(id, patch) {
     const row = {};
     if (patch.name !== undefined) row.name = patch.name;
     if (patch.initials !== undefined) row.initials = patch.initials;
+    if (patch.department !== undefined) row.department = patch.department;
     if (patch.color !== undefined) {
       row.color_bg = patch.color.bg;
       row.color_text = patch.color.text;
@@ -260,6 +268,7 @@ export function useScheduleStore() {
       id: member.id,
       name: member.name,
       initials: member.initials,
+      department: member.department || DEFAULT_DEPARTMENT,
       color_bg: member.color.bg,
       color_text: member.color.text,
     });

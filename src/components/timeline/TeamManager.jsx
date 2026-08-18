@@ -4,6 +4,7 @@ import { Reorder, useDragControls } from "framer-motion";
 import { Check, GripVertical, Palette, Plus, Trash2, X } from "lucide-react";
 import { TextInput } from "../fields";
 import { OWNER_PALETTE, contrastText, formatShort, initialsOf, parseDate, todayStart } from "../../lib/dateUtils";
+import { TEAM_DEPARTMENTS, DEFAULT_DEPARTMENT } from "../../lib/locationDefaults";
 import { useAnchoredPosition } from "../../lib/useAnchoredPosition";
 
 const isPreset = (bg) => OWNER_PALETTE.some((c) => c.bg.toLowerCase() === bg.toLowerCase());
@@ -196,6 +197,18 @@ function TeamRow({ member, onUpdate, onRemove, onAddTimeOff, onRemoveTimeOff }) 
           onChange={(e) => onUpdate(member.id, { name: e.target.value, initials: initialsOf(e.target.value) })}
           className="min-w-0 flex-1 rounded-lg border border-transparent px-2 py-1 text-sm font-semibold text-vend-black outline-none transition focus:border-concrete-300 focus:bg-concrete-100/50"
         />
+        <select
+          value={member.department || DEFAULT_DEPARTMENT}
+          onChange={(e) => onUpdate(member.id, { department: e.target.value })}
+          className="shrink-0 rounded-lg border border-transparent bg-transparent px-1 py-1 text-xs font-medium text-slate-400 outline-none transition hover:border-concrete-300 hover:text-slate-600"
+          title="Move to a different department"
+        >
+          {TEAM_DEPARTMENTS.map((d) => (
+            <option key={d} value={d}>
+              {d}
+            </option>
+          ))}
+        </select>
         <button
           type="button"
           onClick={() => onRemove(member.id)}
@@ -212,20 +225,40 @@ function TeamRow({ member, onUpdate, onRemove, onAddTimeOff, onRemoveTimeOff }) 
 
 export default function TeamManager({ team, onUpdate, onRemove, onReorder, onAdd, onAddTimeOff, onRemoveTimeOff }) {
   const [name, setName] = useState("");
+  const [department, setDepartment] = useState(DEFAULT_DEPARTMENT);
 
   function submit() {
     const trimmed = name.trim();
-    if (trimmed) onAdd(trimmed);
+    if (trimmed) onAdd(trimmed, department);
     setName("");
+  }
+
+  // The full team is one flat list persisted by a single global sort_order,
+  // but this panel only ever shows one department's slice at a time —
+  // dragging within that slice re-threads it back into the full array at
+  // the same slots, leaving every other department's relative order intact.
+  const deptTeam = team.filter((t) => (t.department || DEFAULT_DEPARTMENT) === department);
+  function handleReorder(newSlice) {
+    let i = 0;
+    onReorder(team.map((t) => ((t.department || DEFAULT_DEPARTMENT) === department ? newSlice[i++] : t)));
   }
 
   return (
     <div className="w-96 rounded-2xl border border-concrete-200 bg-white p-3 shadow-xl">
-      <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
-        Team — drag to reorder
-      </p>
-      <Reorder.Group axis="y" values={team} onReorder={onReorder} className="max-h-80 space-y-2 overflow-y-auto">
-        {team.map((member) => (
+      <select
+        value={department}
+        onChange={(e) => setDepartment(e.target.value)}
+        className="mb-2 w-full rounded-lg border border-concrete-200 px-2 py-1.5 text-sm font-semibold text-vend-black outline-none transition focus:border-vend-black"
+      >
+        {TEAM_DEPARTMENTS.map((d) => (
+          <option key={d} value={d}>
+            {d} ({team.filter((t) => (t.department || DEFAULT_DEPARTMENT) === d).length})
+          </option>
+        ))}
+      </select>
+      {deptTeam.length === 0 && <p className="px-1 pb-2 text-sm text-slate-300">Nobody here yet.</p>}
+      <Reorder.Group axis="y" values={deptTeam} onReorder={handleReorder} className="max-h-80 space-y-2 overflow-y-auto">
+        {deptTeam.map((member) => (
           <TeamRow
             key={member.id}
             member={member}
@@ -241,7 +274,7 @@ export default function TeamManager({ team, onUpdate, onRemove, onReorder, onAdd
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && submit()}
-          placeholder="Add teammate…"
+          placeholder={`Add to ${department}…`}
           className="flex-1"
         />
         <button

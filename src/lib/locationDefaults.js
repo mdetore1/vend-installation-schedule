@@ -7,6 +7,9 @@ import { toISO, addDays, cascadeDates, UNASSIGNED } from "./dateUtils";
 export const ACCESS_TYPES = ["Free In", "Gateless", "Kiosk In"];
 export const CONTRACT_STATES = ["In Progress", "Closed Won"];
 
+export const TEAM_DEPARTMENTS = ["Operations", "Sales", "Contractors/Other"];
+export const DEFAULT_DEPARTMENT = "Operations";
+
 export function emptyPhase(team, start, end, label = "", ownerId) {
   return {
     id: newId(),

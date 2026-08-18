@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Check, ChevronDown, Filter, HardHat, UserX, Users, Zap } from "lucide-react";
 import { useAnchoredPosition } from "../../lib/useAnchoredPosition";
 import { UNASSIGNED } from "../../lib/dateUtils";
+import { TEAM_DEPARTMENTS, DEFAULT_DEPARTMENT } from "../../lib/locationDefaults";
 
 const PANEL_WIDTH = 260;
 
@@ -13,9 +14,10 @@ const PANEL_WIDTH = 260;
 // a clean subset instead of a full board with some things faded out.
 export default function LocationFilter({ team, contractors, filter, onFilterChange }) {
   const [open, setOpen] = useState(false);
+  const [dept, setDept] = useState(DEFAULT_DEPARTMENT);
   const btnRef = useRef(null);
   const panelRef = useRef(null);
-  const estimatedHeight = Math.min(460, 190 + (team.length + 1) * 36 + contractors.length * 36);
+  const estimatedHeight = Math.min(460, 220 + (team.length + 1) * 36 + contractors.length * 36);
   const pos = useAnchoredPosition(open, btnRef, { width: PANEL_WIDTH, height: estimatedHeight });
 
   useEffect(() => {
@@ -91,29 +93,45 @@ export default function LocationFilter({ team, contractors, filter, onFilterChan
             <p className="mb-1 flex items-center gap-1.5 px-2 pt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
               <Users size={12} /> Team member
             </p>
+            <select
+              value={dept}
+              onChange={(e) => setDept(e.target.value)}
+              className="mb-1 w-full rounded-lg border border-concrete-200 px-2 py-1 text-xs font-semibold text-vend-black outline-none transition focus:border-vend-black"
+            >
+              {TEAM_DEPARTMENTS.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
             <div className="space-y-0.5">
-              {team.map((t) => {
-                const active = filter?.type === "owner" && filter.value === t.id;
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => pick({ type: "owner", value: t.id })}
-                    className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm font-medium transition ${
-                      active ? "bg-concrete-100 text-vend-black" : "text-slate-600 hover:bg-concrete-100/60"
-                    }`}
-                  >
-                    <span
-                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
-                      style={{ backgroundColor: t.color.bg, color: t.color.text }}
+              {team.filter((t) => (t.department || DEFAULT_DEPARTMENT) === dept).length === 0 && (
+                <p className="px-2 py-1 text-xs text-slate-300">Nobody here yet.</p>
+              )}
+              {team
+                .filter((t) => (t.department || DEFAULT_DEPARTMENT) === dept)
+                .map((t) => {
+                  const active = filter?.type === "owner" && filter.value === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => pick({ type: "owner", value: t.id })}
+                      className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm font-medium transition ${
+                        active ? "bg-concrete-100 text-vend-black" : "text-slate-600 hover:bg-concrete-100/60"
+                      }`}
                     >
-                      {t.initials}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate">{t.name}</span>
-                    {active && <Check size={15} className="shrink-0 text-vend-black" />}
-                  </button>
-                );
-              })}
+                      <span
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+                        style={{ backgroundColor: t.color.bg, color: t.color.text }}
+                      >
+                        {t.initials}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">{t.name}</span>
+                      {active && <Check size={15} className="shrink-0 text-vend-black" />}
+                    </button>
+                  );
+                })}
               <button
                 type="button"
                 onClick={() => pick({ type: "owner", value: UNASSIGNED })}
