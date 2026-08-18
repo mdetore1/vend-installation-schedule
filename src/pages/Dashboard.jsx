@@ -4,7 +4,7 @@ import { Reorder, useDragControls } from "framer-motion";
 import { Calendar, Check, CheckCheck, ChevronDown, ChevronRight, ExternalLink, GripVertical, Layers, Plus, Rocket, Trash2, X } from "lucide-react";
 import { useScheduleStore } from "../lib/scheduleStore";
 import { useMapStore } from "../lib/mapStore";
-import { canonPhaseLabel, formatDateRange, UNASSIGNED, calendarPhaseHighlight } from "../lib/dateUtils";
+import { canonPhaseLabel, formatDateRange, UNASSIGNED, calendarPhaseHighlight, latestScheduleDate } from "../lib/dateUtils";
 import { STAGES, STAGE_STYLES, stageByNumber, summarizeChecklist, effectiveStage } from "../lib/checklistUtils";
 import { Checkbox, Field, Select, TextInput } from "../components/fields";
 
@@ -1026,6 +1026,21 @@ export default function Dashboard({ isAdmin = true }) {
   const active = data.locations.filter((l) => !l.archived && !groupedNames.has(l.name));
   const launched = data.locations.filter((l) => l.archived && !groupedNames.has(l.name));
 
+  // One unified list, most-recently-launched first (by each entry's latest
+  // phase end date) — same "most recent finished first" convention the
+  // Installation Schedule's own Completed section already uses. A grouped
+  // client sorts by its primary member's dates, matching how the group
+  // already borrows the primary for everything else.
+  const launchedEntries = [
+    ...launchedGroups.map((lg) => ({ type: "group", date: latestScheduleDate(lg.members[0].phases), ...lg })),
+    ...launched.map((loc) => ({ type: "location", date: latestScheduleDate(loc.phases), loc })),
+  ].sort((a, b) => {
+    if (!a.date && !b.date) return 0;
+    if (!a.date) return 1;
+    if (!b.date) return -1;
+    return b.date - a.date;
+  });
+
   const rowProps = {
     team: data.team,
     onUpdate: updateChecklistItem,
@@ -1091,19 +1106,26 @@ export default function Dashboard({ isAdmin = true }) {
           >
             <div className="overflow-hidden">
               <div className="space-y-3 bg-white p-4">
-                {launchedGroups.map(({ group, members }) => (
-                  <ClientGroupCard
-                    key={group.id}
-                    group={group}
-                    locations={members}
-                    open={expanded.has(group.id)}
-                    onToggle={() => toggleExpanded(group.id)}
-                    {...rowProps}
-                  />
-                ))}
-                {launched.map((loc) => (
-                  <LocationRow key={loc.id} location={loc} open={expanded.has(loc.id)} onToggle={() => toggleExpanded(loc.id)} {...rowProps} />
-                ))}
+                {launchedEntries.map((entry) =>
+                  entry.type === "group" ? (
+                    <ClientGroupCard
+                      key={entry.group.id}
+                      group={entry.group}
+                      locations={entry.members}
+                      open={expanded.has(entry.group.id)}
+                      onToggle={() => toggleExpanded(entry.group.id)}
+                      {...rowProps}
+                    />
+                  ) : (
+                    <LocationRow
+                      key={entry.loc.id}
+                      location={entry.loc}
+                      open={expanded.has(entry.loc.id)}
+                      onToggle={() => toggleExpanded(entry.loc.id)}
+                      {...rowProps}
+                    />
+                  )
+                )}
               </div>
             </div>
           </div>

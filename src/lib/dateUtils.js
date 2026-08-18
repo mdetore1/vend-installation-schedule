@@ -176,7 +176,11 @@ export function nextMondayAfter(date) {
 export function canonPhaseLabel(label) {
   const l = (label || "").trim().toLowerCase();
   if (l === "onboarding") return "onboarding";
-  if (l === "install" || l === "installation") return "install";
+  // Substring match — real phase bars get renamed to things like "Install
+  // South Ramp Entrance" for a specific site's install, and those should
+  // still count as the location's Install phase everywhere this is used
+  // (Dashboard date pills, cascade scheduling, sorting).
+  if (l.includes("install")) return "install";
   if (l === "go live" || l === "go-live" || l === "golive") return "golive";
   return null;
 }
