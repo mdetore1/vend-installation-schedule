@@ -55,6 +55,14 @@ export function formatShort(date) {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+// "Aug 14" for a single day, "Aug 14 – 18" for a range — takes ISO date
+// strings directly since every caller already has them in that form.
+export function formatDateRange(startISO, endISO) {
+  if (!startISO) return "";
+  if (!endISO || endISO === startISO) return formatShort(parseDate(startISO));
+  return `${formatShort(parseDate(startISO))} – ${formatShort(parseDate(endISO))}`;
+}
+
 // Month tick marks for the timeline header, as day-offsets from rangeStart.
 export function buildMonthTicks(rangeStart, rangeEnd) {
   const ticks = [];
@@ -236,6 +244,23 @@ export function latestScheduleDate(phases) {
     const d = parseDate(p.end);
     return !max || d > max ? d : max;
   }, null);
+}
+
+// "install" while today falls inside that location's Install phase dates,
+// "golive" while today falls inside its Go Live phase dates, else null —
+// drives the Dashboard's calendar-driven highlight (on for the duration of
+// whichever phase is currently active, off again once Go Live has passed).
+export function calendarPhaseHighlight(phases) {
+  const today = todayStart().getTime();
+  const inRange = (phase) => {
+    if (!phase) return false;
+    return today >= parseDate(phase.start).getTime() && today <= parseDate(phase.end).getTime();
+  };
+  const install = phases.find((p) => canonPhaseLabel(p.label) === "install");
+  const golive = phases.find((p) => canonPhaseLabel(p.label) === "golive");
+  if (inRange(install)) return "install";
+  if (inRange(golive)) return "golive";
+  return null;
 }
 
 export function initialsOf(name) {

@@ -5,7 +5,24 @@
 // so everyone's screen reflects the same shared schedule live.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabaseClient";
-import { nextColor, initialsOf, UNASSIGNED, earliestScheduleDate } from "./dateUtils";
+import { nextColor, initialsOf, UNASSIGNED, earliestScheduleDate, canonPhaseLabel } from "./dateUtils";
+
+// Onboarding-owned tasks (including "Onboarding/Implementation") default to
+// whoever owns that location's Onboarding phase; Implementation-owned tasks
+// default to whoever owns the Install phase — matches how those two roles
+// map onto the Installation Schedule's actual phase owners. Anything else
+// (Sales, Internal, External/Client, a named individual, etc.) has no smart
+// default and starts Unassigned, same as before.
+function defaultAssigneeForRole(role, phases) {
+  const r = (role || "").toLowerCase();
+  const ownerOf = (canon) => {
+    const owner = phases.find((p) => canonPhaseLabel(p.label) === canon)?.ownerId;
+    return owner && owner !== UNASSIGNED ? owner : null;
+  };
+  if (r.includes("onboarding")) return ownerOf("onboarding");
+  if (r.includes("implementation")) return ownerOf("install");
+  return null;
+}
 
 function phaseToRow(p) {
   return {
@@ -40,10 +57,12 @@ export function useScheduleStore() {
   const [queueRows, setQueueRows] = useState([]);
   const [salesRepRows, setSalesRepRows] = useState([]);
   const [companyEventRows, setCompanyEventRows] = useState([]);
+  const [templateRows, setTemplateRows] = useState([]);
+  const [progressRows, setProgressRows] = useState([]);
   const [loaded, setLoaded] = useState(false);
 
   const refetchAll = useCallback(async () => {
-    const [team, timeOff, locations, phases, queue, salesReps, companyEvents] = await Promise.all([
+    const [team, timeOff, locations, phases, queue, salesReps, companyEvents, template, progress] = await Promise.all([
       supabase.from("team_members").select("*").order("sort_order"),
       supabase.from("time_off").select("*"),
       supabase.from("locations").select("*").order("sort_order"),
@@ -51,6 +70,8 @@ export function useScheduleStore() {
       supabase.from("queue_items").select("*").order("created_at"),
       supabase.from("sales_reps").select("*").order("name"),
       supabase.from("company_events").select("*").order("start_date"),
+      supabase.from("checklist_items").select("*").order("sort_order"),
+      supabase.from("checklist_progress").select("*"),
     ]);
     setTeamRows(team.data ?? []);
     setTimeOffRows(timeOff.data ?? []);
@@ -59,6 +80,8 @@ export function useScheduleStore() {
     setQueueRows(queue.data ?? []);
     setSalesRepRows(salesReps.data ?? []);
     setCompanyEventRows(companyEvents.data ?? []);
+    setTemplateRows(template.data ?? []);
+    setProgressRows(progress.data ?? []);
     setLoaded(true);
   }, []);
 
@@ -74,6 +97,8 @@ export function useScheduleStore() {
       .on("postgres_changes", { event: "*", schema: "public", table: "queue_items" }, refetchAll)
       .on("postgres_changes", { event: "*", schema: "public", table: "sales_reps" }, refetchAll)
       .on("postgres_changes", { event: "*", schema: "public", table: "company_events" }, refetchAll)
+      .on("postgres_changes", { event: "*", schema: "public", table: "checklist_items" }, refetchAll)
+      .on("postgres_changes", { event: "*", schema: "public", table: "checklist_progress" }, refetchAll)
       .subscribe();
     return () => supabase.removeChannel(channel);
   }, [refetchAll]);
@@ -88,18 +113,21 @@ export function useScheduleStore() {
         .filter((o) => o.team_member_id === t.id)
         .map((o) => ({ id: o.id, start: o.start_date, end: o.end_date, reason: o.reason || "" })),
     }));
-    const locations = locationRows.map((l) => ({
-      id: l.id,
-      name: l.name,
-      place: l.place || "",
-      archived: l.archived,
-      lanes: l.lanes,
-      accessType: l.access_type,
-      salesRep: l.sales_rep,
-      propertyManagement: l.property_management,
-      ownership: l.ownership,
-      contractor: l.contractor || "Task Force",
-      phases: phaseRows
+    const checklistTemplate = templateRows
+      .map((t) => ({
+        id: t.id,
+        stage: t.stage,
+        category: t.category || "",
+        task: t.task,
+        timing: t.timing || "",
+        notes: t.notes || "",
+        referenceLinks: t.links || [],
+        defaultOwnerRole: t.default_owner_role || "",
+        sortOrder: t.sort_order,
+      }))
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+    const locations = locationRows.map((l) => {
+      const locPhases = phaseRows
         .filter((p) => p.location_id === l.id)
         .map((p) => ({
           id: p.id,
@@ -110,8 +138,60 @@ export function useScheduleStore() {
           confirmed: p.confirmed,
           done: p.done,
           conflictAcknowledged: p.conflict_acknowledged,
-        })),
-    }));
+        }));
+      return {
+        id: l.id,
+        name: l.name,
+        place: l.place || "",
+        archived: l.archived,
+        lanes: l.lanes,
+        accessType: l.access_type,
+        salesRep: l.sales_rep,
+        propertyManagement: l.property_management,
+        ownership: l.ownership,
+        contractor: l.contractor || "Task Force",
+        // Overrides the auto-computed "current stage" (lowest stage with an
+        // incomplete item) — e.g. still waiting on one Pre-Onboarding task but
+        // the team has already moved on to Onboarding work. Null means "just
+        // use the automatic calculation."
+        stageOverride: l.stage_override || null,
+        phases: locPhases,
+        // Archived locations read from their frozen snapshot (taken the moment
+        // they were archived) instead of the live template — this is what
+        // guarantees a template edit made later never alters an
+        // already-launched location's historical record. Locations archived
+        // before this existed have no snapshot yet, so they fall back to the
+        // live merge until the next time they're archived.
+        checklist:
+          l.archived && l.checklist_snapshot
+            ? l.checklist_snapshot
+            : checklistTemplate
+                .map((item) => {
+                  const p = progressRows.find((r) => r.location_id === l.id && r.checklist_item_id === item.id);
+                  // checklist_progress.excluded can hide a task for just one
+                  // location without touching the shared template — not
+                  // currently exposed via the UI (deleting a task removes it
+                  // from the template for everyone instead), but supported
+                  // here in case that's wanted again later.
+                  if (p?.excluded) return null;
+                  return {
+                    itemId: item.id,
+                    stage: item.stage,
+                    category: item.category,
+                    task: item.task,
+                    timing: item.timing,
+                    instructions: item.notes,
+                    referenceLinks: item.referenceLinks,
+                    sortOrder: item.sortOrder,
+                    done: p?.done ?? false,
+                    assigneeId: p?.assignee_id || defaultAssigneeForRole(item.defaultOwnerRole, locPhases) || UNASSIGNED,
+                    locationNotes: p?.notes || "",
+                    links: p?.links || [],
+                  };
+                })
+                .filter(Boolean),
+      };
+    });
     const queue = queueRows.map((q) => ({
       id: q.id,
       name: q.name,
@@ -126,8 +206,8 @@ export function useScheduleStore() {
     }));
     const salesReps = salesRepRows.map((r) => r.name);
     const companyEvents = companyEventRows.map((e) => ({ id: e.id, name: e.name, start: e.start_date, end: e.end_date }));
-    return { team, locations, queue, salesReps, companyEvents };
-  }, [teamRows, timeOffRows, locationRows, phaseRows, queueRows, salesRepRows, companyEventRows]);
+    return { team, locations, queue, salesReps, companyEvents, checklistTemplate };
+  }, [teamRows, timeOffRows, locationRows, phaseRows, queueRows, salesRepRows, companyEventRows, templateRows, progressRows]);
 
   // Reconciles a submitted phases array (from a bulk edit modal — a mix of
   // existing DB rows and freshly-typed new ones) against what's actually in
@@ -319,10 +399,45 @@ export function useScheduleStore() {
   }
 
   async function setArchived(locId, archived) {
-    await supabase.from("locations").update({ archived }).eq("id", locId);
+    const patch = { archived };
+    if (archived) {
+      // Freeze this location's checklist exactly as it stands right now —
+      // future template edits (adding/removing tasks) must never reach back
+      // and change an already-launched location's record.
+      patch.checklist_snapshot = data.locations.find((l) => l.id === locId)?.checklist ?? null;
+    } else {
+      // Un-archiving resumes live template tracking.
+      patch.checklist_snapshot = null;
+    }
+    await supabase.from("locations").update(patch).eq("id", locId);
     if (archived) {
       await supabase.from("phases").update({ done: true }).eq("location_id", locId);
     }
+  }
+
+  async function setStageOverride(locId, stage) {
+    await supabase.from("locations").update({ stage_override: stage }).eq("id", locId);
+  }
+
+  // The "mark everything complete and move to Launched Locations" shortcut —
+  // checks off every remaining checklist item and archives in one go. Builds
+  // the frozen snapshot from the just-completed checklist directly instead
+  // of going through setArchived's own snapshot read, since that reads
+  // React state which wouldn't reflect these same-call writes yet.
+  async function markLocationComplete(locId) {
+    const loc = data.locations.find((l) => l.id === locId);
+    if (!loc) return;
+    const remaining = loc.checklist.filter((item) => !item.done);
+    await Promise.all(
+      remaining.map((item) =>
+        supabase
+          .from("checklist_progress")
+          .upsert({ location_id: locId, checklist_item_id: item.itemId, done: true }, { onConflict: "location_id,checklist_item_id" })
+      )
+    );
+    const completedChecklist = loc.checklist.map((item) => ({ ...item, done: true }));
+    await supabase.from("locations").update({ archived: true, checklist_snapshot: completedChecklist }).eq("id", locId);
+    await supabase.from("phases").update({ done: true }).eq("location_id", locId);
   }
 
   async function updateLocation(locId, patch) {
@@ -341,7 +456,12 @@ export function useScheduleStore() {
   // Deleting a location cascades to its phases (FK), so restoring has to
   // re-insert both — same ids, so it lands back exactly as it was.
   async function restoreLocation(location) {
-    await supabase.from("locations").insert({ id: location.id, ...locationToRow(location), archived: location.archived });
+    await supabase.from("locations").insert({
+      id: location.id,
+      ...locationToRow(location),
+      archived: location.archived,
+      checklist_snapshot: location.archived ? location.checklist : null,
+    });
     if (location.phases?.length) {
       await supabase
         .from("phases")
@@ -412,6 +532,86 @@ export function useScheduleStore() {
     await supabase.from("queue_items").delete().eq("id", queueItem.id);
   }
 
+  // Sends only the changed fields so two people editing different fields on
+  // the same location's task (e.g. one checks it off while another types a
+  // note) don't clobber each other via a stale-local-state merge.
+  async function updateChecklistItem(locationId, itemId, patch) {
+    const row = { location_id: locationId, checklist_item_id: itemId };
+    if (patch.done !== undefined) row.done = patch.done;
+    if (patch.assigneeId !== undefined) row.assignee_id = !patch.assigneeId || patch.assigneeId === UNASSIGNED ? null : patch.assigneeId;
+    if (patch.notes !== undefined) row.notes = patch.notes || null;
+    if (patch.links !== undefined) row.links = patch.links;
+    if (patch.excluded !== undefined) row.excluded = patch.excluded;
+    await supabase.from("checklist_progress").upsert(row, { onConflict: "location_id,checklist_item_id" });
+  }
+
+  // ---- checklist template (affects every non-archived location live —
+  // archived locations are frozen via checklist_snapshot and never see this) ----
+  async function addChecklistItem({ stage, category, task, timing, notes }) {
+    const maxOrder = templateRows.reduce((max, t) => Math.max(max, t.sort_order ?? 0), -1) + 1;
+    const { error } = await supabase.from("checklist_items").insert({
+      stage,
+      category: category || null,
+      task,
+      timing: timing || null,
+      notes: notes || null,
+      sort_order: maxOrder,
+    });
+    if (error) window.alert(`Couldn't add the task: ${error.message}`);
+  }
+  async function removeChecklistItem(itemId) {
+    await supabase.from("checklist_items").delete().eq("id", itemId);
+  }
+  // Restores just the task definition — any per-location progress that
+  // existed for it before deletion cascaded away with the row, which is
+  // fine since this undo covers "oops, deleted the wrong task" right after
+  // adding it, not recovering a long-lived task's history.
+  async function restoreChecklistItem(item) {
+    await supabase.from("checklist_items").insert({
+      id: item.itemId,
+      stage: item.stage,
+      category: item.category || null,
+      task: item.task,
+      timing: item.timing || null,
+      notes: item.instructions || null,
+      links: item.referenceLinks || [],
+      sort_order: item.sortOrder ?? 0,
+    });
+  }
+
+  // Reorders the sub-categories within one stage (e.g. Internet, Signage,
+  // Staffing under Onboarding) by reassigning sort_order across just that
+  // stage's own items — the new category order decides which items land on
+  // which of that stage's existing sort_order slots, so nothing outside
+  // this one stage is touched. Each category's internal item order (by its
+  // current sort_order) is preserved.
+  async function reorderChecklistCategories(stageN, newCategoryOrder) {
+    const stageItems = templateRows.filter((t) => t.stage === stageN);
+    const slots = stageItems.map((t) => t.sort_order).sort((a, b) => a - b);
+    const byCategory = new Map();
+    for (const t of stageItems) {
+      const cat = t.category || "";
+      if (!byCategory.has(cat)) byCategory.set(cat, []);
+      byCategory.get(cat).push(t);
+    }
+    for (const list of byCategory.values()) list.sort((a, b) => a.sort_order - b.sort_order);
+    const flattened = newCategoryOrder.flatMap((cat) => byCategory.get(cat) || []);
+    await Promise.all(flattened.map((t, i) => supabase.from("checklist_items").update({ sort_order: slots[i] }).eq("id", t.id)));
+  }
+
+  // Reorders individual tasks within one stage+category — a template edit,
+  // so (like adding/removing tasks) it affects every non-archived location,
+  // not just the one you're looking at. Only reassigns sort_order among
+  // that same category's own items, leaving every other category/stage's
+  // ordering untouched.
+  async function reorderChecklistTasks(stageN, category, newItemIdOrder) {
+    const groupItems = templateRows.filter((t) => t.stage === stageN && (t.category || "") === (category || ""));
+    const slots = groupItems.map((t) => t.sort_order).sort((a, b) => a - b);
+    const byId = new Map(groupItems.map((t) => [t.id, t]));
+    const ordered = newItemIdOrder.map((id) => byId.get(id)).filter(Boolean);
+    await Promise.all(ordered.map((t, i) => supabase.from("checklist_items").update({ sort_order: slots[i] }).eq("id", t.id)));
+  }
+
   return {
     data,
     loaded,
@@ -442,5 +642,13 @@ export function useScheduleStore() {
     updateQueueItem,
     removeQueueItem,
     promoteQueueItem,
+    updateChecklistItem,
+    addChecklistItem,
+    removeChecklistItem,
+    restoreChecklistItem,
+    reorderChecklistCategories,
+    reorderChecklistTasks,
+    setStageOverride,
+    markLocationComplete,
   };
 }

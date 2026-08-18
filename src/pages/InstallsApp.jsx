@@ -5,11 +5,19 @@ import { useAuth } from "../lib/auth";
 import { AuthForm, PendingScreen, ManageUsersModal, SetPasswordScreen } from "../components/auth/AuthScreens";
 import ProjectTracker from "./ProjectTracker";
 import LocationsMap from "../components/globe/LocationsMap";
+import Dashboard from "./Dashboard";
 
 const TABS = [
   { id: "schedule", label: "Installation Schedule" },
   { id: "map", label: "Map" },
+  { id: "dashboard", label: "Dashboard" },
 ];
+
+// The Onboarding Dashboard's edit/delete rights are scoped tighter than the
+// app's general admin role — only these two can edit there for now,
+// regardless of who else holds the admin role for the Installation
+// Schedule/Map.
+const DASHBOARD_EDITORS = ["mdetore@vendpark.io", "asayed@vendpark.io"];
 
 export default function InstallsApp() {
   const auth = useAuth();
@@ -37,6 +45,7 @@ export default function InstallsApp() {
   }
 
   const needsAttentionCount = auth.users.filter((u) => u.role === "pending" || u.admin_requested).length;
+  const isDashboardAdmin = DASHBOARD_EDITORS.includes((auth.profile?.email || auth.session.user.email || "").toLowerCase());
 
   return (
     <div className="flex h-screen flex-col bg-concrete-100/50">
@@ -106,6 +115,11 @@ export default function InstallsApp() {
         {view === "map" && (
           <div className="h-full">
             <LocationsMap isAdmin={auth.isAdmin} />
+          </div>
+        )}
+        {view === "dashboard" && (
+          <div className="h-full overflow-y-auto">
+            <Dashboard isAdmin={isDashboardAdmin} />
           </div>
         )}
       </div>
