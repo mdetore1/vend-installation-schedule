@@ -68,8 +68,17 @@ export default function LocationRow({
       style={{ height: ROW_HEIGHT }}
     >
       <div
-        className="sticky left-0 z-[45] flex shrink-0 items-center gap-2 border-r border-concrete-200 bg-white px-4"
-        style={{ width: labelWidth }}
+        className={`sticky left-0 z-[45] flex shrink-0 items-center gap-2 bg-white px-4 ${
+          location.onHold ? "border-r-2 border-dashed border-caution-600" : "border-r border-concrete-200"
+        }`}
+        style={
+          location.onHold
+            ? {
+                width: labelWidth,
+                backgroundImage: "repeating-linear-gradient(135deg, rgba(217,158,50,0.05) 0 10px, rgba(217,158,50,0.12) 10px 20px)",
+              }
+            : { width: labelWidth }
+        }
       >
         {draggable && (
           <span
@@ -104,6 +113,11 @@ export default function LocationRow({
             </span>
             {location.hasOnsiteStaff && (
               <span className="shrink-0 rounded-full bg-mint-200 px-2 py-0.5 text-[10px] font-bold text-mint-700">Spark</span>
+            )}
+            {location.onHold && (
+              <span className="shrink-0 rounded-full bg-caution-100 px-2 py-0.5 text-[10px] font-bold text-caution-700">
+                On Hold
+              </span>
             )}
           </div>
         </button>
