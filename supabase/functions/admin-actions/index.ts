@@ -70,13 +70,16 @@ Deno.serve(async (req) => {
     if (action === "create") {
       if (!email) return json({ error: "email required" }, 400);
       const password = generatePassword();
-      const { error } = await admin.auth.admin.createUser({
+      const { data: created, error } = await admin.auth.admin.createUser({
         email,
         password,
         email_confirm: true,
         user_metadata: { display_name: displayName || email.split("@")[0] },
       });
       if (error) return json({ error: error.message }, 400);
+      // Logins created directly by an admin are already vetted — skip the
+      // pending-approval step self-signups still land in.
+      await admin.from("profiles").update({ role: "viewer" }).eq("id", created.user.id);
       return json({ ok: true, password });
     }
 

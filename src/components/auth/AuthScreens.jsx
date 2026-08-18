@@ -178,6 +178,7 @@ export function ManageUsersModal({
   onDelete,
   onCreateLogin,
   onResetPassword,
+  onDismissAdminRequest,
 }) {
   const [createName, setCreateName] = useState("");
   const [createEmail, setCreateEmail] = useState("");
@@ -292,11 +293,18 @@ export function ManageUsersModal({
                   </p>
                   <p className="truncate text-xs text-slate-400">{u.email}</p>
                 </div>
-                {u.role !== "pending" && (
-                  <span className="shrink-0 rounded-full bg-concrete-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
-                    {u.role === "admin" ? "Admin" : "Viewer"}
-                  </span>
-                )}
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {u.admin_requested && u.role !== "pending" && (
+                    <span className="rounded-full bg-caution-100 px-2 py-0.5 text-[10px] font-semibold text-caution-700">
+                      Requested admin
+                    </span>
+                  )}
+                  {u.role !== "pending" && (
+                    <span className="rounded-full bg-concrete-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                      {u.role === "admin" ? "Admin" : "Viewer"}
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-concrete-100 pt-2">
                 {u.role === "pending" && (
@@ -319,6 +327,24 @@ export function ManageUsersModal({
                 )}
                 {u.role !== "pending" && (
                   <>
+                    {u.admin_requested && u.role !== "admin" && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => onUpdateRole(u.id, "admin")}
+                          className="rounded-full bg-vend-black px-2.5 py-1 text-xs font-semibold text-white hover:opacity-90"
+                        >
+                          Approve as admin
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onDismissAdminRequest(u.id)}
+                          className="text-xs font-semibold text-slate-500 hover:text-vend-black"
+                        >
+                          Dismiss request
+                        </button>
+                      </>
+                    )}
                     <button
                       type="button"
                       onClick={() => onUpdateRole(u.id, u.role === "admin" ? "viewer" : "admin")}

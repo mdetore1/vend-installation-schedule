@@ -36,6 +36,8 @@ export default function InstallsApp() {
     return <PendingScreen email={auth.profile?.email || auth.session.user.email} onLogout={auth.logout} />;
   }
 
+  const needsAttentionCount = auth.users.filter((u) => u.role === "pending" || u.admin_requested).length;
+
   return (
     <div className="flex h-screen flex-col bg-concrete-100/50">
       <div className="flex shrink-0 items-center gap-4 border-b border-concrete-200 bg-white px-6 py-2.5">
@@ -57,15 +59,32 @@ export default function InstallsApp() {
         <div className="ml-auto flex items-center gap-2">
           <span className="mr-1 text-xs font-semibold text-slate-400">
             {auth.profile.display_name} · {auth.isAdmin ? "Admin" : "Viewer"}
+            {!auth.isAdmin &&
+              (auth.profile.admin_requested ? (
+                <span className="ml-1.5 text-slate-300">(admin requested)</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={auth.requestAdmin}
+                  className="ml-1.5 font-semibold text-beacon-700 underline hover:text-beacon-600"
+                >
+                  Request admin
+                </button>
+              ))}
           </span>
           {auth.isAdmin && (
             <button
               type="button"
               onClick={() => setShowUsers(true)}
               title="Approve new sign-ups, change roles"
-              className="inline-flex items-center gap-1.5 rounded-full border border-concrete-300 px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-vend-black hover:text-vend-black"
+              className="relative inline-flex items-center gap-1.5 rounded-full border border-concrete-300 px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-vend-black hover:text-vend-black"
             >
               <Users size={13} /> Manage users
+              {needsAttentionCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-alert-600 text-[9px] font-bold text-white">
+                  {needsAttentionCount}
+                </span>
+              )}
             </button>
           )}
           <button
@@ -101,6 +120,7 @@ export default function InstallsApp() {
         onDelete={auth.deleteUser}
         onCreateLogin={auth.createLogin}
         onResetPassword={auth.resetPassword}
+        onDismissAdminRequest={auth.dismissAdminRequest}
       />
     </div>
   );

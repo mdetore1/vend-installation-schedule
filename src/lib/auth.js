@@ -163,7 +163,22 @@ export function useAuth() {
   }
 
   async function updateUserRole(id, role) {
-    await supabase.from("profiles").update({ role }).eq("id", id);
+    // Clears any pending admin request along with the role change — whether
+    // that's granting it or turning someone back to viewer.
+    await supabase.from("profiles").update({ role, admin_requested: false }).eq("id", id);
+  }
+
+  // A viewer flagging "I'd like admin access" — a security-definer RPC
+  // (not a direct profiles update) so this is the only field of their own
+  // row a non-admin can ever change; the profiles RLS policy still reserves
+  // the role column itself for admins.
+  async function requestAdmin() {
+    await supabase.rpc("request_admin_access");
+  }
+
+  // Clears a request without granting it — for "not right now."
+  async function dismissAdminRequest(id) {
+    await supabase.from("profiles").update({ admin_requested: false }).eq("id", id);
   }
 
   // There's no client-safe way to delete an auth account (that needs the
@@ -191,5 +206,7 @@ export function useAuth() {
     deleteUser,
     createLogin,
     resetPassword,
+    requestAdmin,
+    dismissAdminRequest,
   };
 }
