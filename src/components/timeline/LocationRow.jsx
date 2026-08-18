@@ -67,7 +67,7 @@ export default function LocationRow({
       style={{ height: ROW_HEIGHT }}
     >
       <div
-        className={`sticky left-0 z-[45] flex shrink-0 items-center gap-2 bg-white px-4 ${
+        className={`sticky left-0 z-[45] flex shrink-0 items-center gap-2 bg-white px-4 relative ${
           location.onHold ? "border-r-2 border-dashed border-caution-600" : "border-r border-concrete-200"
         }`}
         style={
@@ -113,18 +113,6 @@ export default function LocationRow({
             {location.hasOnsiteStaff && (
               <span className="shrink-0 rounded-full bg-mint-200 px-2 py-0.5 text-[10px] font-bold text-mint-700">Spark</span>
             )}
-            {teamById[location.salesPersonId] && (
-              <span
-                title={teamById[location.salesPersonId].name}
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold"
-                style={{
-                  backgroundColor: teamById[location.salesPersonId].color.bg,
-                  color: teamById[location.salesPersonId].color.text,
-                }}
-              >
-                {teamById[location.salesPersonId].initials}
-              </span>
-            )}
             {location.onHold && (
               <span className="shrink-0 rounded-full bg-caution-100 px-2 py-0.5 text-[10px] font-bold text-caution-700">
                 On Hold
@@ -140,6 +128,11 @@ export default function LocationRow({
         >
           <Trash2 size={14} />
         </button>
+        {teamById[location.salesPersonId] && (
+          <span className="pointer-events-none absolute bottom-1 right-3 text-[10px] font-medium text-slate-400">
+            {teamById[location.salesPersonId].name}
+          </span>
+        )}
       </div>
       <div className="relative flex-1">
         {location.phases.map((phase) => {

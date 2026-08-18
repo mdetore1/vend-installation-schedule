@@ -263,23 +263,6 @@ function highlightBorderClass(highlight) {
   return "";
 }
 
-// A small initials avatar beside the city tag naming who sold this location
-// — same convention as AssigneeStrip's team-member circles, just a solo one
-// here, so it stays color-coded per rep without a full-name pill competing
-// for attention in the row.
-function SalesPersonBubble({ salesPerson }) {
-  if (!salesPerson) return null;
-  return (
-    <span
-      title={salesPerson.name}
-      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold"
-      style={{ backgroundColor: salesPerson.color.bg, color: salesPerson.color.text }}
-    >
-      {salesPerson.initials}
-    </span>
-  );
-}
-
 function CalendarHighlightBadge({ highlight }) {
   if (!highlight) return null;
   const isInstall = highlight === "install";
@@ -1055,7 +1038,7 @@ function LocationRow({ location, team, open, onToggle, onUpdate, onAddTask, onRe
           : undefined
       }
     >
-      <div className="flex w-full items-center gap-4 px-5 py-4 transition hover:bg-concrete-100/40">
+      <div className="relative flex w-full items-center gap-4 px-5 py-4 transition hover:bg-concrete-100/40">
         <button type="button" onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-4 text-left">
           <ChevronRight size={16} className={`shrink-0 text-slate-400 transition-transform ${open ? "rotate-90" : ""}`} />
           <div className="min-w-0 flex-1">
@@ -1065,7 +1048,6 @@ function LocationRow({ location, team, open, onToggle, onUpdate, onAddTask, onRe
               {location.hasOnsiteStaff && (
                 <span className="shrink-0 rounded-full bg-mint-200 px-2 py-0.5 text-[10px] font-bold text-mint-700">Spark</span>
               )}
-              <SalesPersonBubble salesPerson={team.find((t) => t.id === location.salesPersonId)} />
               <CalendarHighlightBadge highlight={highlight} />
             </div>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
@@ -1084,6 +1066,11 @@ function LocationRow({ location, team, open, onToggle, onUpdate, onAddTask, onRe
         {editable && <MarkCompleteButton onClick={() => onMarkComplete(location.id)} ready={total > 0 && done === total} />}
         <AssigneeStrip team={team} ids={assigneeIds} />
         {editable && <OnHoldControl onHold={location.onHold} onSetOnHold={(v) => onSetOnHold(location.id, v)} />}
+        {team.find((t) => t.id === location.salesPersonId) && (
+          <span className="pointer-events-none absolute bottom-1 right-5 text-[10px] font-medium text-slate-400">
+            {team.find((t) => t.id === location.salesPersonId).name}
+          </span>
+        )}
       </div>
       <div className={`grid transition-[grid-template-rows] duration-300 ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
         <div className="overflow-hidden">
