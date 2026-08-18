@@ -152,6 +152,17 @@ export function contrastText(hex) {
   return luminance > 0.6 ? "#111114" : "#FDFDFD";
 }
 
+// Translucent tint of a hex color — a lighter, "see-through" fill instead of
+// the full-strength color, e.g. for a badge background paired with the same
+// color as its (full-strength) text.
+export function hexToRgba(hex, alpha) {
+  const c = hex.replace("#", "");
+  const r = parseInt(c.substring(0, 2), 16);
+  const g = parseInt(c.substring(2, 4), 16);
+  const b = parseInt(c.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 // Sentinel ownerId for a phase that hasn't been assigned to anyone yet.
 export const UNASSIGNED = "unassigned";
 
