@@ -579,6 +579,16 @@ export function useScheduleStore() {
     });
     if (error) window.alert(`Couldn't add the task: ${error.message}`);
   }
+  // Edits the shared template's own instructions text for a task — unlike
+  // updateChecklistItem above (per-location progress), this changes what
+  // every non-archived location sees for that task.
+  async function updateChecklistTemplateItem(itemId, patch) {
+    const row = {};
+    if (patch.task !== undefined) row.task = patch.task;
+    if (patch.timing !== undefined) row.timing = patch.timing || null;
+    if (patch.notes !== undefined) row.notes = patch.notes || null;
+    await supabase.from("checklist_items").update(row).eq("id", itemId);
+  }
   async function removeChecklistItem(itemId) {
     await supabase.from("checklist_items").delete().eq("id", itemId);
   }
@@ -664,6 +674,7 @@ export function useScheduleStore() {
     promoteQueueItem,
     updateChecklistItem,
     addChecklistItem,
+    updateChecklistTemplateItem,
     removeChecklistItem,
     restoreChecklistItem,
     reorderChecklistCategories,

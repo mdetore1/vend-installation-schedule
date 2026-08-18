@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import confetti from "canvas-confetti";
 import { Reorder, useDragControls } from "framer-motion";
-import { Calendar, Check, CheckCheck, ChevronDown, ChevronRight, ExternalLink, GripVertical, Layers, PauseCircle, Plus, Rocket, Trash2, X } from "lucide-react";
+import { Calendar, Check, CheckCheck, ChevronDown, ChevronRight, ExternalLink, GripVertical, Layers, PauseCircle, Pencil, Plus, Rocket, Trash2, X } from "lucide-react";
 import { useScheduleStore } from "../lib/scheduleStore";
 import { useMapStore } from "../lib/mapStore";
 import { canonPhaseLabel, formatDateRange, UNASSIGNED, calendarPhaseHighlight, latestScheduleDate } from "../lib/dateUtils";
 import { STAGES, STAGE_STYLES, stageByNumber, summarizeChecklist, effectiveStage } from "../lib/checklistUtils";
-import { Checkbox, Field, Select, TextInput } from "../components/fields";
+import { Checkbox, Field, Select, TextInput, Textarea } from "../components/fields";
 
 function markAllDone(items, onUpdate) {
   items.filter((i) => !i.done).forEach((i) => onUpdate(i.itemId, { done: true }));
@@ -311,8 +311,10 @@ function MarkAllButton({ items, onUpdate }) {
   );
 }
 
-function ChecklistTaskRow({ item, team, onUpdate, onRemove, onMarkNA, reorderable }) {
+function ChecklistTaskRow({ item, team, onUpdate, onRemove, onMarkNA, onEditNotes, reorderable }) {
   const [notes, setNotes] = useState(item.locationNotes);
+  const [editingInstructions, setEditingInstructions] = useState(false);
+  const [instructionsDraft, setInstructionsDraft] = useState(item.instructions || "");
   const controls = useDragControls();
 
   useEffect(() => {
@@ -322,6 +324,15 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onMarkNA, reorderabl
 
   const addLink = (link) => onUpdate(item.itemId, { links: [...(item.links || []), link] });
   const removeLink = (idx) => onUpdate(item.itemId, { links: item.links.filter((_, i) => i !== idx) });
+
+  function startEditingInstructions() {
+    setInstructionsDraft(item.instructions || "");
+    setEditingInstructions(true);
+  }
+  function saveInstructions() {
+    onEditNotes({ notes: instructionsDraft.trim() });
+    setEditingInstructions(false);
+  }
 
   const rowContent = (
     <div className={`rounded-lg border px-3.5 py-3 transition ${item.done ? "border-concrete-200 bg-concrete-100/40" : "border-concrete-200 bg-white"}`}>
@@ -356,7 +367,53 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onMarkNA, reorderabl
             </div>
           </div>
           <div className="mt-2 space-y-2 rounded-lg bg-concrete-100/60 p-3">
-            {item.instructions && <p className="whitespace-pre-wrap text-xs text-slate-500">{linkify(item.instructions)}</p>}
+            {editingInstructions ? (
+              <div className="space-y-1.5">
+                <Textarea
+                  autoFocus
+                  value={instructionsDraft}
+                  onChange={(e) => setInstructionsDraft(e.target.value)}
+                  placeholder="Instructions for this task…"
+                  className="!text-xs"
+                  rows={4}
+                />
+                <div className="flex justify-end gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setEditingInstructions(false)}
+                    className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-500 hover:bg-white"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveInstructions}
+                    className="rounded-full bg-vend-black px-2.5 py-1 text-[11px] font-semibold text-white hover:opacity-90"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="group/instructions flex items-start gap-1.5">
+                {item.instructions ? (
+                  <p className="min-w-0 flex-1 whitespace-pre-wrap text-xs text-slate-500">{linkify(item.instructions)}</p>
+                ) : (
+                  onEditNotes && <p className="min-w-0 flex-1 text-xs italic text-slate-300">No instructions yet.</p>
+                )}
+                {onEditNotes && (
+                  <button
+                    type="button"
+                    onClick={startEditingInstructions}
+                    title="Edit instructions — changes for every location"
+                    aria-label="Edit instructions"
+                    className="shrink-0 rounded-full p-1 text-slate-300 opacity-0 transition hover:bg-white hover:text-vend-black group-hover/instructions:opacity-100"
+                  >
+                    <Pencil size={12} />
+                  </button>
+                )}
+              </div>
+            )}
             {item.referenceLinks?.map((l, i) => (
               <a
                 key={i}
@@ -476,7 +533,7 @@ function AddTaskRow({ onAdd }) {
 // Onboarding, auto-opening "the current one" just meant something was
 // always expanded whether you wanted it or not. Now every category starts
 // closed and you pick which one to look into.
-function CategoryGroup({ category, items, team, onUpdate, editable, onAddTask, onRemoveTask, onMarkNA, onReorderTasks, reorderable: categoryReorderable, open, onToggle }) {
+function CategoryGroup({ category, items, team, onUpdate, editable, onAddTask, onRemoveTask, onMarkNA, onEditNotes, onReorderTasks, reorderable: categoryReorderable, open, onToggle, forceFlat }) {
   const controls = useDragControls();
   const done = items.filter((i) => i.done).length;
   const complete = items.length > 0 && done === items.length;
@@ -494,6 +551,7 @@ function CategoryGroup({ category, items, team, onUpdate, editable, onAddTask, o
               onUpdate={onUpdate}
               onRemove={editable ? () => onRemoveTask(item) : null}
               onMarkNA={editable ? () => onMarkNA(item) : null}
+              onEditNotes={editable ? (patch) => onEditNotes(item, patch) : null}
               reorderable
             />
           ))}
@@ -507,6 +565,7 @@ function CategoryGroup({ category, items, team, onUpdate, editable, onAddTask, o
             onUpdate={onUpdate}
             onRemove={editable ? () => onRemoveTask(item) : null}
             onMarkNA={editable ? () => onMarkNA(item) : null}
+            onEditNotes={editable ? (patch) => onEditNotes(item, patch) : null}
           />
         ))
       )}
@@ -514,7 +573,11 @@ function CategoryGroup({ category, items, team, onUpdate, editable, onAddTask, o
     </div>
   );
 
-  if (!category) return body;
+  // A stage with only one category underneath it (named or not) has nothing
+  // worth a second click to reveal — the stage's own dropdown already
+  // implies "show me what's in here," so skip this category's own header
+  // and show its tasks flat, same as a genuinely categoryless one.
+  if (!category || forceFlat) return body;
 
   const content = (
     <>
@@ -562,7 +625,7 @@ function CategoryGroup({ category, items, team, onUpdate, editable, onAddTask, o
   return <div className="overflow-hidden rounded-lg border border-concrete-200">{content}</div>;
 }
 
-function StageAccordion({ stage, categories, open, onToggle, team, onUpdate, editable, onAddTask, onRemoveTask, onMarkNA, onReorderCategories, onReorderTasks }) {
+function StageAccordion({ stage, categories, open, onToggle, team, onUpdate, editable, onAddTask, onRemoveTask, onMarkNA, onEditNotes, onReorderCategories, onReorderTasks }) {
   const items = categories.flatMap(([, its]) => its);
   const done = items.filter((i) => i.done).length;
   const complete = items.length > 0 && done === items.length;
@@ -587,10 +650,12 @@ function StageAccordion({ stage, categories, open, onToggle, team, onUpdate, edi
       onAddTask={(fields) => onAddTask({ stage: stage.n, category: cat || null, ...fields })}
       onRemoveTask={onRemoveTask}
       onMarkNA={onMarkNA}
+      onEditNotes={onEditNotes}
       onReorderTasks={(newOrder) => onReorderTasks(stage.n, cat, newOrder)}
       reorderable={reorderable}
       open={cat === openCategory}
       onToggle={() => setOpenCategory((prev) => (prev === cat ? null : cat))}
+      forceFlat={categories.length === 1}
     />
   ));
 
@@ -635,7 +700,7 @@ function StageAccordion({ stage, categories, open, onToggle, team, onUpdate, edi
   );
 }
 
-function ChecklistSection({ location, team, onUpdate, editable, onAddTask, onRemoveTask, onMarkNA, onReorderCategories, onReorderTasks }) {
+function ChecklistSection({ location, team, onUpdate, editable, onAddTask, onRemoveTask, onMarkNA, onEditNotes, onReorderCategories, onReorderTasks }) {
   // The stage accordion still auto-opens to wherever the location currently
   // is (that part wasn't the complaint) — only one stage stays open at a
   // time now, same single-open accordion behavior as the categories inside
@@ -675,6 +740,7 @@ function ChecklistSection({ location, team, onUpdate, editable, onAddTask, onRem
           onAddTask={onAddTask}
           onRemoveTask={onRemoveTask}
           onMarkNA={onMarkNA}
+          onEditNotes={onEditNotes}
           onReorderCategories={onReorderCategories}
           onReorderTasks={onReorderTasks}
         />
@@ -847,7 +913,7 @@ function ManageLocationGroupsModal({ open, onClose, groups, locations, onCreateG
 // members already had their own independent progress before being grouped,
 // only the primary's counts carry forward — that's an accepted tradeoff of
 // merging N separate checklists into one.
-function ClientGroupCard({ group, locations, team, open, onToggle, onUpdate, onAddTask, onRemoveTask, onMarkNA, onSetStage, onMarkComplete, onSetOnHold, onReorderCategories, onReorderTasks }) {
+function ClientGroupCard({ group, locations, team, open, onToggle, onUpdate, onAddTask, onRemoveTask, onMarkNA, onEditNotes, onSetStage, onMarkComplete, onSetOnHold, onReorderCategories, onReorderTasks }) {
   const [showMembers, setShowMembers] = useState(false);
   const primary = locations[0];
   const editable = !primary.archived;
@@ -936,6 +1002,7 @@ function ClientGroupCard({ group, locations, team, open, onToggle, onUpdate, onA
             onAddTask={onAddTask}
             onRemoveTask={onRemoveTask}
             onMarkNA={(item) => onMarkNA(primary.id, item)}
+            onEditNotes={onEditNotes}
             onReorderCategories={onReorderCategories}
             onReorderTasks={onReorderTasks}
           />
@@ -945,7 +1012,7 @@ function ClientGroupCard({ group, locations, team, open, onToggle, onUpdate, onA
   );
 }
 
-function LocationRow({ location, team, open, onToggle, onUpdate, onAddTask, onRemoveTask, onMarkNA, onSetStage, onMarkComplete, onSetOnHold, onReorderCategories, onReorderTasks }) {
+function LocationRow({ location, team, open, onToggle, onUpdate, onAddTask, onRemoveTask, onMarkNA, onEditNotes, onSetStage, onMarkComplete, onSetOnHold, onReorderCategories, onReorderTasks }) {
   const editable = !location.archived;
   const highlight = editable && !location.onHold ? calendarPhaseHighlight(location.phases) : null;
   const rawSummary = summarizeChecklist(location.checklist);
@@ -1010,6 +1077,7 @@ function LocationRow({ location, team, open, onToggle, onUpdate, onAddTask, onRe
             onAddTask={onAddTask}
             onRemoveTask={onRemoveTask}
             onMarkNA={(item) => onMarkNA(location.id, item)}
+            onEditNotes={onEditNotes}
             onReorderCategories={onReorderCategories}
             onReorderTasks={onReorderTasks}
           />
@@ -1026,6 +1094,7 @@ export default function Dashboard({ isAdmin = true }) {
   const denyWrite = () => window.alert("You have view-only access — ask an admin to make this change.");
   const updateChecklistItem = isAdmin ? store.updateChecklistItem : denyWrite;
   const addChecklistItem = isAdmin ? store.addChecklistItem : denyWrite;
+  const updateChecklistTemplateItem = isAdmin ? store.updateChecklistTemplateItem : denyWrite;
   const setStageOverride = isAdmin ? store.setStageOverride : denyWrite;
   const setOnHold = isAdmin ? store.setOnHold : denyWrite;
   const markLocationComplete = isAdmin ? store.markLocationComplete : denyWrite;
@@ -1115,6 +1184,7 @@ export default function Dashboard({ isAdmin = true }) {
     onAddTask: addChecklistItem,
     onRemoveTask: removeChecklistItem,
     onMarkNA: markNAChecklistItem,
+    onEditNotes: (item, patch) => updateChecklistTemplateItem(item.itemId, patch),
     onSetStage: setStageOverride,
     onSetOnHold: setOnHold,
     onMarkComplete: markLocationComplete,
