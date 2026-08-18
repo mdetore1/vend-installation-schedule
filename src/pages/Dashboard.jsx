@@ -4,7 +4,7 @@ import { Reorder, useDragControls } from "framer-motion";
 import { Calendar, Check, CheckCheck, ChevronDown, ChevronRight, ExternalLink, GripVertical, Layers, PauseCircle, Pencil, Plus, Rocket, Trash2, X } from "lucide-react";
 import { useScheduleStore } from "../lib/scheduleStore";
 import { useMapStore } from "../lib/mapStore";
-import { canonPhaseLabel, formatDateRange, UNASSIGNED, calendarPhaseHighlight, latestScheduleDate, hexToRgba } from "../lib/dateUtils";
+import { canonPhaseLabel, formatDateRange, UNASSIGNED, calendarPhaseHighlight, latestScheduleDate } from "../lib/dateUtils";
 import { STAGES, STAGE_STYLES, stageByNumber, summarizeChecklist, effectiveStage } from "../lib/checklistUtils";
 import { Checkbox, Field, Select, TextInput, Textarea } from "../components/fields";
 
@@ -273,7 +273,7 @@ function SalesPersonBubble({ salesPerson }) {
     <span
       title={salesPerson.name}
       className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold"
-      style={{ backgroundColor: hexToRgba(salesPerson.color.bg, 0.2), color: salesPerson.color.bg }}
+      style={{ backgroundColor: salesPerson.color.bg, color: salesPerson.color.text }}
     >
       {salesPerson.initials}
     </span>

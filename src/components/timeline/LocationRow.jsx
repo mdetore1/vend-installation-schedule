@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Reorder, useDragControls } from "framer-motion";
 import { GripVertical, MapPin, RotateCcw, Trash2 } from "lucide-react";
 import { Checkbox } from "../fields";
-import { canonPhaseLabel, rangesOverlap, hexToRgba } from "../../lib/dateUtils";
+import { canonPhaseLabel, rangesOverlap } from "../../lib/dateUtils";
 import PhaseBar from "./PhaseBar";
 
 export const ROW_HEIGHT = 68;
@@ -118,8 +118,8 @@ export default function LocationRow({
                 title={teamById[location.salesPersonId].name}
                 className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold"
                 style={{
-                  backgroundColor: hexToRgba(teamById[location.salesPersonId].color.bg, 0.2),
-                  color: teamById[location.salesPersonId].color.bg,
+                  backgroundColor: teamById[location.salesPersonId].color.bg,
+                  color: teamById[location.salesPersonId].color.text,
                 }}
               >
                 {teamById[location.salesPersonId].initials}
