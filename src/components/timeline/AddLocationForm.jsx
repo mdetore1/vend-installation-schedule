@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { X } from "lucide-react";
-import { Field, TextInput, Select, Toggle, Repeatable } from "../fields";
+import { Field, TextInput, Select, Toggle, Checkbox, Repeatable } from "../fields";
 import { addDays, cascadeDates, UNASSIGNED } from "../../lib/dateUtils";
 import { emptyPhase, defaultPhases } from "../../lib/locationDefaults";
 
@@ -14,11 +14,13 @@ export default function AddLocationForm({
   initialName = "",
   initialPlace = "",
   initialContractor = "",
+  initialHasOnsiteStaff = false,
   initialPhases,
 }) {
   const [name, setName] = useState(initialName);
   const [place, setPlace] = useState(initialPlace);
   const [contractor, setContractor] = useState(initialContractor || "Task Force");
+  const [hasOnsiteStaff, setHasOnsiteStaff] = useState(initialHasOnsiteStaff);
   const [phases, setPhases] = useState(() => initialPhases ?? defaultPhases(team));
   // Auto-cascading (push Install/Go-Live to the next Monday etc.) is a
   // useful default when phases don't have real dates yet, but it actively
@@ -38,7 +40,13 @@ export default function AddLocationForm({
 
   function submit() {
     if (!name.trim() || phases.length === 0) return;
-    onSubmit({ name: name.trim(), place: place.trim(), contractor: contractor.trim() || "Task Force", phases });
+    onSubmit({
+      name: name.trim(),
+      place: place.trim(),
+      contractor: contractor.trim() || "Task Force",
+      hasOnsiteStaff,
+      phases,
+    });
   }
 
   return (
@@ -75,6 +83,13 @@ export default function AddLocationForm({
               placeholder="e.g. Task Force"
             />
           </Field>
+
+          <Checkbox
+            checked={hasOnsiteStaff}
+            onChange={setHasOnsiteStaff}
+            label="Has onsite staff (Spark)"
+            description="Shows a Spark bubble next to the city on the Dashboard"
+          />
 
           <Field label="Phases">
             <Repeatable

@@ -481,6 +481,7 @@ export default function ProjectTracker({ isAdmin = true }) {
         initialName={editingLocation?.name || ""}
         initialPlace={editingLocation?.place || ""}
         initialContractor={editingLocation?.contractor || ""}
+        initialHasOnsiteStaff={editingLocation?.hasOnsiteStaff || false}
         initialPhases={editingLocation?.phases}
         onSubmit={finalizeEditLocation}
       />

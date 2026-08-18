@@ -46,6 +46,7 @@ function locationToRow(l) {
     property_management: l.propertyManagement ?? null,
     ownership: l.ownership ?? null,
     contractor: l.contractor || "Task Force",
+    has_onsite_staff: !!l.hasOnsiteStaff,
   };
 }
 
@@ -150,6 +151,7 @@ export function useScheduleStore() {
         propertyManagement: l.property_management,
         ownership: l.ownership,
         contractor: l.contractor || "Task Force",
+        hasOnsiteStaff: !!l.has_onsite_staff,
         // Overrides the auto-computed "current stage" (lowest stage with an
         // incomplete item) — e.g. still waiting on one Pre-Onboarding task but
         // the team has already moved on to Onboarding work. Null means "just

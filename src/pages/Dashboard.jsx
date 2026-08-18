@@ -978,6 +978,9 @@ function LocationRow({ location, team, open, onToggle, onUpdate, onAddTask, onRe
             <div className="flex items-baseline gap-2">
               <span className="truncate font-display text-sm font-bold text-vend-black">{location.name}</span>
               {location.place && <span className="truncate text-xs font-medium text-slate-400">{location.place}</span>}
+              {location.hasOnsiteStaff && (
+                <span className="shrink-0 rounded-full bg-mint-200 px-2 py-0.5 text-[10px] font-bold text-mint-700">Spark</span>
+              )}
               <CalendarHighlightBadge highlight={highlight} />
             </div>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
