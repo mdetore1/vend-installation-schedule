@@ -175,13 +175,14 @@ function TimeOffEditor({ member, onAdd, onRemove }) {
   );
 }
 
-function TeamRow({ member, onUpdate, onRemove, onAddTimeOff, onRemoveTimeOff }) {
+function TeamRow({ member, onUpdate, onRemove, onAddTimeOff, onRemoveTimeOff, onDragEnd }) {
   const controls = useDragControls();
   return (
     <Reorder.Item
       value={member}
       dragListener={false}
       dragControls={controls}
+      onDragEnd={onDragEnd}
       className="rounded-xl border border-concrete-200 bg-white p-2.5"
     >
       <div className="flex items-center gap-2.5">
@@ -238,9 +239,31 @@ export default function TeamManager({ team, onUpdate, onRemove, onReorder, onAdd
   // dragging within that slice re-threads it back into the full array at
   // the same slots, leaving every other department's relative order intact.
   const deptTeam = team.filter((t) => (t.department || DEFAULT_DEPARTMENT) === department);
-  function handleReorder(newSlice) {
+
+  // Framer Motion's Reorder.Group fires onReorder continuously as the
+  // dragged row crosses each sibling, not just once on drop — persisting to
+  // Supabase (and waiting on the realtime echo) on every one of those swaps
+  // is what made dragging feel sticky/delayed. localOrder gives the drag
+  // instant, network-independent visual feedback; the database write (via
+  // onReorder) only fires once, when the drag actually ends.
+  const [localOrder, setLocalOrder] = useState(deptTeam);
+  const localOrderRef = useRef(localOrder);
+  const isDraggingRef = useRef(false);
+
+  useEffect(() => {
+    localOrderRef.current = localOrder;
+  }, [localOrder]);
+
+  useEffect(() => {
+    if (isDraggingRef.current) return;
+    setLocalOrder(team.filter((t) => (t.department || DEFAULT_DEPARTMENT) === department));
+  }, [team, department]);
+
+  function handleDragEnd() {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
     let i = 0;
-    onReorder(team.map((t) => ((t.department || DEFAULT_DEPARTMENT) === department ? newSlice[i++] : t)));
+    onReorder(team.map((t) => ((t.department || DEFAULT_DEPARTMENT) === department ? localOrderRef.current[i++] : t)));
   }
 
   return (
@@ -256,9 +279,17 @@ export default function TeamManager({ team, onUpdate, onRemove, onReorder, onAdd
           </option>
         ))}
       </select>
-      {deptTeam.length === 0 && <p className="px-1 pb-2 text-sm text-slate-300">Nobody here yet.</p>}
-      <Reorder.Group axis="y" values={deptTeam} onReorder={handleReorder} className="max-h-80 space-y-2 overflow-y-auto">
-        {deptTeam.map((member) => (
+      {localOrder.length === 0 && <p className="px-1 pb-2 text-sm text-slate-300">Nobody here yet.</p>}
+      <Reorder.Group
+        axis="y"
+        values={localOrder}
+        onReorder={(next) => {
+          isDraggingRef.current = true;
+          setLocalOrder(next);
+        }}
+        className="max-h-80 space-y-2 overflow-y-auto"
+      >
+        {localOrder.map((member) => (
           <TeamRow
             key={member.id}
             member={member}
@@ -266,6 +297,7 @@ export default function TeamManager({ team, onUpdate, onRemove, onReorder, onAdd
             onRemove={onRemove}
             onAddTimeOff={onAddTimeOff}
             onRemoveTimeOff={onRemoveTimeOff}
+            onDragEnd={handleDragEnd}
           />
         ))}
       </Reorder.Group>
