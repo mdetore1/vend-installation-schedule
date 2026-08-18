@@ -468,6 +468,7 @@ export default function ProjectTracker({ isAdmin = true }) {
         submitLabel="Add to calendar"
         initialName={promoteItem?.name || ""}
         initialPlace={promoteItem?.place || ""}
+        initialHasOnsiteStaff={promoteItem?.hasOnsiteStaff || false}
         onSubmit={finalizePromotion}
       />
 

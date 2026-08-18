@@ -206,6 +206,7 @@ export function useScheduleStore() {
       salesRep: q.sales_rep,
       propertyManagement: q.property_management,
       ownership: q.ownership,
+      hasOnsiteStaff: !!q.has_onsite_staff,
     }));
     const salesReps = salesRepRows.map((r) => r.name);
     const companyEvents = companyEventRows.map((e) => ({ id: e.id, name: e.name, start: e.start_date, end: e.end_date }));
@@ -488,6 +489,7 @@ export function useScheduleStore() {
       sales_rep: item.salesRep ?? null,
       property_management: item.propertyManagement ?? null,
       ownership: item.ownership ?? null,
+      has_onsite_staff: !!item.hasOnsiteStaff,
     });
   }
   async function addSalesRep(name) {
@@ -507,13 +509,14 @@ export function useScheduleStore() {
     if (patch.salesRep !== undefined) row.sales_rep = patch.salesRep;
     if (patch.propertyManagement !== undefined) row.property_management = patch.propertyManagement;
     if (patch.ownership !== undefined) row.ownership = patch.ownership;
+    if (patch.hasOnsiteStaff !== undefined) row.has_onsite_staff = patch.hasOnsiteStaff;
     await supabase.from("queue_items").update(row).eq("id", id);
   }
   async function removeQueueItem(id) {
     await supabase.from("queue_items").delete().eq("id", id);
   }
 
-  async function promoteQueueItem(queueItem, { name, place, phases, contractor }) {
+  async function promoteQueueItem(queueItem, { name, place, phases, contractor, hasOnsiteStaff }) {
     const { data: inserted, error } = await supabase
       .from("locations")
       .insert({
@@ -526,6 +529,7 @@ export function useScheduleStore() {
         property_management: queueItem.propertyManagement ?? null,
         ownership: queueItem.ownership ?? null,
         contractor: contractor || "Task Force",
+        has_onsite_staff: !!hasOnsiteStaff,
       })
       .select()
       .single();

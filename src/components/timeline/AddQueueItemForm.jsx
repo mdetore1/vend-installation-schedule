@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { X } from "lucide-react";
-import { Field, TextInput, Select } from "../fields";
+import { Field, TextInput, Select, Checkbox } from "../fields";
 import { ACCESS_TYPES, CONTRACT_STATES } from "../../lib/locationDefaults";
 import SalesRepSelect from "./SalesRepSelect";
 
@@ -14,6 +14,7 @@ const empty = {
   salesRep: "",
   propertyManagement: "",
   ownership: "",
+  hasOnsiteStaff: false,
 };
 
 export default function AddQueueItemForm({ open, onClose, onSubmit, salesReps, onAddSalesRep }) {
@@ -110,6 +111,13 @@ export default function AddQueueItemForm({ open, onClose, onSubmit, salesReps, o
               placeholder="Who owns the property"
             />
           </Field>
+
+          <Checkbox
+            checked={form.hasOnsiteStaff}
+            onChange={(v) => patch({ hasOnsiteStaff: v })}
+            label="Has onsite staff (Spark)"
+            description="Carries over automatically when this is added to the calendar"
+          />
         </div>
 
         <div className="mt-6 flex justify-end gap-3">

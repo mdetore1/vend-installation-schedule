@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ChevronDown, MapPin, Plus, Trash2 } from "lucide-react";
-import { TextInput, Select } from "../fields";
+import { TextInput, Select, Checkbox } from "../fields";
 import { formatShort, parseDate } from "../../lib/dateUtils";
 import { ACCESS_TYPES, CONTRACT_STATES } from "../../lib/locationDefaults";
 import AddQueueItemForm from "./AddQueueItemForm";
@@ -55,6 +55,9 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
           {item.propertyManagement && <Chip>PM: {item.propertyManagement}</Chip>}
           {item.ownership && <Chip>Owner: {item.ownership}</Chip>}
           {item.potentialGoLiveDate && <Chip>Go-live: {formatShort(parseDate(item.potentialGoLiveDate))}</Chip>}
+          {item.hasOnsiteStaff && (
+            <span className="shrink-0 rounded-full bg-mint-200 px-2 py-0.5 text-[10px] font-bold text-mint-700">Spark</span>
+          )}
         </div>
 
         <span
@@ -170,6 +173,13 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
                 value={item.ownership || ""}
                 onChange={(e) => onUpdate({ ownership: e.target.value })}
                 className={miniInputCls}
+              />
+            </FieldMini>
+            <FieldMini label="Onsite staff">
+              <Checkbox
+                checked={!!item.hasOnsiteStaff}
+                onChange={(v) => onUpdate({ hasOnsiteStaff: v })}
+                label="Spark"
               />
             </FieldMini>
           </div>
