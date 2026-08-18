@@ -263,18 +263,19 @@ function highlightBorderClass(highlight) {
   return "";
 }
 
-// A quiet bubble beside the city tag naming who sold this location — an
-// outline only (no fill), with just the name colored in that Sales team
-// member's own color, so different reps stay visually distinct without
-// competing with everything else in the row the way a solid fill did.
+// A small initials avatar beside the city tag naming who sold this location
+// — same convention as AssigneeStrip's team-member circles, just a solo one
+// here, so it stays color-coded per rep without a full-name pill competing
+// for attention in the row.
 function SalesPersonBubble({ salesPerson }) {
   if (!salesPerson) return null;
   return (
     <span
-      className="shrink-0 rounded-full border border-concrete-300 px-2 py-0.5 text-[10px] font-bold"
-      style={{ color: salesPerson.color.bg }}
+      title={salesPerson.name}
+      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold"
+      style={{ backgroundColor: salesPerson.color.bg, color: salesPerson.color.text }}
     >
-      {salesPerson.name}
+      {salesPerson.initials}
     </span>
   );
 }
