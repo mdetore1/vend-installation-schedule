@@ -1,8 +1,18 @@
--- One-time backfill: create a Sales-department Team member for every name
--- currently in the Sales Reps list (sales_reps, used by the Sales Queue's
--- "Sales rep" field), skipping anyone who already has a team_members row
--- with a matching name (case-insensitive) so this is safe to re-run.
+-- Backfill: make sure everyone in the Sales Reps list (sales_reps, used by
+-- the Sales Queue's "Sales rep" field) has a Sales-department Team member.
+-- Safe to re-run — both steps are idempotent.
 -- Requires the team_members.department column (see schema_checklist_snapshot.sql).
+
+-- 1) Anyone who already exists as a team member under a different
+--    department (e.g. added manually before this feature existed) gets
+--    moved into Sales instead of duplicated.
+update team_members tm
+set department = 'Sales'
+from sales_reps sr
+where lower(tm.name) = lower(sr.name)
+  and tm.department is distinct from 'Sales';
+
+-- 2) Anyone left with no team_members row at all gets created fresh.
 with base as (
   select coalesce(max(sort_order), -1) as start_order, count(*) as start_count from team_members
 ),
