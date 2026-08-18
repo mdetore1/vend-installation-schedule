@@ -210,6 +210,10 @@ function MarkCompleteButton({ onClick, ready }) {
 
 // Paused, like a phase with unconfirmed dates — same idea, just at the
 // whole-location level instead of one phase bar.
+// Rarely used, so the "put it on hold" action itself stays as quiet as
+// possible (a bare icon, no border/pill) rather than sitting in the row as
+// a peer to Stage/Complete — but the "On Hold" state, once set, still needs
+// to read clearly at a glance, so that one stays a small solid badge.
 function OnHoldControl({ onHold, onSetOnHold }) {
   if (onHold) {
     return (
@@ -217,9 +221,9 @@ function OnHoldControl({ onHold, onSetOnHold }) {
         type="button"
         onClick={() => onSetOnHold(false)}
         title="Resume — clears the on-hold status"
-        className="inline-flex shrink-0 items-center gap-1 rounded-full border border-caution-600 bg-caution-100 px-2.5 py-1 text-[11px] font-semibold text-caution-700 transition hover:bg-caution-100/60"
+        className="inline-flex shrink-0 items-center gap-1 rounded-full bg-caution-100 px-2 py-0.5 text-[10px] font-semibold text-caution-700 transition hover:bg-caution-200"
       >
-        <PauseCircle size={12} /> On Hold
+        <PauseCircle size={10} /> On Hold
       </button>
     );
   }
@@ -227,10 +231,10 @@ function OnHoldControl({ onHold, onSetOnHold }) {
     <button
       type="button"
       onClick={() => onSetOnHold(true)}
-      title="Pause this location — client gone quiet, budget hold, etc."
-      className="inline-flex shrink-0 items-center gap-1 rounded-full border border-concrete-300 px-2.5 py-1 text-[11px] font-semibold text-slate-400 transition hover:border-caution-600 hover:text-caution-700"
+      title="Put on hold — client gone quiet, budget hold, etc."
+      className="shrink-0 text-slate-300 transition hover:text-caution-600"
     >
-      <PauseCircle size={12} /> Hold
+      <PauseCircle size={15} />
     </button>
   );
 }
@@ -916,9 +920,9 @@ function ClientGroupCard({ group, locations, team, open, onToggle, onUpdate, onA
           forceComplete={!editable}
           onSetStage={(n) => onSetStage(primary.id, n)}
         />
-        {editable && <OnHoldControl onHold={primary.onHold} onSetOnHold={(v) => onSetOnHold(primary.id, v)} />}
         {editable && <MarkCompleteButton onClick={() => onMarkComplete(primary.id)} ready={total > 0 && done === total} />}
         <AssigneeStrip team={team} ids={assigneeIds} />
+        {editable && <OnHoldControl onHold={primary.onHold} onSetOnHold={(v) => onSetOnHold(primary.id, v)} />}
       </div>
       <div className="flex flex-wrap items-center gap-1.5 px-5 pb-3">
         {installRanges.map((p) => (
@@ -1004,9 +1008,9 @@ function LocationRow({ location, team, open, onToggle, onUpdate, onAddTask, onRe
           forceComplete={!editable}
           onSetStage={(n) => onSetStage(location.id, n)}
         />
-        {editable && <OnHoldControl onHold={location.onHold} onSetOnHold={(v) => onSetOnHold(location.id, v)} />}
         {editable && <MarkCompleteButton onClick={() => onMarkComplete(location.id)} ready={total > 0 && done === total} />}
         <AssigneeStrip team={team} ids={assigneeIds} />
+        {editable && <OnHoldControl onHold={location.onHold} onSetOnHold={(v) => onSetOnHold(location.id, v)} />}
       </div>
       <div className={`grid transition-[grid-template-rows] duration-300 ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
         <div className="overflow-hidden">
