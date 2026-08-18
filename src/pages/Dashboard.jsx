@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import confetti from "canvas-confetti";
 import { Reorder, useDragControls } from "framer-motion";
 import { Calendar, Check, CheckCheck, ChevronDown, ChevronRight, ExternalLink, GripVertical, Layers, Plus, Rocket, Trash2, X } from "lucide-react";
 import { useScheduleStore } from "../lib/scheduleStore";
@@ -106,9 +107,7 @@ function ProgressBar({ done, total }) {
       <div className="h-1.5 w-24 overflow-hidden rounded-full bg-concrete-200">
         <div className="h-full rounded-full bg-mint-600 transition-[width]" style={{ width: `${pct}%` }} />
       </div>
-      <span className="w-10 text-right text-xs font-semibold text-slate-500">
-        {done}/{total}
-      </span>
+      <span className="w-9 text-right text-xs font-semibold text-slate-500">{pct}%</span>
     </div>
   );
 }
@@ -149,13 +148,60 @@ function StageControl({ checklist, override, forceComplete, onSetStage }) {
   );
 }
 
-function MarkCompleteButton({ onClick }) {
+// canvas-confetti's own "fireworks" recipe — repeated bursts from random
+// spots near the bottom corners over a few seconds, rather than one single
+// pop, so it actually reads as fireworks going off.
+const CONFETTI_COLORS = ["#14d5a3", "#3e8bff", "#00ffe0", "#ffc24b"];
+function fireFireworks() {
+  const duration = 2500;
+  const animationEnd = Date.now() + duration;
+  const randomInRange = (min, max) => Math.random() * (max - min) + min;
+
+  const interval = setInterval(() => {
+    const timeLeft = animationEnd - Date.now();
+    if (timeLeft <= 0) {
+      clearInterval(interval);
+      return;
+    }
+    const particleCount = 50 * (timeLeft / duration);
+    confetti({
+      particleCount,
+      startVelocity: 30,
+      spread: 360,
+      ticks: 60,
+      zIndex: 9999,
+      colors: CONFETTI_COLORS,
+      origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
+    });
+    confetti({
+      particleCount,
+      startVelocity: 30,
+      spread: 360,
+      ticks: 60,
+      zIndex: 9999,
+      colors: CONFETTI_COLORS,
+      origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
+    });
+  }, 250);
+}
+
+// Outlined and quiet at any other progress — once every task is actually
+// checked off, this is the one thing left to do, so it fills in solid to
+// make that obvious instead of staying identical the whole time.
+function MarkCompleteButton({ onClick, ready }) {
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={() => {
+        fireFireworks();
+        onClick();
+      }}
       title="Check everything off and move to Launched Locations"
-      className="inline-flex shrink-0 items-center gap-1 rounded-full border border-go-600/40 px-2.5 py-1 text-[11px] font-semibold text-go-700 transition hover:bg-go-100"
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
+        ready
+          ? "border-go-600 bg-go-600 text-white shadow-sm hover:bg-go-700"
+          : "border-go-600/40 text-go-700 hover:bg-go-100"
+      }`}
     >
       <CheckCheck size={12} /> Complete
     </button>
@@ -821,7 +867,7 @@ function ClientGroupCard({ group, locations, team, open, onToggle, onUpdate, onA
           forceComplete={!editable}
           onSetStage={(n) => onSetStage(primary.id, n)}
         />
-        {editable && <MarkCompleteButton onClick={() => onMarkComplete(primary.id)} />}
+        {editable && <MarkCompleteButton onClick={() => onMarkComplete(primary.id)} ready={total > 0 && done === total} />}
         <AssigneeStrip team={team} ids={assigneeIds} />
       </div>
       <div className="flex flex-wrap items-center gap-1.5 px-5 pb-3">
@@ -898,7 +944,7 @@ function LocationRow({ location, team, open, onToggle, onUpdate, onAddTask, onRe
           forceComplete={!editable}
           onSetStage={(n) => onSetStage(location.id, n)}
         />
-        {editable && <MarkCompleteButton onClick={() => onMarkComplete(location.id)} />}
+        {editable && <MarkCompleteButton onClick={() => onMarkComplete(location.id)} ready={total > 0 && done === total} />}
         <AssigneeStrip team={team} ids={assigneeIds} />
       </div>
       <div className={`grid transition-[grid-template-rows] duration-300 ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
