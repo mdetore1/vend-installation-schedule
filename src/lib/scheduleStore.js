@@ -590,6 +590,7 @@ export function useScheduleStore() {
     if (patch.task !== undefined) row.task = patch.task;
     if (patch.timing !== undefined) row.timing = patch.timing || null;
     if (patch.notes !== undefined) row.notes = patch.notes || null;
+    if (patch.referenceLinks !== undefined) row.links = patch.referenceLinks;
     await supabase.from("checklist_items").update(row).eq("id", itemId);
   }
   async function removeChecklistItem(itemId) {

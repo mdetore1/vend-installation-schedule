@@ -318,6 +318,9 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onMarkNA, onEditNote
 
   const addLink = (link) => onUpdate(item.itemId, { links: [...(item.links || []), link] });
   const removeLink = (idx) => onUpdate(item.itemId, { links: item.links.filter((_, i) => i !== idx) });
+  // Reference links live on the shared template (same as instructions), so
+  // removing one is a template edit — it disappears for every location.
+  const removeReferenceLink = (idx) => onEditNotes({ referenceLinks: item.referenceLinks.filter((_, i) => i !== idx) });
 
   function startEditingInstructions() {
     setInstructionsDraft(item.instructions || "");
@@ -410,15 +413,27 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onMarkNA, onEditNote
             {(item.referenceLinks?.length > 0 || item.links?.length > 0 || onUpdate) && (
               <div className="mt-3 space-y-1.5 border-t border-concrete-200 pt-3">
                 {item.referenceLinks?.map((l, i) => (
-                  <a
-                    key={i}
-                    href={l.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-xs font-semibold text-beacon-700 hover:underline"
-                  >
-                    <ExternalLink size={11} /> {l.label || "Reference link"}
-                  </a>
+                  <div key={i} className="flex items-center gap-1">
+                    <a
+                      href={l.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex min-w-0 items-center gap-1 text-xs font-semibold text-beacon-700 hover:underline"
+                    >
+                      <ExternalLink size={11} className="shrink-0" /> <span className="truncate">{l.label || "Reference link"}</span>
+                    </a>
+                    {onEditNotes && (
+                      <button
+                        type="button"
+                        onClick={() => removeReferenceLink(i)}
+                        aria-label="Remove reference link"
+                        title="Remove — updates this task for every location"
+                        className="shrink-0 text-beacon-700/50 hover:text-alert-600"
+                      >
+                        <X size={11} />
+                      </button>
+                    )}
+                  </div>
                 ))}
                 <LinkChips links={item.links} onRemove={removeLink} />
                 <AddLinkControl onAdd={addLink} />
