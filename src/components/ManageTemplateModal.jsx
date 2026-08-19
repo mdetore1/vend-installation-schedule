@@ -1,12 +1,69 @@
 import { useState } from "react";
-import { Pencil, Plus, Trash2, X } from "lucide-react";
+import { ExternalLink, Pencil, Plus, Trash2, X } from "lucide-react";
 import { TextInput } from "./fields";
 import { STAGES } from "../lib/checklistUtils";
+
+// A "link" here covers both a reference hyperlink and an attachment — this
+// app has no file storage set up, so an attachment is just a link to a file
+// hosted elsewhere (Google Drive, Dropbox, etc.) rather than an upload.
+function AddLinkForm({ onAdd }) {
+  const [open, setOpen] = useState(false);
+  const [label, setLabel] = useState("");
+  const [url, setUrl] = useState("");
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 transition hover:text-vend-black"
+      >
+        <Plus size={11} /> Add link or attachment
+      </button>
+    );
+  }
+
+  function submit() {
+    if (!url.trim()) return;
+    onAdd({ label: label.trim(), url: url.trim() });
+    setLabel("");
+    setUrl("");
+    setOpen(false);
+  }
+
+  return (
+    <div className="space-y-1.5 rounded-lg border border-concrete-200 bg-concrete-100/40 p-2">
+      <TextInput autoFocus value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Label (optional)" className="!py-1.5 !text-xs" />
+      <TextInput value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" className="!py-1.5 !text-xs" />
+      <div className="flex justify-end gap-1.5">
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-500 hover:bg-white"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={submit}
+          disabled={!url.trim()}
+          className="rounded-full bg-vend-black px-2.5 py-1 text-[11px] font-semibold text-white transition disabled:opacity-40"
+        >
+          Add
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function TemplateTaskRow({ item, onUpdate, onRemove }) {
   const [editing, setEditing] = useState(false);
   const [task, setTask] = useState(item.task);
   const [timing, setTiming] = useState(item.timing || "");
+
+  const links = item.referenceLinks || [];
+  const addLink = (link) => onUpdate({ referenceLinks: [...links, link] });
+  const removeLink = (idx) => onUpdate({ referenceLinks: links.filter((_, i) => i !== idx) });
 
   function startEdit() {
     setTask(item.task);
@@ -45,31 +102,56 @@ function TemplateTaskRow({ item, onUpdate, onRemove }) {
   }
 
   return (
-    <div className="flex items-start gap-2 rounded-lg border border-concrete-200 bg-white px-3 py-2">
-      <div className="min-w-0 flex-1">
-        <p className="text-sm text-vend-black">{item.task}</p>
-        {item.timing && (
-          <span className="mt-1 inline-block rounded-full bg-concrete-200 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
-            {item.timing}
-          </span>
-        )}
+    <div className="rounded-lg border border-concrete-200 bg-white px-3 py-2">
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm text-vend-black">{item.task}</p>
+          {item.timing && (
+            <span className="mt-1 inline-block rounded-full bg-concrete-200 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+              {item.timing}
+            </span>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={startEdit}
+          aria-label="Edit task"
+          className="shrink-0 rounded-full p-1 text-slate-300 transition hover:bg-concrete-100 hover:text-vend-black"
+        >
+          <Pencil size={13} />
+        </button>
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label="Delete task"
+          className="shrink-0 rounded-full p-1 text-slate-300 transition hover:bg-alert-100 hover:text-alert-600"
+        >
+          <Trash2 size={13} />
+        </button>
       </div>
-      <button
-        type="button"
-        onClick={startEdit}
-        aria-label="Edit task"
-        className="shrink-0 rounded-full p-1 text-slate-300 transition hover:bg-concrete-100 hover:text-vend-black"
-      >
-        <Pencil size={13} />
-      </button>
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label="Delete task"
-        className="shrink-0 rounded-full p-1 text-slate-300 transition hover:bg-alert-100 hover:text-alert-600"
-      >
-        <Trash2 size={13} />
-      </button>
+      <div className="mt-2 space-y-1.5 border-t border-concrete-100 pt-2">
+        {links.map((l, i) => (
+          <div key={i} className="flex items-center gap-1">
+            <a
+              href={l.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex min-w-0 items-center gap-1 text-xs font-semibold text-beacon-700 hover:underline"
+            >
+              <ExternalLink size={11} className="shrink-0" /> <span className="truncate">{l.label || l.url}</span>
+            </a>
+            <button
+              type="button"
+              onClick={() => removeLink(i)}
+              aria-label="Remove link"
+              className="shrink-0 text-beacon-700/50 hover:text-alert-600"
+            >
+              <X size={11} />
+            </button>
+          </div>
+        ))}
+        <AddLinkForm onAdd={addLink} />
+      </div>
     </div>
   );
 }

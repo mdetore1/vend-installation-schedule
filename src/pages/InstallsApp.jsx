@@ -13,12 +13,6 @@ const TABS = [
   { id: "dashboard", label: "Dashboard" },
 ];
 
-// The Onboarding Dashboard's edit/delete rights are scoped tighter than the
-// app's general admin role — only these two can edit there for now,
-// regardless of who else holds the admin role for the Installation
-// Schedule/Map.
-const DASHBOARD_EDITORS = ["mdetore@vendpark.io", "asayed@vendpark.io"];
-
 export default function InstallsApp() {
   const auth = useAuth();
   const [view, setView] = useState("schedule");
@@ -44,7 +38,11 @@ export default function InstallsApp() {
     return <PendingScreen email={auth.profile?.email || auth.session.user.email} onLogout={auth.logout} />;
   }
 
-  const isDashboardAdmin = DASHBOARD_EDITORS.includes((auth.profile?.email || auth.session.user.email || "").toLowerCase());
+  // The Onboarding Dashboard's edit/delete rights (including Manage
+  // Template) are scoped tighter than the app's general admin role — only
+  // Super Admins can edit there, regardless of who else holds the regular
+  // admin role for the Installation Schedule/Map.
+  const isDashboardAdmin = auth.isSuperAdmin;
   const needsAttentionCount = auth.users.filter((u) => u.role === "pending" || u.admin_requested).length;
 
   return (
@@ -67,7 +65,7 @@ export default function InstallsApp() {
         </div>
         <div className="ml-auto flex items-center gap-2">
           <span className="mr-1 text-xs font-semibold text-slate-400">
-            {auth.profile.display_name} · {auth.isAdmin ? "Admin" : "Viewer"}
+            {auth.profile.display_name} · {auth.isSuperAdmin ? "Super Admin" : auth.isAdmin ? "Admin" : "Viewer"}
             {!auth.isAdmin &&
               (auth.profile.admin_requested ? (
                 <span className="ml-1.5 text-slate-300">(admin requested)</span>
@@ -135,6 +133,7 @@ export default function InstallsApp() {
         onCreateLogin={auth.createLogin}
         onResetPassword={auth.resetPassword}
         onDismissAdminRequest={auth.dismissAdminRequest}
+        onSetSuperAdmin={auth.setSuperAdmin}
       />
     </div>
   );

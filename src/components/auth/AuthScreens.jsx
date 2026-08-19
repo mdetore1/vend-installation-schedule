@@ -135,6 +135,7 @@ export function ManageUsersModal({
   onCreateLogin,
   onResetPassword,
   onDismissAdminRequest,
+  onSetSuperAdmin,
 }) {
   const [createName, setCreateName] = useState("");
   const [createEmail, setCreateEmail] = useState("");
@@ -266,6 +267,9 @@ export function ManageUsersModal({
                       Requested admin
                     </span>
                   )}
+                  {u.is_super_admin && (
+                    <span className="rounded-full bg-vend-black px-2 py-0.5 text-[10px] font-semibold text-white">Super Admin</span>
+                  )}
                   {u.role !== "pending" && (
                     <span className="rounded-full bg-concrete-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
                       {u.role === "admin" ? "Admin" : "Viewer"}
@@ -319,6 +323,16 @@ export function ManageUsersModal({
                     >
                       Make {u.role === "admin" ? "viewer" : "admin"}
                     </button>
+                    {currentUser?.is_super_admin && (
+                      <button
+                        type="button"
+                        onClick={() => onSetSuperAdmin(u.id, !u.is_super_admin)}
+                        className="text-xs font-semibold text-slate-500 hover:text-vend-black"
+                        title="Grants access to the Dashboard's Manage Template screen"
+                      >
+                        {u.is_super_admin ? "Remove Super Admin" : "Make Super Admin"}
+                      </button>
+                    )}
                     {u.id !== currentUser?.id && (
                       <button
                         type="button"

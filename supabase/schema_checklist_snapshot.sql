@@ -73,3 +73,11 @@ alter table locations add column if not exists sales_person_id uuid references t
 -- only from Manage Template). Set = a one-off task added from inside that
 -- single location's own checklist — invisible to every other location.
 alter table checklist_items add column if not exists location_id uuid references locations(id) on delete cascade;
+
+-- A tier above the regular Admin role — currently just gates the
+-- Dashboard's "Manage Template" screen (adding/deleting stages, categories,
+-- and tasks in the shared onboarding checklist). Backfills Matt and
+-- Abdullah as the first two Super Admins; anyone else can be granted it
+-- later from Manage Users.
+alter table profiles add column if not exists is_super_admin boolean not null default false;
+update profiles set is_super_admin = true where lower(email) in ('mdetore@vendpark.io', 'asayed@vendpark.io');

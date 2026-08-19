@@ -163,6 +163,14 @@ export function useAuth() {
     await supabase.from("profiles").update({ admin_requested: false }).eq("id", id);
   }
 
+  // A tier above the regular Admin role — currently just gates the
+  // Dashboard's Manage Template screen. Only an existing Super Admin can
+  // grant or revoke it (enforced in the Manage Users UI, not RLS — same
+  // trust model this app already uses for isDashboardAdmin).
+  async function setSuperAdmin(id, value) {
+    await supabase.from("profiles").update({ is_super_admin: value }).eq("id", id);
+  }
+
   // There's no client-safe way to delete an auth account (that needs the
   // service_role key, which must never reach the browser) — revoking access
   // by demoting back to "pending" is the safe equivalent.
@@ -177,6 +185,7 @@ export function useAuth() {
     users,
     needsPasswordSet,
     isAdmin: profile?.role === "admin",
+    isSuperAdmin: profile?.is_super_admin === true,
     isPending: !!profile && profile.role === "pending",
     isApproved: profile?.role === "admin" || profile?.role === "viewer",
     login,
@@ -189,5 +198,6 @@ export function useAuth() {
     resetPassword,
     requestAdmin,
     dismissAdminRequest,
+    setSuperAdmin,
   };
 }
