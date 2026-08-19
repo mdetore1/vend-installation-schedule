@@ -257,7 +257,7 @@ export default function PhaseBar({
           dragMode ? "cursor-grabbing" : "cursor-grab"
         } ${phase.done ? "opacity-50 line-through" : ""} ${dimmed ? "opacity-25" : ""} ${
           selected ? "ring-2 ring-beacon ring-offset-2" : ""
-        }`}
+        } ${externalLabel ? "justify-center" : ""}`}
         style={barStyle}
         onPointerDown={(e) => beginDrag(e, "move")}
         onPointerMove={onPointerMove}

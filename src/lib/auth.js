@@ -1,7 +1,8 @@
 // Real authentication via Supabase Auth + row-level security — replaces the
-// old localStorage-only login. New sign-ups land in "pending" (zero data
-// access, enforced by the database's RLS policies, not just the UI) until
-// an admin promotes them to viewer or admin from Manage Users.
+// old localStorage-only login. There's no self-service sign-up (this
+// project doesn't have outbound email configured, so a confirmation-link
+// flow would just leave people stuck) — an admin creates every login from
+// Manage Users instead, which hands back a password directly.
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
@@ -83,25 +84,6 @@ export function useAuth() {
       supabase.removeChannel(channel);
     };
   }, [profile]);
-
-  async function signUp(email, password, displayName) {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { display_name: displayName || email.split("@")[0] },
-        // Sends the confirmation link back to wherever someone actually
-        // signed up from (production, a preview deploy, or local dev)
-        // instead of whatever Supabase's dashboard "Site URL" happens to be
-        // set to. Supabase still requires this exact origin to be on the
-        // Auth settings' Redirect URLs allow-list.
-        emailRedirectTo: window.location.origin,
-      },
-    });
-    if (error) return { ok: false, error: error.message };
-    if (!data.session) return { ok: true, needsConfirmation: true };
-    return { ok: true };
-  }
 
   async function login(email, password) {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -197,7 +179,6 @@ export function useAuth() {
     isAdmin: profile?.role === "admin",
     isPending: !!profile && profile.role === "pending",
     isApproved: profile?.role === "admin" || profile?.role === "viewer",
-    signUp,
     login,
     logout,
     updatePassword,

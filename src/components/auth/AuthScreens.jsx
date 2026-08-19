@@ -18,87 +18,43 @@ function AuthShell({ title, subtitle, children }) {
   );
 }
 
-export function AuthForm({ onSignUp, onLogin }) {
-  const [mode, setMode] = useState("login"); // "login" | "signup"
+// No self-service sign-up — this project has no outbound email configured,
+// so a confirmation-link flow would just strand people. An admin creates
+// every login from Manage Users instead (see ManageUsersModal below), which
+// hands back a password directly instead of emailing anything.
+export function AuthForm({ onLogin }) {
   const [email, setEmail] = useState("");
-  const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function submit(e) {
     e.preventDefault();
     setError("");
-    setNotice("");
     setBusy(true);
-    if (mode === "signup") {
-      const res = await onSignUp(email, password, displayName);
-      setBusy(false);
-      if (!res.ok) {
-        setError(res.error);
-        return;
-      }
-      if (res.needsConfirmation) {
-        setNotice("Check your email for a confirmation link before logging in.");
-        return;
-      }
-      setNotice("Account created — an admin needs to approve you before you'll see any data.");
-    } else {
-      const res = await onLogin(email, password);
-      setBusy(false);
-      if (!res.ok) setError(res.error);
-    }
+    const res = await onLogin(email, password);
+    setBusy(false);
+    if (!res.ok) setError(res.error);
   }
 
   return (
-    <AuthShell
-      title={mode === "login" ? "Log in" : "Create an account"}
-      subtitle={
-        mode === "login"
-          ? "Vend Installation Schedule"
-          : "You'll land in view-only limbo until an admin approves your account — that's expected."
-      }
-    >
+    <AuthShell title="Log in" subtitle="Vend Installation Schedule">
       <form onSubmit={submit} className="space-y-3">
-        {mode === "signup" && (
-          <Field label="Your name">
-            <TextInput autoFocus value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="e.g. Cerel Munoz" />
-          </Field>
-        )}
         <Field label="Work email">
-          <TextInput
-            type="email"
-            autoFocus={mode === "login"}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@vendpark.io"
-          />
+          <TextInput autoFocus type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@vendpark.io" />
         </Field>
         <Field label="Password">
           <TextInput type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </Field>
         {error && <p className="text-xs font-semibold text-alert-600">{error}</p>}
-        {notice && <p className="text-xs font-semibold text-go-700">{notice}</p>}
         <button
           type="submit"
           disabled={busy}
           className="w-full rounded-full bg-vend-black px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
         >
-          {mode === "login" ? "Log in" : "Create account"}
+          Log in
         </button>
       </form>
-      <button
-        type="button"
-        onClick={() => {
-          setMode((m) => (m === "login" ? "signup" : "login"));
-          setError("");
-          setNotice("");
-        }}
-        className="mt-4 w-full text-center text-xs font-semibold text-slate-400 hover:text-vend-black"
-      >
-        {mode === "login" ? "New here? Create an account" : "Already have an account? Log in"}
-      </button>
     </AuthShell>
   );
 }

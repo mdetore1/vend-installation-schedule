@@ -37,15 +37,15 @@ export default function InstallsApp() {
   }
 
   if (!auth.session) {
-    return <AuthForm onSignUp={auth.signUp} onLogin={auth.login} />;
+    return <AuthForm onLogin={auth.login} />;
   }
 
   if (auth.isPending) {
     return <PendingScreen email={auth.profile?.email || auth.session.user.email} onLogout={auth.logout} />;
   }
 
-  const needsAttentionCount = auth.users.filter((u) => u.role === "pending" || u.admin_requested).length;
   const isDashboardAdmin = DASHBOARD_EDITORS.includes((auth.profile?.email || auth.session.user.email || "").toLowerCase());
+  const needsAttentionCount = auth.users.filter((u) => u.role === "pending" || u.admin_requested).length;
 
   return (
     <div className="flex h-screen flex-col bg-concrete-100/50">
