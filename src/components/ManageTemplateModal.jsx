@@ -1,5 +1,6 @@
-import { useRef, useState } from "react";
-import { ExternalLink, Paperclip, Pencil, Plus, Trash2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Reorder, useDragControls } from "framer-motion";
+import { ExternalLink, GripVertical, Paperclip, Pencil, Plus, Trash2, X } from "lucide-react";
 import { TextInput } from "./fields";
 import { STAGES } from "../lib/checklistUtils";
 import { supabase } from "../lib/supabaseClient";
@@ -105,7 +106,7 @@ function AddAttachmentForm({ onAdd }) {
   );
 }
 
-function TemplateTaskRow({ item, onUpdate, onRemove }) {
+function TemplateTaskRow({ item, onUpdate, onRemove, dragControls }) {
   const [editing, setEditing] = useState(false);
   const [task, setTask] = useState(item.task);
   const [timing, setTiming] = useState(item.timing || "");
@@ -157,6 +158,14 @@ function TemplateTaskRow({ item, onUpdate, onRemove }) {
   return (
     <div className="rounded-lg border border-concrete-200 bg-white px-3 py-2">
       <div className="flex items-start gap-2">
+        {dragControls && (
+          <span
+            onPointerDown={(e) => dragControls.start(e)}
+            className="mt-1 shrink-0 cursor-grab touch-none text-slate-300 hover:text-slate-500"
+          >
+            <GripVertical size={14} />
+          </span>
+        )}
         <div className="min-w-0 flex-1">
           <p className="text-sm text-vend-black">{item.task}</p>
           {item.timing && (
@@ -231,6 +240,70 @@ function TemplateTaskRow({ item, onUpdate, onRemove }) {
         <AddAttachmentForm onAdd={addAttachment} />
       </div>
     </div>
+  );
+}
+
+function TaskDragItem({ item, onUpdate, onRemove, onDragEnd }) {
+  const controls = useDragControls();
+  return (
+    <Reorder.Item as="div" value={item} dragListener={false} dragControls={controls} onDragEnd={onDragEnd}>
+      <TemplateTaskRow item={item} onUpdate={onUpdate} onRemove={onRemove} dragControls={controls} />
+    </Reorder.Item>
+  );
+}
+
+// Local drag order, decoupled from the live template data while a drag is
+// in flight — same fix as Manage Team's drag-to-reorder: Framer Motion's
+// Reorder.Group fires onReorder continuously as the dragged row crosses
+// each sibling, not just once on drop, so persisting on every one of those
+// (and having a realtime refetch replace the array mid-gesture) is what
+// makes dragging feel sticky. This commits to the database only once, when
+// the drag actually ends.
+function CategoryTaskList({ stageN, category, items, onReorderTasks, onUpdateTask, onRemoveTask }) {
+  const [localOrder, setLocalOrder] = useState(items);
+  const localOrderRef = useRef(localOrder);
+  const isDraggingRef = useRef(false);
+
+  useEffect(() => {
+    localOrderRef.current = localOrder;
+  }, [localOrder]);
+
+  useEffect(() => {
+    if (isDraggingRef.current) return;
+    setLocalOrder(items);
+  }, [items]);
+
+  function handleDragEnd() {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    onReorderTasks(
+      stageN,
+      category,
+      localOrderRef.current.map((t) => t.id)
+    );
+  }
+
+  return (
+    <Reorder.Group
+      as="div"
+      axis="y"
+      values={localOrder}
+      onReorder={(next) => {
+        isDraggingRef.current = true;
+        setLocalOrder(next);
+      }}
+      className="space-y-1.5"
+    >
+      {localOrder.map((item) => (
+        <TaskDragItem
+          key={item.id}
+          item={item}
+          onUpdate={(patch) => onUpdateTask(item.id, patch)}
+          onRemove={() => onRemoveTask(item)}
+          onDragEnd={handleDragEnd}
+        />
+      ))}
+    </Reorder.Group>
   );
 }
 
@@ -337,7 +410,7 @@ function AddCategoryForm({ onAdd }) {
   );
 }
 
-export default function ManageTemplateModal({ open, onClose, checklistTemplate, onAddTask, onUpdateTask, onRemoveTask, onRemoveCategory }) {
+export default function ManageTemplateModal({ open, onClose, checklistTemplate, onAddTask, onUpdateTask, onRemoveTask, onRemoveCategory, onReorderTasks }) {
   if (!open) return null;
 
   // Location-only tasks (added from inside a single location's own
@@ -391,18 +464,16 @@ export default function ManageTemplateModal({ open, onClose, checklistTemplate, 
                           </button>
                         </div>
                       )}
-                      <div className="space-y-1.5">
-                        {items.map((item) => (
-                          <TemplateTaskRow
-                            key={item.id}
-                            item={item}
-                            onUpdate={(patch) => onUpdateTask(item.id, patch)}
-                            onRemove={() => {
-                              if (window.confirm(`Delete "${item.task}"? This removes it from every location.`)) onRemoveTask(item.id);
-                            }}
-                          />
-                        ))}
-                      </div>
+                      <CategoryTaskList
+                        stageN={stage.n}
+                        category={cat}
+                        items={items}
+                        onReorderTasks={onReorderTasks}
+                        onUpdateTask={onUpdateTask}
+                        onRemoveTask={(item) => {
+                          if (window.confirm(`Delete "${item.task}"? This removes it from every location.`)) onRemoveTask(item.id);
+                        }}
+                      />
                       <div className="mt-2">
                         <AddTaskForm onAdd={(fields) => onAddTask({ stage: stage.n, category: cat || null, ...fields })} />
                       </div>
