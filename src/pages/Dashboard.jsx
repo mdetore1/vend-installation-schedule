@@ -359,11 +359,11 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, reorder
               value={item.assigneeId}
               onChange={(e) => onUpdate(item.itemId, { assigneeId: e.target.value })}
               options={[{ value: UNASSIGNED, label: "Unassigned" }, ...team.map((t) => ({ value: t.id, label: t.name }))]}
-              className="!w-auto !rounded-full !border-concrete-200 !bg-concrete-100 !py-1 !pl-2.5 !pr-7 !text-[11px] !font-semibold !text-slate-500"
+              className="!w-auto !rounded-full !border-0 !bg-concrete-200 !py-0.5 !pl-2 !pr-6 !text-[10px] !font-semibold !text-slate-500"
             />
           </div>
 
-          <div className="mt-2.5 rounded-lg bg-concrete-100/60 p-4">
+          <div className="mt-2 rounded-lg border border-concrete-200 bg-concrete-100/30 p-3.5">
             {editingInstructions ? (
               <div className="space-y-2">
                 <Textarea
@@ -411,8 +411,8 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, reorder
                 )}
               </div>
             )}
-            {(item.referenceLinks?.length > 0 || item.links?.length > 0 || onUpdate) && (
-              <div className="mt-3 space-y-1.5 border-t border-concrete-200 pt-3">
+            {(item.referenceLinks?.length > 0 || item.links?.length > 0) && (
+              <div className="mt-2.5 space-y-1.5 border-t border-concrete-200 pt-2.5">
                 {item.referenceLinks?.map((l, i) => (
                   <div key={i} className="flex items-center gap-1">
                     <a
@@ -437,9 +437,9 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, reorder
                   </div>
                 ))}
                 <LinkChips links={item.links} onRemove={removeLink} />
-                <AddLinkControl onAdd={addLink} />
               </div>
             )}
+            <AddLinkControl onAdd={addLink} />
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
