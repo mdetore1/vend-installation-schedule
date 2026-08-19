@@ -1038,7 +1038,7 @@ function LocationRow({ location, team, open, onToggle, onUpdate, onAddTask, onRe
           : undefined
       }
     >
-      <div className="relative flex w-full items-center gap-4 px-5 py-4 transition hover:bg-concrete-100/40">
+      <div className="flex w-full items-center gap-4 px-5 py-4 transition hover:bg-concrete-100/40">
         <button type="button" onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-4 text-left">
           <ChevronRight size={16} className={`shrink-0 text-slate-400 transition-transform ${open ? "rotate-90" : ""}`} />
           <div className="min-w-0 flex-1">
@@ -1049,10 +1049,6 @@ function LocationRow({ location, team, open, onToggle, onUpdate, onAddTask, onRe
                 <span className="shrink-0 rounded-full bg-mint-200 px-2 py-0.5 text-[10px] font-bold text-mint-700">Spark</span>
               )}
               <CalendarHighlightBadge highlight={highlight} />
-            </div>
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              <DatePill icon={Calendar} label="Install" start={install?.start} end={install?.end} />
-              <DatePill icon={Rocket} label="Go Live" start={golive?.start} end={golive?.end} />
             </div>
           </div>
         </button>
@@ -1066,8 +1062,12 @@ function LocationRow({ location, team, open, onToggle, onUpdate, onAddTask, onRe
         {editable && <MarkCompleteButton onClick={() => onMarkComplete(location.id)} ready={total > 0 && done === total} />}
         <AssigneeStrip team={team} ids={assigneeIds} />
         {editable && <OnHoldControl onHold={location.onHold} onSetOnHold={(v) => onSetOnHold(location.id, v)} />}
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5 px-5 pb-3">
+        <DatePill icon={Calendar} label="Install" start={install?.start} end={install?.end} />
+        <DatePill icon={Rocket} label="Go Live" start={golive?.start} end={golive?.end} />
         {team.find((t) => t.id === location.salesPersonId) && (
-          <span className="pointer-events-none absolute bottom-1 right-5 text-[10px] font-medium text-slate-400">
+          <span className="ml-auto text-[10px] font-medium text-slate-400">
             {team.find((t) => t.id === location.salesPersonId).name}
           </span>
         )}
