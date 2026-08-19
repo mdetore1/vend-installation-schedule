@@ -311,7 +311,7 @@ function MarkAllButton({ items, onUpdate }) {
   );
 }
 
-function ChecklistTaskRow({ item, team, onUpdate, onRemove, onMarkNA, onEditNotes, reorderable }) {
+function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, reorderable }) {
   const [editingInstructions, setEditingInstructions] = useState(false);
   const [instructionsDraft, setInstructionsDraft] = useState(item.instructions || "");
   const controls = useDragControls();
@@ -442,22 +442,16 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onMarkNA, onEditNote
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          {onMarkNA && (
-            <button
-              type="button"
-              onClick={onMarkNA}
-              title="Not applicable to this location — hides it here only, other locations are unaffected"
-              className="rounded-full border border-concrete-300 px-2 py-1 text-[10px] font-semibold text-slate-400 transition hover:border-slate-400 hover:text-slate-600"
-            >
-              N/A
-            </button>
-          )}
           {onRemove && (
             <button
               type="button"
               onClick={onRemove}
-              title="Delete this task from the template for every location"
-              aria-label="Delete task"
+              title={
+                item.locationId
+                  ? "Delete this task — it only exists at this location"
+                  : "Remove this task from this location only — other locations are unaffected"
+              }
+              aria-label="Remove task"
               className="rounded-full p-1 text-slate-300 transition hover:bg-alert-100 hover:text-alert-600"
             >
               <Trash2 size={14} />
@@ -537,7 +531,7 @@ function AddTaskRow({ onAdd }) {
 // Onboarding, auto-opening "the current one" just meant something was
 // always expanded whether you wanted it or not. Now every category starts
 // closed and you pick which one to look into.
-function CategoryGroup({ category, items, team, onUpdate, editable, onAddTask, onRemoveTask, onMarkNA, onEditNotes, onReorderTasks, reorderable: categoryReorderable, open, onToggle, forceFlat }) {
+function CategoryGroup({ category, items, team, onUpdate, editable, onAddTask, onRemoveTask, onEditNotes, onReorderTasks, reorderable: categoryReorderable, open, onToggle, forceFlat }) {
   const controls = useDragControls();
   const done = items.filter((i) => i.done).length;
   const complete = items.length > 0 && done === items.length;
@@ -554,7 +548,6 @@ function CategoryGroup({ category, items, team, onUpdate, editable, onAddTask, o
               team={team}
               onUpdate={onUpdate}
               onRemove={editable ? () => onRemoveTask(item) : null}
-              onMarkNA={editable ? () => onMarkNA(item) : null}
               onEditNotes={editable ? (patch) => onEditNotes(item, patch) : null}
               reorderable
             />
@@ -568,7 +561,6 @@ function CategoryGroup({ category, items, team, onUpdate, editable, onAddTask, o
             team={team}
             onUpdate={onUpdate}
             onRemove={editable ? () => onRemoveTask(item) : null}
-            onMarkNA={editable ? () => onMarkNA(item) : null}
             onEditNotes={editable ? (patch) => onEditNotes(item, patch) : null}
           />
         ))
@@ -629,7 +621,7 @@ function CategoryGroup({ category, items, team, onUpdate, editable, onAddTask, o
   return <div className="overflow-hidden rounded-lg border border-concrete-200">{content}</div>;
 }
 
-function StageAccordion({ stage, categories, open, onToggle, team, onUpdate, editable, onAddTask, onRemoveTask, onMarkNA, onEditNotes, onReorderCategories, onReorderTasks }) {
+function StageAccordion({ stage, categories, open, onToggle, team, onUpdate, editable, onAddTask, onRemoveTask, onEditNotes, onReorderCategories, onReorderTasks }) {
   const items = categories.flatMap(([, its]) => its);
   const done = items.filter((i) => i.done).length;
   const complete = items.length > 0 && done === items.length;
@@ -653,7 +645,6 @@ function StageAccordion({ stage, categories, open, onToggle, team, onUpdate, edi
       editable={editable}
       onAddTask={(fields) => onAddTask({ stage: stage.n, category: cat || null, ...fields })}
       onRemoveTask={onRemoveTask}
-      onMarkNA={onMarkNA}
       onEditNotes={onEditNotes}
       onReorderTasks={(newOrder) => onReorderTasks(stage.n, cat, newOrder)}
       reorderable={reorderable}
@@ -704,7 +695,7 @@ function StageAccordion({ stage, categories, open, onToggle, team, onUpdate, edi
   );
 }
 
-function ChecklistSection({ location, team, onUpdate, editable, onAddTask, onRemoveTask, onMarkNA, onEditNotes, onReorderCategories, onReorderTasks }) {
+function ChecklistSection({ location, team, onUpdate, editable, onAddTask, onRemoveTask, onEditNotes, onReorderCategories, onReorderTasks }) {
   // The stage accordion still auto-opens to wherever the location currently
   // is (that part wasn't the complaint) — only one stage stays open at a
   // time now, same single-open accordion behavior as the categories inside
@@ -743,7 +734,6 @@ function ChecklistSection({ location, team, onUpdate, editable, onAddTask, onRem
           editable={editable}
           onAddTask={onAddTask}
           onRemoveTask={onRemoveTask}
-          onMarkNA={onMarkNA}
           onEditNotes={onEditNotes}
           onReorderCategories={onReorderCategories}
           onReorderTasks={onReorderTasks}
@@ -917,7 +907,7 @@ function ManageLocationGroupsModal({ open, onClose, groups, locations, onCreateG
 // members already had their own independent progress before being grouped,
 // only the primary's counts carry forward — that's an accepted tradeoff of
 // merging N separate checklists into one.
-function ClientGroupCard({ group, locations, team, open, onToggle, onUpdate, onAddTask, onRemoveTask, onMarkNA, onEditNotes, onSetStage, onMarkComplete, onSetOnHold, onReorderCategories, onReorderTasks }) {
+function ClientGroupCard({ group, locations, team, open, onToggle, onUpdate, onAddTask, onRemoveTask, onEditNotes, onSetStage, onMarkComplete, onSetOnHold, onReorderCategories, onReorderTasks }) {
   const [showMembers, setShowMembers] = useState(false);
   const primary = locations[0];
   const editable = !primary.archived;
@@ -1003,9 +993,8 @@ function ClientGroupCard({ group, locations, team, open, onToggle, onUpdate, onA
             team={team}
             onUpdate={(itemId, patch) => onUpdate(primary.id, itemId, patch)}
             editable={editable}
-            onAddTask={onAddTask}
-            onRemoveTask={onRemoveTask}
-            onMarkNA={(item) => onMarkNA(primary.id, item)}
+            onAddTask={(fields) => onAddTask({ ...fields, locationId: primary.id })}
+            onRemoveTask={(item) => onRemoveTask(primary.id, item)}
             onEditNotes={onEditNotes}
             onReorderCategories={onReorderCategories}
             onReorderTasks={onReorderTasks}
@@ -1016,7 +1005,7 @@ function ClientGroupCard({ group, locations, team, open, onToggle, onUpdate, onA
   );
 }
 
-function LocationRow({ location, team, open, onToggle, onUpdate, onAddTask, onRemoveTask, onMarkNA, onEditNotes, onSetStage, onMarkComplete, onSetOnHold, onReorderCategories, onReorderTasks }) {
+function LocationRow({ location, team, open, onToggle, onUpdate, onAddTask, onRemoveTask, onEditNotes, onSetStage, onMarkComplete, onSetOnHold, onReorderCategories, onReorderTasks }) {
   const editable = !location.archived;
   const highlight = editable && !location.onHold ? calendarPhaseHighlight(location.phases) : null;
   const rawSummary = summarizeChecklist(location.checklist);
@@ -1083,9 +1072,8 @@ function LocationRow({ location, team, open, onToggle, onUpdate, onAddTask, onRe
             team={team}
             onUpdate={(itemId, patch) => onUpdate(location.id, itemId, patch)}
             editable={editable}
-            onAddTask={onAddTask}
-            onRemoveTask={onRemoveTask}
-            onMarkNA={(item) => onMarkNA(location.id, item)}
+            onAddTask={(fields) => onAddTask({ ...fields, locationId: location.id })}
+            onRemoveTask={(item) => onRemoveTask(location.id, item)}
             onEditNotes={onEditNotes}
             onReorderCategories={onReorderCategories}
             onReorderTasks={onReorderTasks}
@@ -1129,23 +1117,24 @@ export default function Dashboard({ isAdmin = true }) {
     });
   };
 
-  async function removeChecklistItem(item) {
+  // A location-only task (item.locationId set) never existed anywhere else,
+  // so removing it is a plain delete. A shared template task instead gets
+  // excluded just for this one location (checklist_progress.excluded) —
+  // the shared checklist_items row, and every other location's copy of it,
+  // is untouched. Editing the template itself now only happens from Manage
+  // Template.
+  async function removeTaskForLocation(locationId, item) {
     if (!isAdmin) return denyWrite();
-    await store.removeChecklistItem(item.itemId);
-    setUndoAction({ label: `Deleted "${item.task}"`, run: () => store.restoreChecklistItem(item) });
-  }
-
-  // Marking a task N/A only hides it for that one location (via
-  // checklist_progress.excluded) — it does NOT touch the shared
-  // checklist_items template, unlike the Delete button above which removes
-  // it for every location. Undo just flips the flag back.
-  async function markNAChecklistItem(locationId, item) {
-    if (!isAdmin) return denyWrite();
-    await store.updateChecklistItem(locationId, item.itemId, { excluded: true });
-    setUndoAction({
-      label: `Marked "${item.task}" N/A`,
-      run: () => store.updateChecklistItem(locationId, item.itemId, { excluded: false }),
-    });
+    if (item.locationId) {
+      await store.removeChecklistItem(item.itemId);
+      setUndoAction({ label: `Deleted "${item.task}"`, run: () => store.restoreChecklistItem(item) });
+    } else {
+      await store.updateChecklistItem(locationId, item.itemId, { excluded: true });
+      setUndoAction({
+        label: `Removed "${item.task}" from this location`,
+        run: () => store.updateChecklistItem(locationId, item.itemId, { excluded: false }),
+      });
+    }
   }
 
   async function runUndo() {
@@ -1191,8 +1180,7 @@ export default function Dashboard({ isAdmin = true }) {
     team: data.team,
     onUpdate: updateChecklistItem,
     onAddTask: addChecklistItem,
-    onRemoveTask: removeChecklistItem,
-    onMarkNA: markNAChecklistItem,
+    onRemoveTask: removeTaskForLocation,
     onEditNotes: (item, patch) => updateChecklistTemplateItem(item.itemId, patch),
     onSetStage: setStageOverride,
     onSetOnHold: setOnHold,

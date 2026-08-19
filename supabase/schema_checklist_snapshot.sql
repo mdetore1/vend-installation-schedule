@@ -68,3 +68,8 @@ alter table team_members add column if not exists department text not null defau
 -- colored bubble beside the city tag (Dashboard + calendar) using that
 -- person's own color, same convention as phase owners.
 alter table locations add column if not exists sales_person_id uuid references team_members(id) on delete set null;
+
+-- Null = shared template task (every non-archived location gets it, edited
+-- only from Manage Template). Set = a one-off task added from inside that
+-- single location's own checklist — invisible to every other location.
+alter table checklist_items add column if not exists location_id uuid references locations(id) on delete cascade;

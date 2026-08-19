@@ -117,6 +117,9 @@ export function useScheduleStore() {
         .filter((o) => o.team_member_id === t.id)
         .map((o) => ({ id: o.id, start: o.start_date, end: o.end_date, reason: o.reason || "" })),
     }));
+    // location_id null = shared template item (every non-archived location
+    // gets it, edited only from Manage Template); set = a one-off task added
+    // from inside that single location's own checklist, invisible elsewhere.
     const checklistTemplate = templateRows
       .map((t) => ({
         id: t.id,
@@ -128,6 +131,7 @@ export function useScheduleStore() {
         referenceLinks: t.links || [],
         defaultOwnerRole: t.default_owner_role || "",
         sortOrder: t.sort_order,
+        locationId: t.location_id || null,
       }))
       .sort((a, b) => a.sortOrder - b.sortOrder);
     const locations = locationRows.map((l) => {
@@ -173,13 +177,14 @@ export function useScheduleStore() {
           l.archived && l.checklist_snapshot
             ? l.checklist_snapshot
             : checklistTemplate
+                .filter((item) => !item.locationId || item.locationId === l.id)
                 .map((item) => {
                   const p = progressRows.find((r) => r.location_id === l.id && r.checklist_item_id === item.id);
-                  // checklist_progress.excluded can hide a task for just one
-                  // location without touching the shared template — not
-                  // currently exposed via the UI (deleting a task removes it
-                  // from the template for everyone instead), but supported
-                  // here in case that's wanted again later.
+                  // checklist_progress.excluded hides a shared template task
+                  // for just this one location, without touching it for
+                  // anyone else — how the per-location Delete button removes
+                  // a shared task (a location-only task is just deleted
+                  // outright instead, since it never existed anywhere else).
                   if (p?.excluded) return null;
                   return {
                     itemId: item.id,
@@ -190,6 +195,7 @@ export function useScheduleStore() {
                     instructions: item.notes,
                     referenceLinks: item.referenceLinks,
                     sortOrder: item.sortOrder,
+                    locationId: item.locationId,
                     done: p?.done ?? false,
                     assigneeId: p?.assignee_id || defaultAssigneeForRole(item.defaultOwnerRole, locPhases) || UNASSIGNED,
                     locationNotes: p?.notes || "",
@@ -570,7 +576,10 @@ export function useScheduleStore() {
 
   // ---- checklist template (affects every non-archived location live —
   // archived locations are frozen via checklist_snapshot and never see this) ----
-  async function addChecklistItem({ stage, category, task, timing, notes }) {
+  // locationId, when passed, scopes the new task to just that one location
+  // instead of adding it to the shared template for everyone — how the
+  // per-location "Add task" row works, as opposed to Manage Template's.
+  async function addChecklistItem({ stage, category, task, timing, notes, locationId }) {
     const maxOrder = templateRows.reduce((max, t) => Math.max(max, t.sort_order ?? 0), -1) + 1;
     const { error } = await supabase.from("checklist_items").insert({
       stage,
@@ -579,8 +588,18 @@ export function useScheduleStore() {
       timing: timing || null,
       notes: notes || null,
       sort_order: maxOrder,
+      location_id: locationId || null,
     });
     if (error) window.alert(`Couldn't add the task: ${error.message}`);
+  }
+  // Bulk-removes every shared-template task in one stage+category — used by
+  // Manage Template to delete a whole category at once. Never touches a
+  // location-only task (those aren't part of "the template").
+  async function removeChecklistCategory(stageN, category) {
+    const ids = templateRows
+      .filter((t) => t.stage === stageN && (t.category || "") === (category || "") && !t.location_id)
+      .map((t) => t.id);
+    if (ids.length) await supabase.from("checklist_items").delete().in("id", ids);
   }
   // Edits the shared template's own instructions text for a task — unlike
   // updateChecklistItem above (per-location progress), this changes what
@@ -610,6 +629,7 @@ export function useScheduleStore() {
       notes: item.instructions || null,
       links: item.referenceLinks || [],
       sort_order: item.sortOrder ?? 0,
+      location_id: item.locationId || null,
     });
   }
 
@@ -680,6 +700,7 @@ export function useScheduleStore() {
     addChecklistItem,
     updateChecklistTemplateItem,
     removeChecklistItem,
+    removeChecklistCategory,
     restoreChecklistItem,
     reorderChecklistCategories,
     reorderChecklistTasks,
