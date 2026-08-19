@@ -31,7 +31,13 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
 
   return (
     <div className="overflow-hidden rounded-2xl border border-concrete-200 bg-white shadow-sm transition hover:border-concrete-300">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3">
+      <div
+        className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3 cursor-pointer"
+        onClick={(e) => {
+          if (e.target.closest("input, button, a")) return;
+          setExpanded((v) => !v);
+        }}
+      >
         <span
           className={`h-2 w-2 shrink-0 rounded-full ${isClosedWon ? "bg-go" : "bg-caution"}`}
           title={item.contractState || "In Progress"}
