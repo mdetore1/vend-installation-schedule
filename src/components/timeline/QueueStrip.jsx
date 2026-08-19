@@ -19,7 +19,7 @@ function FieldMini({ label, children }) {
 
 function Chip({ children }) {
   return (
-    <span className="shrink-0 truncate rounded-full bg-concrete-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+    <span className="shrink-0 truncate rounded-full bg-concrete-200 px-2.5 py-1 text-[11px] font-semibold text-slate-500">
       {children}
     </span>
   );
@@ -30,8 +30,8 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
   const isClosedWon = item.contractState === "Closed Won";
 
   return (
-    <div className="overflow-hidden rounded-xl border border-concrete-200 bg-white transition hover:border-concrete-300">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3.5 py-2.5">
+    <div className="overflow-hidden rounded-2xl border border-concrete-200 bg-white shadow-sm transition hover:border-concrete-300">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3">
         <span
           className={`h-2 w-2 shrink-0 rounded-full ${isClosedWon ? "bg-go" : "bg-caution"}`}
           title={item.contractState || "In Progress"}
@@ -40,7 +40,7 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
         <input
           value={item.name}
           onChange={(e) => onUpdate({ name: e.target.value })}
-          className="w-32 shrink-0 truncate rounded border border-transparent bg-transparent text-sm font-bold text-vend-black outline-none transition focus:border-concrete-300 focus:bg-concrete-100/50 sm:w-40"
+          className="w-32 shrink-0 truncate rounded border border-transparent bg-transparent font-display text-[15px] font-bold text-vend-black outline-none transition focus:border-concrete-300 focus:bg-concrete-100/50 sm:w-40"
         />
 
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
@@ -51,17 +51,21 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
           )}
           {item.accessType && <Chip>{item.accessType}</Chip>}
           {!!item.lanes && <Chip>{item.lanes} lanes</Chip>}
-          {item.salesRep && <Chip>{item.salesRep}</Chip>}
+          {item.salesRep && (
+            <span className="shrink-0 truncate rounded-full bg-beacon-100 px-2.5 py-1 text-[11px] font-semibold text-beacon-700">
+              {item.salesRep}
+            </span>
+          )}
           {item.propertyManagement && <Chip>PM: {item.propertyManagement}</Chip>}
           {item.ownership && <Chip>Owner: {item.ownership}</Chip>}
           {item.potentialGoLiveDate && <Chip>Go-live: {formatShort(parseDate(item.potentialGoLiveDate))}</Chip>}
           {item.hasOnsiteStaff && (
-            <span className="shrink-0 rounded-full bg-mint-200 px-2 py-0.5 text-[10px] font-bold text-mint-700">Spark</span>
+            <span className="shrink-0 rounded-full bg-mint-200 px-2.5 py-1 text-[11px] font-bold text-mint-700">Spark</span>
           )}
         </div>
 
         <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+          className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${
             isClosedWon ? "bg-go-100 text-go-700" : "bg-caution-100 text-caution-700"
           }`}
         >
