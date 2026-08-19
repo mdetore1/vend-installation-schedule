@@ -353,6 +353,9 @@ function MarkAllButton({ items, onUpdate }) {
 function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, reorderable }) {
   const [editingInstructions, setEditingInstructions] = useState(false);
   const [instructionsDraft, setInstructionsDraft] = useState(item.instructions || "");
+  // Done tasks collapse by default (see below) — expanded lets you click
+  // back into one to review or edit what's already checked off.
+  const [expanded, setExpanded] = useState(false);
   const controls = useDragControls();
 
   const addLink = (link) => onUpdate(item.itemId, { links: [...(item.links || []), link] });
@@ -389,10 +392,11 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, reorder
     </button>
   );
 
-  // Done tasks collapse to a single quiet line — once a checklist is mostly
-  // checked off, expanding every finished task's notes/links just buries
-  // what's still open underneath a wall of scroll.
-  const rowContent = item.done ? (
+  // Done tasks collapse to a single quiet line by default — once a
+  // checklist is mostly checked off, expanding every finished task's
+  // notes/links just buries what's still open underneath a wall of
+  // scroll — but clicking one back open still shows everything.
+  const rowContent = item.done && !expanded ? (
     <div className="flex items-center gap-3 rounded-2xl border border-concrete-200 bg-concrete-100/30 px-4 py-2.5">
       {reorderable && (
         <span
@@ -403,11 +407,20 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, reorder
         </span>
       )}
       <Checkbox checked={item.done} onChange={(v) => onUpdate(item.itemId, { done: v })} />
-      <span className="min-w-0 flex-1 truncate text-sm text-slate-400 line-through">{item.task}</span>
+      <button
+        type="button"
+        onClick={() => setExpanded(true)}
+        className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+      >
+        <span className="min-w-0 flex-1 truncate text-sm text-slate-400 line-through">{item.task}</span>
+        <ChevronRight size={13} className="shrink-0 text-slate-300" />
+      </button>
       {removeButton}
     </div>
   ) : (
-    <div className="rounded-2xl border border-concrete-200 bg-white px-4 py-4 shadow-sm transition">
+    <div
+      className={`rounded-2xl border border-concrete-200 px-4 py-4 transition ${item.done ? "bg-concrete-100/30" : "bg-white shadow-sm"}`}
+    >
       <div className="flex items-start gap-3">
         {reorderable && (
           <span
@@ -419,7 +432,21 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, reorder
         )}
         <Checkbox checked={item.done} onChange={(v) => onUpdate(item.itemId, { done: v })} />
         <div className="min-w-0 flex-1">
-          <span className="block font-display text-[15px] font-bold text-vend-black">{item.task}</span>
+          {item.done ? (
+            <button
+              type="button"
+              onClick={() => setExpanded(false)}
+              className="flex w-full items-center gap-1.5 text-left"
+              title="Collapse"
+            >
+              <span className="min-w-0 flex-1 truncate font-display text-[15px] font-bold text-slate-400 line-through">
+                {item.task}
+              </span>
+              <ChevronDown size={13} className="shrink-0 text-slate-300" />
+            </button>
+          ) : (
+            <span className="block font-display text-[15px] font-bold text-vend-black">{item.task}</span>
+          )}
 
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             {item.timing && (
@@ -464,22 +491,28 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, reorder
                 </div>
               </div>
             ) : (
-              <div className="group/instructions relative">
+              <div
+                className={`group/instructions relative rounded-lg ${onEditNotes ? "-m-1.5 cursor-text p-1.5 transition hover:bg-white/70" : ""}`}
+                onClick={
+                  onEditNotes
+                    ? (e) => {
+                        if (e.target.closest("a")) return;
+                        startEditingInstructions();
+                      }
+                    : undefined
+                }
+                title={onEditNotes ? "Click to edit — updates this task's notes for every location" : undefined}
+              >
                 {item.instructions ? (
                   <p className="whitespace-pre-wrap pr-7 text-sm leading-relaxed text-slate-600">{linkify(item.instructions)}</p>
                 ) : (
-                  onEditNotes && <p className="pr-7 text-sm italic text-slate-300">No notes yet — click edit to add some.</p>
+                  onEditNotes && <p className="pr-7 text-sm italic text-slate-300">No notes yet — click to add some.</p>
                 )}
                 {onEditNotes && (
-                  <button
-                    type="button"
-                    onClick={startEditingInstructions}
-                    title="Edit — updates this task's notes for every location"
-                    aria-label="Edit notes"
-                    className="absolute right-0 top-0 rounded-full p-1.5 text-slate-300 opacity-0 transition hover:bg-white hover:text-vend-black group-hover/instructions:opacity-100"
-                  >
-                    <Pencil size={13} />
-                  </button>
+                  <Pencil
+                    size={13}
+                    className="absolute right-1.5 top-1.5 text-slate-300 opacity-0 transition group-hover/instructions:opacity-100"
+                  />
                 )}
               </div>
             )}
