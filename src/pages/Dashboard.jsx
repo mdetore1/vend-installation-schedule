@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import confetti from "canvas-confetti";
 import { Reorder, useDragControls } from "framer-motion";
 import { Calendar, Check, CheckCheck, ChevronDown, ChevronRight, ExternalLink, GripVertical, Layers, PauseCircle, Pencil, Plus, Rocket, Trash2, X } from "lucide-react";
@@ -312,15 +312,9 @@ function MarkAllButton({ items, onUpdate }) {
 }
 
 function ChecklistTaskRow({ item, team, onUpdate, onRemove, onMarkNA, onEditNotes, reorderable }) {
-  const [notes, setNotes] = useState(item.locationNotes);
   const [editingInstructions, setEditingInstructions] = useState(false);
   const [instructionsDraft, setInstructionsDraft] = useState(item.instructions || "");
   const controls = useDragControls();
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- resyncing local draft when a realtime update changes the committed value
-    setNotes(item.locationNotes);
-  }, [item.locationNotes]);
 
   const addLink = (link) => onUpdate(item.itemId, { links: [...(item.links || []), link] });
   const removeLink = (idx) => onUpdate(item.itemId, { links: item.links.filter((_, i) => i !== idx) });
@@ -347,94 +341,89 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onMarkNA, onEditNote
         )}
         <Checkbox checked={item.done} onChange={(v) => onUpdate(item.itemId, { done: v })} />
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className={`text-sm font-medium ${item.done ? "text-slate-400 line-through" : "text-vend-black"}`}>
-              {item.task}
-            </span>
+          <span className={`block text-sm font-medium ${item.done ? "text-slate-400 line-through" : "text-vend-black"}`}>
+            {item.task}
+          </span>
+
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             {item.timing && (
-              <span className="rounded-full bg-concrete-200 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+              <span className="shrink-0 rounded-full bg-concrete-200 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
                 {item.timing}
               </span>
             )}
+            <Select
+              value={item.assigneeId}
+              onChange={(e) => onUpdate(item.itemId, { assigneeId: e.target.value })}
+              options={[{ value: UNASSIGNED, label: "Unassigned" }, ...team.map((t) => ({ value: t.id, label: t.name }))]}
+              className="!w-auto !rounded-full !border-concrete-200 !bg-concrete-100 !py-1 !pl-2.5 !pr-7 !text-[11px] !font-semibold !text-slate-500"
+            />
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <div className="w-44">
-              <Select
-                value={item.assigneeId}
-                onChange={(e) => onUpdate(item.itemId, { assigneeId: e.target.value })}
-                options={[{ value: UNASSIGNED, label: "Unassigned" }, ...team.map((t) => ({ value: t.id, label: t.name }))]}
-              />
-            </div>
-          </div>
-          <div className="mt-2 space-y-2 rounded-lg bg-concrete-100/60 p-3">
+
+          <div className="mt-2.5 rounded-lg bg-concrete-100/60 p-4">
             {editingInstructions ? (
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <Textarea
                   autoFocus
                   value={instructionsDraft}
                   onChange={(e) => setInstructionsDraft(e.target.value)}
-                  placeholder="Instructions for this task…"
-                  className="!text-xs"
-                  rows={4}
+                  placeholder="Notes for this task…"
+                  className="!text-sm"
+                  rows={8}
                 />
                 <div className="flex justify-end gap-1.5">
                   <button
                     type="button"
                     onClick={() => setEditingInstructions(false)}
-                    className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-500 hover:bg-white"
+                    className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-white"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={saveInstructions}
-                    className="rounded-full bg-vend-black px-2.5 py-1 text-[11px] font-semibold text-white hover:opacity-90"
+                    className="rounded-full bg-vend-black px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
                   >
                     Save
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="group/instructions flex items-start gap-1.5">
+              <div className="group/instructions relative">
                 {item.instructions ? (
-                  <p className="min-w-0 flex-1 whitespace-pre-wrap text-xs text-slate-500">{linkify(item.instructions)}</p>
+                  <p className="whitespace-pre-wrap pr-7 text-sm leading-relaxed text-slate-600">{linkify(item.instructions)}</p>
                 ) : (
-                  onEditNotes && <p className="min-w-0 flex-1 text-xs italic text-slate-300">No instructions yet.</p>
+                  onEditNotes && <p className="pr-7 text-sm italic text-slate-300">No notes yet — click edit to add some.</p>
                 )}
                 {onEditNotes && (
                   <button
                     type="button"
                     onClick={startEditingInstructions}
-                    title="Edit instructions — changes for every location"
-                    aria-label="Edit instructions"
-                    className="shrink-0 rounded-full p-1 text-slate-300 opacity-0 transition hover:bg-white hover:text-vend-black group-hover/instructions:opacity-100"
+                    title="Edit — updates this task's notes for every location"
+                    aria-label="Edit notes"
+                    className="absolute right-0 top-0 rounded-full p-1.5 text-slate-300 opacity-0 transition hover:bg-white hover:text-vend-black group-hover/instructions:opacity-100"
                   >
-                    <Pencil size={12} />
+                    <Pencil size={13} />
                   </button>
                 )}
               </div>
             )}
-            {item.referenceLinks?.map((l, i) => (
-              <a
-                key={i}
-                href={l.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 text-xs font-semibold text-beacon-700 hover:underline"
-              >
-                <ExternalLink size={11} /> {l.label || "Reference link"}
-              </a>
-            ))}
-            <LinkChips links={item.links} onRemove={removeLink} />
-            <AddLinkControl onAdd={addLink} />
-            <TextInput
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              onBlur={() => {
-                if (notes !== item.locationNotes) onUpdate(item.itemId, { notes });
-              }}
-              placeholder="Add a note…"
-            />
+            {(item.referenceLinks?.length > 0 || item.links?.length > 0 || onUpdate) && (
+              <div className="mt-3 space-y-1.5 border-t border-concrete-200 pt-3">
+                {item.referenceLinks?.map((l, i) => (
+                  <a
+                    key={i}
+                    href={l.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-xs font-semibold text-beacon-700 hover:underline"
+                  >
+                    <ExternalLink size={11} /> {l.label || "Reference link"}
+                  </a>
+                ))}
+                <LinkChips links={item.links} onRemove={removeLink} />
+                <AddLinkControl onAdd={addLink} />
+              </div>
+            )}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
