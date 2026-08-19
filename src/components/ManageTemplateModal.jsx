@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Reorder, useDragControls } from "framer-motion";
 import { ExternalLink, GripVertical, Paperclip, Pencil, Plus, Trash2, X } from "lucide-react";
-import { TextInput } from "./fields";
+import { TextInput, Textarea } from "./fields";
 import { STAGES } from "../lib/checklistUtils";
 import { supabase } from "../lib/supabaseClient";
 
@@ -110,6 +110,7 @@ function TemplateTaskRow({ item, onUpdate, onRemove, dragControls }) {
   const [editing, setEditing] = useState(false);
   const [task, setTask] = useState(item.task);
   const [timing, setTiming] = useState(item.timing || "");
+  const [notes, setNotes] = useState(item.notes || "");
 
   const links = item.referenceLinks || [];
   const addLink = (link) => onUpdate({ referenceLinks: [...links, link] });
@@ -122,11 +123,12 @@ function TemplateTaskRow({ item, onUpdate, onRemove, dragControls }) {
   function startEdit() {
     setTask(item.task);
     setTiming(item.timing || "");
+    setNotes(item.notes || "");
     setEditing(true);
   }
   function save() {
     if (!task.trim()) return;
-    onUpdate({ task: task.trim(), timing: timing.trim() });
+    onUpdate({ task: task.trim(), timing: timing.trim(), notes: notes.trim() });
     setEditing(false);
   }
 
@@ -135,6 +137,7 @@ function TemplateTaskRow({ item, onUpdate, onRemove, dragControls }) {
       <div className="space-y-1.5 rounded-lg border border-concrete-200 bg-white p-2.5">
         <TextInput autoFocus value={task} onChange={(e) => setTask(e.target.value)} placeholder="Task" />
         <TextInput value={timing} onChange={(e) => setTiming(e.target.value)} placeholder="Timing (optional)" />
+        <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes for this task…" rows={6} className="!text-xs" />
         <div className="flex justify-end gap-1.5">
           <button
             type="button"
@@ -173,6 +176,7 @@ function TemplateTaskRow({ item, onUpdate, onRemove, dragControls }) {
               {item.timing}
             </span>
           )}
+          {item.notes && <p className="mt-1.5 whitespace-pre-wrap text-xs text-slate-500">{item.notes}</p>}
         </div>
         <button
           type="button"
