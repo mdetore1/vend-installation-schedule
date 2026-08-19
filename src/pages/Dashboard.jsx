@@ -1060,6 +1060,11 @@ function ClientGroupCard({ group, locations, team, open, onToggle, onUpdate, onA
         {goliveRanges.map((p) => (
           <DatePill key={`golive-${p.start}-${p.end}`} icon={Rocket} label="Go Live" start={p.start} end={p.end} />
         ))}
+        {team.find((t) => t.id === primary.salesPersonId) && (
+          <span className="ml-auto text-[10px] font-medium text-slate-400">
+            {team.find((t) => t.id === primary.salesPersonId).name}
+          </span>
+        )}
       </div>
       {showMembers && (
         <div className="flex flex-wrap items-center gap-1.5 px-5 pb-3">
