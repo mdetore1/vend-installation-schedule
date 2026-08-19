@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Reorder, useDragControls } from "framer-motion";
-import { ExternalLink, GripVertical, Paperclip, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ExternalLink, GripVertical, Paperclip, Plus, Trash2, X } from "lucide-react";
 import { TextInput, Textarea } from "./fields";
 import { STAGES } from "../lib/checklistUtils";
 import { uploadAttachment } from "../lib/attachments";
@@ -124,22 +124,22 @@ function TemplateTaskRow({ item, onUpdate, onRemove, dragControls }) {
 
   if (editing) {
     return (
-      <div className="space-y-1.5 rounded-lg border border-concrete-200 bg-white p-2.5">
+      <div className="space-y-2 rounded-2xl border border-concrete-200 bg-white p-4">
         <TextInput autoFocus value={task} onChange={(e) => setTask(e.target.value)} placeholder="Task" />
         <TextInput value={timing} onChange={(e) => setTiming(e.target.value)} placeholder="Timing (optional)" />
-        <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes for this task…" rows={6} className="!text-xs" />
+        <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes for this task…" rows={6} className="!text-sm" />
         <div className="flex justify-end gap-1.5">
           <button
             type="button"
             onClick={() => setEditing(false)}
-            className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-500 hover:bg-concrete-100"
+            className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-concrete-100"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={save}
-            className="rounded-full bg-vend-black px-2.5 py-1 text-[11px] font-semibold text-white hover:opacity-90"
+            className="rounded-full bg-vend-black px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
           >
             Save
           </button>
@@ -149,8 +149,8 @@ function TemplateTaskRow({ item, onUpdate, onRemove, dragControls }) {
   }
 
   return (
-    <div className="rounded-lg border border-concrete-200 bg-white px-3 py-2">
-      <div className="flex items-start gap-2">
+    <div className="rounded-2xl border border-concrete-200 bg-white px-4 py-4 shadow-sm transition">
+      <div className="flex items-start gap-3">
         {dragControls && (
           <span
             onPointerDown={(e) => dragControls.start(e)}
@@ -159,79 +159,86 @@ function TemplateTaskRow({ item, onUpdate, onRemove, dragControls }) {
             <GripVertical size={14} />
           </span>
         )}
-        <div className="min-w-0 flex-1">
-          <p className="text-sm text-vend-black">{item.task}</p>
+        <div
+          className="min-w-0 flex-1 cursor-text"
+          title="Click to edit — updates this task for every location"
+          onClick={(e) => {
+            if (e.target.closest("a, button, input, textarea")) return;
+            startEdit();
+          }}
+        >
+          <span className="block font-display text-[15px] font-bold text-vend-black">{item.task}</span>
           {item.timing && (
-            <span className="mt-1 inline-block rounded-full bg-concrete-200 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+            <span className="mt-2 inline-block shrink-0 rounded-full bg-concrete-200 px-2.5 py-1 text-[11px] font-semibold text-slate-500">
               {item.timing}
             </span>
           )}
-          {item.notes && <p className="mt-1.5 whitespace-pre-wrap text-xs text-slate-500">{item.notes}</p>}
+
+          <div className="mt-3.5 rounded-xl bg-concrete-100/50 px-4 py-4">
+            {item.notes ? (
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-600">{item.notes}</p>
+            ) : (
+              <p className="text-sm italic text-slate-300">No notes yet — click to add some.</p>
+            )}
+            {(links.length > 0 || attachments.length > 0) && (
+              <div className="mt-3 space-y-1.5 border-t border-concrete-200/70 pt-3">
+                {links.map((l, i) => (
+                  <div key={i} className="flex items-center gap-1">
+                    <a
+                      href={l.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex min-w-0 items-center gap-1 text-xs font-semibold text-beacon-700 hover:underline"
+                    >
+                      <ExternalLink size={11} className="shrink-0" /> <span className="truncate">{l.label || l.url}</span>
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => removeLink(i)}
+                      aria-label="Remove link"
+                      className="shrink-0 text-beacon-700/50 hover:text-alert-600"
+                    >
+                      <X size={11} />
+                    </button>
+                  </div>
+                ))}
+                {attachments.map((a, i) => (
+                  <div key={i} className="flex items-center gap-1">
+                    <a
+                      href={a.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex min-w-0 items-center gap-1 text-xs font-semibold text-mint-700 hover:underline"
+                    >
+                      <Paperclip size={11} className="shrink-0" /> <span className="truncate">{a.label || a.url}</span>
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(i)}
+                      aria-label="Remove attachment"
+                      className="shrink-0 text-mint-700/50 hover:text-alert-600"
+                    >
+                      <X size={11} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="mt-2.5 flex items-center gap-4">
+            <AddLinkForm onAdd={addLink} />
+            <AddAttachmentForm onAdd={addAttachment} />
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={startEdit}
-          aria-label="Edit task"
-          className="shrink-0 rounded-full p-1 text-slate-300 transition hover:bg-concrete-100 hover:text-vend-black"
-        >
-          <Pencil size={13} />
-        </button>
         <button
           type="button"
           onClick={onRemove}
           aria-label="Delete task"
           className="shrink-0 rounded-full p-1 text-slate-300 transition hover:bg-alert-100 hover:text-alert-600"
         >
-          <Trash2 size={13} />
+          <Trash2 size={14} />
         </button>
-      </div>
-      <div className="mt-2 space-y-1.5 border-t border-concrete-100 pt-2">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Links</p>
-        {links.map((l, i) => (
-          <div key={i} className="flex items-center gap-1">
-            <a
-              href={l.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex min-w-0 items-center gap-1 text-xs font-semibold text-beacon-700 hover:underline"
-            >
-              <ExternalLink size={11} className="shrink-0" /> <span className="truncate">{l.label || l.url}</span>
-            </a>
-            <button
-              type="button"
-              onClick={() => removeLink(i)}
-              aria-label="Remove link"
-              className="shrink-0 text-beacon-700/50 hover:text-alert-600"
-            >
-              <X size={11} />
-            </button>
-          </div>
-        ))}
-        <AddLinkForm onAdd={addLink} />
-      </div>
-      <div className="mt-2.5 space-y-1.5 border-t border-concrete-100 pt-2">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Attachments</p>
-        {attachments.map((a, i) => (
-          <div key={i} className="flex items-center gap-1">
-            <a
-              href={a.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex min-w-0 items-center gap-1 text-xs font-semibold text-mint-700 hover:underline"
-            >
-              <Paperclip size={11} className="shrink-0" /> <span className="truncate">{a.label || a.url}</span>
-            </a>
-            <button
-              type="button"
-              onClick={() => removeAttachment(i)}
-              aria-label="Remove attachment"
-              className="shrink-0 text-mint-700/50 hover:text-alert-600"
-            >
-              <X size={11} />
-            </button>
-          </div>
-        ))}
-        <AddAttachmentForm onAdd={addAttachment} />
       </div>
     </div>
   );
