@@ -1,10 +1,8 @@
 import { useState } from "react";
-import { LogOut, ListChecks, Users } from "lucide-react";
+import { LogOut, Users } from "lucide-react";
 import { VendMark } from "../components/Logo";
 import { useAuth } from "../lib/auth";
-import { useScheduleStore } from "../lib/scheduleStore";
 import { AuthForm, PendingScreen, ManageUsersModal, SetPasswordScreen } from "../components/auth/AuthScreens";
-import ManageTemplateModal from "../components/ManageTemplateModal";
 import ProjectTracker from "./ProjectTracker";
 import LocationsMap from "../components/globe/LocationsMap";
 import Dashboard from "./Dashboard";
@@ -23,10 +21,8 @@ const DASHBOARD_EDITORS = ["mdetore@vendpark.io", "asayed@vendpark.io"];
 
 export default function InstallsApp() {
   const auth = useAuth();
-  const templateStore = useScheduleStore();
   const [view, setView] = useState("schedule");
   const [showUsers, setShowUsers] = useState(false);
-  const [showManageTemplate, setShowManageTemplate] = useState(false);
 
   if (auth.loading) {
     return (
@@ -100,16 +96,6 @@ export default function InstallsApp() {
               )}
             </button>
           )}
-          {isDashboardAdmin && (
-            <button
-              type="button"
-              onClick={() => setShowManageTemplate(true)}
-              title="Add or delete stages/categories/tasks in the shared onboarding checklist"
-              className="inline-flex items-center gap-1.5 rounded-full border border-concrete-300 px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-vend-black hover:text-vend-black"
-            >
-              <ListChecks size={13} /> Manage Template
-            </button>
-          )}
           <button
             type="button"
             onClick={auth.logout}
@@ -149,16 +135,6 @@ export default function InstallsApp() {
         onCreateLogin={auth.createLogin}
         onResetPassword={auth.resetPassword}
         onDismissAdminRequest={auth.dismissAdminRequest}
-      />
-
-      <ManageTemplateModal
-        open={showManageTemplate}
-        onClose={() => setShowManageTemplate(false)}
-        checklistTemplate={templateStore.data.checklistTemplate}
-        onAddTask={templateStore.addChecklistItem}
-        onUpdateTask={templateStore.updateChecklistTemplateItem}
-        onRemoveTask={templateStore.removeChecklistItem}
-        onRemoveCategory={templateStore.removeChecklistCategory}
       />
     </div>
   );

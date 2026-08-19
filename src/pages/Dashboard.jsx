@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
 import confetti from "canvas-confetti";
 import { Reorder, useDragControls } from "framer-motion";
-import { Calendar, Check, CheckCheck, ChevronDown, ChevronRight, ExternalLink, GripVertical, Layers, PauseCircle, Pencil, Plus, Rocket, Trash2, X } from "lucide-react";
+import { Calendar, Check, CheckCheck, ChevronDown, ChevronRight, ExternalLink, GripVertical, Layers, ListChecks, PauseCircle, Pencil, Plus, Rocket, Trash2, X } from "lucide-react";
 import { useScheduleStore } from "../lib/scheduleStore";
 import { useMapStore } from "../lib/mapStore";
 import { canonPhaseLabel, formatDateRange, UNASSIGNED, calendarPhaseHighlight, latestScheduleDate } from "../lib/dateUtils";
 import { STAGES, STAGE_STYLES, stageByNumber, summarizeChecklist, effectiveStage } from "../lib/checklistUtils";
 import { Checkbox, Field, Select, TextInput, Textarea } from "../components/fields";
+import ManageTemplateModal from "../components/ManageTemplateModal";
 
 function markAllDone(items, onUpdate) {
   items.filter((i) => !i.done).forEach((i) => onUpdate(i.itemId, { done: true }));
@@ -1104,6 +1105,7 @@ export default function Dashboard({ isAdmin = true }) {
   const [expanded, setExpanded] = useState(() => new Set());
   const [launchedOpen, setLaunchedOpen] = useState(false);
   const [showGroups, setShowGroups] = useState(false);
+  const [showManageTemplate, setShowManageTemplate] = useState(false);
   // A single-slot "undo my last action" for deleted template tasks — matches
   // the pattern already used for phases/locations/teammates elsewhere.
   const [undoAction, setUndoAction] = useState(null);
@@ -1199,13 +1201,22 @@ export default function Dashboard({ isAdmin = true }) {
           </p>
         </div>
         {isAdmin && (
-          <button
-            type="button"
-            onClick={() => setShowGroups(true)}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-concrete-300 px-3.5 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-vend-black hover:text-vend-black"
-          >
-            <Layers size={13} /> Group locations
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowManageTemplate(true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-concrete-300 px-3.5 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-vend-black hover:text-vend-black"
+            >
+              <ListChecks size={13} /> Manage Template
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowGroups(true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-concrete-300 px-3.5 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-vend-black hover:text-vend-black"
+            >
+              <Layers size={13} /> Group locations
+            </button>
+          </div>
         )}
       </div>
 
@@ -1277,6 +1288,16 @@ export default function Dashboard({ isAdmin = true }) {
         onCreateGroup={createGroup}
         onUpdateGroup={updateGroup}
         onDeleteGroup={deleteGroup}
+      />
+
+      <ManageTemplateModal
+        open={showManageTemplate}
+        onClose={() => setShowManageTemplate(false)}
+        checklistTemplate={data.checklistTemplate}
+        onAddTask={addChecklistItem}
+        onUpdateTask={updateChecklistTemplateItem}
+        onRemoveTask={store.removeChecklistItem}
+        onRemoveCategory={store.removeChecklistCategory}
       />
 
       {undoAction && (
