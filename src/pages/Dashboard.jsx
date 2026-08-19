@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import confetti from "canvas-confetti";
 import { Reorder, useDragControls } from "framer-motion";
-import { Calendar, Check, CheckCheck, ChevronDown, ChevronRight, ExternalLink, GripVertical, Layers, ListChecks, PauseCircle, Pencil, Plus, Rocket, Trash2, X } from "lucide-react";
+import { Calendar, Check, CheckCheck, ChevronDown, ChevronRight, ExternalLink, GripVertical, Layers, ListChecks, Paperclip, PauseCircle, Pencil, Plus, Rocket, Trash2, X } from "lucide-react";
 import { useScheduleStore } from "../lib/scheduleStore";
 import { useMapStore } from "../lib/mapStore";
+import { uploadAttachment } from "../lib/attachments";
 import { canonPhaseLabel, formatDateRange, UNASSIGNED, calendarPhaseHighlight, latestScheduleDate } from "../lib/dateUtils";
 import { STAGES, STAGE_STYLES, stageByNumber, summarizeChecklist, effectiveStage } from "../lib/checklistUtils";
 import { Checkbox, Field, Select, TextInput, Textarea } from "../components/fields";
@@ -67,7 +68,7 @@ function AddLinkControl({ onAdd }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-vend-black"
+        className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-vend-black"
       >
         <Plus size={11} /> Add link
       </button>
@@ -83,7 +84,7 @@ function AddLinkControl({ onAdd }) {
   };
 
   return (
-    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-1.5">
       <TextInput autoFocus value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Label (optional)" className="w-32" />
       <TextInput value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" className="min-w-[160px] flex-1" />
       <button
@@ -97,6 +98,43 @@ function AddLinkControl({ onAdd }) {
       <button type="button" onClick={() => setOpen(false)} className="text-xs font-semibold text-slate-400 hover:text-vend-black">
         Cancel
       </button>
+    </div>
+  );
+}
+
+function AddAttachmentControl({ onAdd }) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const fileInputRef = useRef(null);
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setError("");
+    setUploading(true);
+    try {
+      const publicUrl = await uploadAttachment(file);
+      onAdd({ label: file.name, url: publicUrl });
+    } catch (err) {
+      setError(err.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div>
+      <input ref={fileInputRef} type="file" onChange={handleFile} className="hidden" />
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={uploading}
+        className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-vend-black disabled:opacity-40"
+      >
+        <Paperclip size={11} /> {uploading ? "Uploading…" : "Add attachment"}
+      </button>
+      {error && <p className="mt-1 text-[11px] font-semibold text-alert-600">{error}</p>}
     </div>
   );
 }
@@ -319,9 +357,12 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, reorder
 
   const addLink = (link) => onUpdate(item.itemId, { links: [...(item.links || []), link] });
   const removeLink = (idx) => onUpdate(item.itemId, { links: item.links.filter((_, i) => i !== idx) });
-  // Reference links live on the shared template (same as instructions), so
-  // removing one is a template edit — it disappears for every location.
+  // Reference links and attachments live on the shared template (same as
+  // instructions), so adding/removing either is a template edit — it
+  // changes for every location.
   const removeReferenceLink = (idx) => onEditNotes({ referenceLinks: item.referenceLinks.filter((_, i) => i !== idx) });
+  const addAttachment = (file) => onEditNotes({ attachments: [...(item.attachments || []), file] });
+  const removeAttachment = (idx) => onEditNotes({ attachments: item.attachments.filter((_, i) => i !== idx) });
 
   function startEditingInstructions() {
     setInstructionsDraft(item.instructions || "");
@@ -332,8 +373,41 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, reorder
     setEditingInstructions(false);
   }
 
-  const rowContent = (
-    <div className={`rounded-lg border px-3.5 py-3 transition ${item.done ? "border-concrete-200 bg-concrete-100/40" : "border-concrete-200 bg-white"}`}>
+  const removeButton = onRemove && (
+    <button
+      type="button"
+      onClick={onRemove}
+      title={
+        item.locationId
+          ? "Delete this task — it only exists at this location"
+          : "Remove this task from this location only — other locations are unaffected"
+      }
+      aria-label="Remove task"
+      className="rounded-full p-1 text-slate-300 transition hover:bg-alert-100 hover:text-alert-600"
+    >
+      <Trash2 size={14} />
+    </button>
+  );
+
+  // Done tasks collapse to a single quiet line — once a checklist is mostly
+  // checked off, expanding every finished task's notes/links just buries
+  // what's still open underneath a wall of scroll.
+  const rowContent = item.done ? (
+    <div className="flex items-center gap-3 rounded-2xl border border-concrete-200 bg-concrete-100/30 px-4 py-2.5">
+      {reorderable && (
+        <span
+          onPointerDown={(e) => controls.start(e)}
+          className="shrink-0 cursor-grab touch-none text-slate-300 hover:text-slate-500"
+        >
+          <GripVertical size={14} />
+        </span>
+      )}
+      <Checkbox checked={item.done} onChange={(v) => onUpdate(item.itemId, { done: v })} />
+      <span className="min-w-0 flex-1 truncate text-sm text-slate-400 line-through">{item.task}</span>
+      {removeButton}
+    </div>
+  ) : (
+    <div className="rounded-2xl border border-concrete-200 bg-white px-4 py-4 shadow-sm transition">
       <div className="flex items-start gap-3">
         {reorderable && (
           <span
@@ -345,13 +419,11 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, reorder
         )}
         <Checkbox checked={item.done} onChange={(v) => onUpdate(item.itemId, { done: v })} />
         <div className="min-w-0 flex-1">
-          <span className={`block text-sm font-medium ${item.done ? "text-slate-400 line-through" : "text-vend-black"}`}>
-            {item.task}
-          </span>
+          <span className="block font-display text-[15px] font-bold text-vend-black">{item.task}</span>
 
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
             {item.timing && (
-              <span className="shrink-0 rounded-full bg-concrete-200 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+              <span className="shrink-0 rounded-full bg-concrete-200 px-2.5 py-1 text-[11px] font-semibold text-slate-500">
                 {item.timing}
               </span>
             )}
@@ -359,11 +431,11 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, reorder
               value={item.assigneeId}
               onChange={(e) => onUpdate(item.itemId, { assigneeId: e.target.value })}
               options={[{ value: UNASSIGNED, label: "Unassigned" }, ...team.map((t) => ({ value: t.id, label: t.name }))]}
-              className="!w-auto !rounded-full !border-0 !bg-concrete-200 !py-0.5 !pl-2 !pr-6 !text-[10px] !font-semibold !text-slate-500"
+              className="!w-auto !rounded-full !border-0 !bg-beacon-100 !py-1 !pl-2.5 !pr-7 !text-[11px] !font-semibold !text-beacon-700"
             />
           </div>
 
-          <div className="mt-2 rounded-lg border border-concrete-200 bg-concrete-100/30 p-3.5">
+          <div className="mt-3.5 rounded-xl bg-concrete-100/50 px-4 py-4">
             {editingInstructions ? (
               <div className="space-y-2">
                 <Textarea
@@ -411,8 +483,8 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, reorder
                 )}
               </div>
             )}
-            {(item.referenceLinks?.length > 0 || item.links?.length > 0) && (
-              <div className="mt-2.5 space-y-1.5 border-t border-concrete-200 pt-2.5">
+            {(item.referenceLinks?.length > 0 || item.links?.length > 0 || item.attachments?.length > 0) && (
+              <div className="mt-3 space-y-1.5 border-t border-concrete-200/70 pt-3">
                 {item.referenceLinks?.map((l, i) => (
                   <div key={i} className="flex items-center gap-1">
                     <a
@@ -436,29 +508,40 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, reorder
                     )}
                   </div>
                 ))}
+                {item.attachments?.map((a, i) => (
+                  <div key={i} className="flex items-center gap-1">
+                    <a
+                      href={a.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex min-w-0 items-center gap-1 text-xs font-semibold text-mint-700 hover:underline"
+                    >
+                      <Paperclip size={11} className="shrink-0" /> <span className="truncate">{a.label || "Attachment"}</span>
+                    </a>
+                    {onEditNotes && (
+                      <button
+                        type="button"
+                        onClick={() => removeAttachment(i)}
+                        aria-label="Remove attachment"
+                        title="Remove — updates this task for every location"
+                        className="shrink-0 text-mint-700/50 hover:text-alert-600"
+                      >
+                        <X size={11} />
+                      </button>
+                    )}
+                  </div>
+                ))}
                 <LinkChips links={item.links} onRemove={removeLink} />
               </div>
             )}
+          </div>
+
+          <div className="mt-2.5 flex items-center gap-4">
             <AddLinkControl onAdd={addLink} />
+            {onEditNotes && <AddAttachmentControl onAdd={addAttachment} />}
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
-          {onRemove && (
-            <button
-              type="button"
-              onClick={onRemove}
-              title={
-                item.locationId
-                  ? "Delete this task — it only exists at this location"
-                  : "Remove this task from this location only — other locations are unaffected"
-              }
-              aria-label="Remove task"
-              className="rounded-full p-1 text-slate-300 transition hover:bg-alert-100 hover:text-alert-600"
-            >
-              <Trash2 size={14} />
-            </button>
-          )}
-        </div>
+        <div className="flex shrink-0 items-center gap-1">{removeButton}</div>
       </div>
     </div>
   );

@@ -3,17 +3,7 @@ import { Reorder, useDragControls } from "framer-motion";
 import { ExternalLink, GripVertical, Paperclip, Pencil, Plus, Trash2, X } from "lucide-react";
 import { TextInput, Textarea } from "./fields";
 import { STAGES } from "../lib/checklistUtils";
-import { supabase } from "../lib/supabaseClient";
-
-// Uploads to the public "task-attachments" bucket under a name that can't
-// collide with another upload, and hands back the file's public URL.
-async function uploadAttachment(file) {
-  const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
-  const path = `${Date.now()}-${safeName}`;
-  const { error } = await supabase.storage.from("task-attachments").upload(path, file);
-  if (error) throw error;
-  return supabase.storage.from("task-attachments").getPublicUrl(path).data.publicUrl;
-}
+import { uploadAttachment } from "../lib/attachments";
 
 // A reference hyperlink — always a pasted URL. Kept as its own list,
 // separate from attachments below.
