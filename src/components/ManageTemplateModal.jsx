@@ -1,15 +1,29 @@
-import { useState } from "react";
-import { ExternalLink, Pencil, Plus, Trash2, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { ExternalLink, Paperclip, Pencil, Plus, Trash2, X } from "lucide-react";
 import { TextInput } from "./fields";
 import { STAGES } from "../lib/checklistUtils";
+import { supabase } from "../lib/supabaseClient";
 
-// A "link" here covers both a reference hyperlink and an attachment — this
-// app has no file storage set up, so an attachment is just a link to a file
-// hosted elsewhere (Google Drive, Dropbox, etc.) rather than an upload.
+// Uploads to the public "task-attachments" bucket under a name that can't
+// collide with another upload, and hands back the file's public URL.
+async function uploadAttachment(file) {
+  const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
+  const path = `${Date.now()}-${safeName}`;
+  const { error } = await supabase.storage.from("task-attachments").upload(path, file);
+  if (error) throw error;
+  return supabase.storage.from("task-attachments").getPublicUrl(path).data.publicUrl;
+}
+
+// A "link" covers both a reference hyperlink (paste a URL) and an
+// attachment (upload a file — PDF, doc, etc. — which just becomes a URL
+// pointing at Supabase Storage once uploaded).
 function AddLinkForm({ onAdd }) {
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState("");
   const [url, setUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const fileInputRef = useRef(null);
 
   if (!open) {
     return (
@@ -23,18 +37,55 @@ function AddLinkForm({ onAdd }) {
     );
   }
 
+  async function handleFile(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setError("");
+    setUploading(true);
+    try {
+      const publicUrl = await uploadAttachment(file);
+      setUrl(publicUrl);
+      if (!label.trim()) setLabel(file.name);
+    } catch (err) {
+      setError(err.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   function submit() {
     if (!url.trim()) return;
     onAdd({ label: label.trim(), url: url.trim() });
     setLabel("");
     setUrl("");
+    setError("");
     setOpen(false);
   }
 
   return (
     <div className="space-y-1.5 rounded-lg border border-concrete-200 bg-concrete-100/40 p-2">
       <TextInput autoFocus value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Label (optional)" className="!py-1.5 !text-xs" />
-      <TextInput value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" className="!py-1.5 !text-xs" />
+      <div className="flex items-center gap-1.5">
+        <TextInput
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://… or upload a file"
+          className="!py-1.5 !text-xs"
+        />
+        <input ref={fileInputRef} type="file" onChange={handleFile} className="hidden" />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          title="Upload a PDF, doc, or other file as an attachment"
+          className="shrink-0 rounded-full border border-concrete-300 p-1.5 text-slate-500 transition hover:border-vend-black hover:text-vend-black disabled:opacity-40"
+        >
+          <Paperclip size={13} />
+        </button>
+      </div>
+      {uploading && <p className="text-[11px] text-slate-400">Uploading…</p>}
+      {error && <p className="text-[11px] font-semibold text-alert-600">{error}</p>}
       <div className="flex justify-end gap-1.5">
         <button
           type="button"
@@ -46,7 +97,7 @@ function AddLinkForm({ onAdd }) {
         <button
           type="button"
           onClick={submit}
-          disabled={!url.trim()}
+          disabled={!url.trim() || uploading}
           className="rounded-full bg-vend-black px-2.5 py-1 text-[11px] font-semibold text-white transition disabled:opacity-40"
         >
           Add

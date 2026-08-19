@@ -81,3 +81,26 @@ alter table checklist_items add column if not exists location_id uuid references
 -- later from Manage Users.
 alter table profiles add column if not exists is_super_admin boolean not null default false;
 update profiles set is_super_admin = true where lower(email) in ('mdetore@vendpark.io', 'asayed@vendpark.io');
+
+-- Storage bucket for uploading real files (PDFs, docs) as task attachments
+-- from Manage Template — public, so the resulting file URL works like any
+-- other reference link. Upload/delete are still restricted; read is public
+-- since the bucket itself is public.
+insert into storage.buckets (id, name, public)
+values ('task-attachments', 'task-attachments', true)
+on conflict (id) do nothing;
+
+drop policy if exists "task attachments viewable by anyone" on storage.objects;
+create policy "task attachments viewable by anyone"
+  on storage.objects for select
+  using (bucket_id = 'task-attachments');
+
+drop policy if exists "task attachments uploadable by approved users" on storage.objects;
+create policy "task attachments uploadable by approved users"
+  on storage.objects for insert
+  with check (bucket_id = 'task-attachments' and is_approved());
+
+drop policy if exists "task attachments deletable by admins" on storage.objects;
+create policy "task attachments deletable by admins"
+  on storage.objects for delete
+  using (bucket_id = 'task-attachments' and is_admin());
