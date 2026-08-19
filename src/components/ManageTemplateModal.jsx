@@ -14,16 +14,12 @@ async function uploadAttachment(file) {
   return supabase.storage.from("task-attachments").getPublicUrl(path).data.publicUrl;
 }
 
-// A "link" covers both a reference hyperlink (paste a URL) and an
-// attachment (upload a file — PDF, doc, etc. — which just becomes a URL
-// pointing at Supabase Storage once uploaded).
+// A reference hyperlink — always a pasted URL. Kept as its own list,
+// separate from attachments below.
 function AddLinkForm({ onAdd }) {
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState("");
   const [url, setUrl] = useState("");
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState("");
-  const fileInputRef = useRef(null);
 
   if (!open) {
     return (
@@ -32,26 +28,9 @@ function AddLinkForm({ onAdd }) {
         onClick={() => setOpen(true)}
         className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 transition hover:text-vend-black"
       >
-        <Plus size={11} /> Add link or attachment
+        <Plus size={11} /> Add link
       </button>
     );
-  }
-
-  async function handleFile(e) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    setError("");
-    setUploading(true);
-    try {
-      const publicUrl = await uploadAttachment(file);
-      setUrl(publicUrl);
-      if (!label.trim()) setLabel(file.name);
-    } catch (err) {
-      setError(err.message || "Upload failed");
-    } finally {
-      setUploading(false);
-    }
   }
 
   function submit() {
@@ -59,33 +38,13 @@ function AddLinkForm({ onAdd }) {
     onAdd({ label: label.trim(), url: url.trim() });
     setLabel("");
     setUrl("");
-    setError("");
     setOpen(false);
   }
 
   return (
     <div className="space-y-1.5 rounded-lg border border-concrete-200 bg-concrete-100/40 p-2">
       <TextInput autoFocus value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Label (optional)" className="!py-1.5 !text-xs" />
-      <div className="flex items-center gap-1.5">
-        <TextInput
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://… or upload a file"
-          className="!py-1.5 !text-xs"
-        />
-        <input ref={fileInputRef} type="file" onChange={handleFile} className="hidden" />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          title="Upload a PDF, doc, or other file as an attachment"
-          className="shrink-0 rounded-full border border-concrete-300 p-1.5 text-slate-500 transition hover:border-vend-black hover:text-vend-black disabled:opacity-40"
-        >
-          <Paperclip size={13} />
-        </button>
-      </div>
-      {uploading && <p className="text-[11px] text-slate-400">Uploading…</p>}
-      {error && <p className="text-[11px] font-semibold text-alert-600">{error}</p>}
+      <TextInput value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" className="!py-1.5 !text-xs" />
       <div className="flex justify-end gap-1.5">
         <button
           type="button"
@@ -97,12 +56,51 @@ function AddLinkForm({ onAdd }) {
         <button
           type="button"
           onClick={submit}
-          disabled={!url.trim() || uploading}
+          disabled={!url.trim()}
           className="rounded-full bg-vend-black px-2.5 py-1 text-[11px] font-semibold text-white transition disabled:opacity-40"
         >
           Add
         </button>
       </div>
+    </div>
+  );
+}
+
+// An attachment — always a Supabase Storage upload, never a pasted URL.
+// Auto-labeled by filename, kept as its own list separate from links above.
+function AddAttachmentForm({ onAdd }) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const fileInputRef = useRef(null);
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setError("");
+    setUploading(true);
+    try {
+      const publicUrl = await uploadAttachment(file);
+      onAdd({ label: file.name, url: publicUrl });
+    } catch (err) {
+      setError(err.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div>
+      <input ref={fileInputRef} type="file" onChange={handleFile} className="hidden" />
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={uploading}
+        className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 transition hover:text-vend-black disabled:opacity-40"
+      >
+        <Paperclip size={11} /> {uploading ? "Uploading…" : "Add attachment"}
+      </button>
+      {error && <p className="mt-1 text-[11px] font-semibold text-alert-600">{error}</p>}
     </div>
   );
 }
@@ -115,6 +113,10 @@ function TemplateTaskRow({ item, onUpdate, onRemove }) {
   const links = item.referenceLinks || [];
   const addLink = (link) => onUpdate({ referenceLinks: [...links, link] });
   const removeLink = (idx) => onUpdate({ referenceLinks: links.filter((_, i) => i !== idx) });
+
+  const attachments = item.attachments || [];
+  const addAttachment = (file) => onUpdate({ attachments: [...attachments, file] });
+  const removeAttachment = (idx) => onUpdate({ attachments: attachments.filter((_, i) => i !== idx) });
 
   function startEdit() {
     setTask(item.task);
@@ -181,6 +183,7 @@ function TemplateTaskRow({ item, onUpdate, onRemove }) {
         </button>
       </div>
       <div className="mt-2 space-y-1.5 border-t border-concrete-100 pt-2">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Links</p>
         {links.map((l, i) => (
           <div key={i} className="flex items-center gap-1">
             <a
@@ -202,6 +205,30 @@ function TemplateTaskRow({ item, onUpdate, onRemove }) {
           </div>
         ))}
         <AddLinkForm onAdd={addLink} />
+      </div>
+      <div className="mt-2.5 space-y-1.5 border-t border-concrete-100 pt-2">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Attachments</p>
+        {attachments.map((a, i) => (
+          <div key={i} className="flex items-center gap-1">
+            <a
+              href={a.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex min-w-0 items-center gap-1 text-xs font-semibold text-mint-700 hover:underline"
+            >
+              <Paperclip size={11} className="shrink-0" /> <span className="truncate">{a.label || a.url}</span>
+            </a>
+            <button
+              type="button"
+              onClick={() => removeAttachment(i)}
+              aria-label="Remove attachment"
+              className="shrink-0 text-mint-700/50 hover:text-alert-600"
+            >
+              <X size={11} />
+            </button>
+          </div>
+        ))}
+        <AddAttachmentForm onAdd={addAttachment} />
       </div>
     </div>
   );

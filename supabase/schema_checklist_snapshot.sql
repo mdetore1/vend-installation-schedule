@@ -104,3 +104,8 @@ drop policy if exists "task attachments deletable by admins" on storage.objects;
 create policy "task attachments deletable by admins"
   on storage.objects for delete
   using (bucket_id = 'task-attachments' and is_admin());
+
+-- Kept separate from checklist_items.links (reference hyperlinks) — an
+-- attachment is always a Supabase Storage upload, a link is always a
+-- pasted URL, and Manage Template shows them as two distinct lists.
+alter table checklist_items add column if not exists attachments jsonb not null default '[]'::jsonb;

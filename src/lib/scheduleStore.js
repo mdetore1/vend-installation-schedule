@@ -129,6 +129,7 @@ export function useScheduleStore() {
         timing: t.timing || "",
         notes: t.notes || "",
         referenceLinks: t.links || [],
+        attachments: t.attachments || [],
         defaultOwnerRole: t.default_owner_role || "",
         sortOrder: t.sort_order,
         locationId: t.location_id || null,
@@ -194,6 +195,7 @@ export function useScheduleStore() {
                     timing: item.timing,
                     instructions: item.notes,
                     referenceLinks: item.referenceLinks,
+                    attachments: item.attachments,
                     sortOrder: item.sortOrder,
                     locationId: item.locationId,
                     done: p?.done ?? false,
@@ -610,6 +612,7 @@ export function useScheduleStore() {
     if (patch.timing !== undefined) row.timing = patch.timing || null;
     if (patch.notes !== undefined) row.notes = patch.notes || null;
     if (patch.referenceLinks !== undefined) row.links = patch.referenceLinks;
+    if (patch.attachments !== undefined) row.attachments = patch.attachments;
     await supabase.from("checklist_items").update(row).eq("id", itemId);
   }
   async function removeChecklistItem(itemId) {
@@ -628,6 +631,7 @@ export function useScheduleStore() {
       timing: item.timing || null,
       notes: item.instructions || null,
       links: item.referenceLinks || [],
+      attachments: item.attachments || [],
       sort_order: item.sortOrder ?? 0,
       location_id: item.locationId || null,
     });
