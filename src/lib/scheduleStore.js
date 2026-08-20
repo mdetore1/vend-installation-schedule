@@ -603,6 +603,16 @@ export function useScheduleStore() {
       .map((t) => t.id);
     if (ids.length) await supabase.from("checklist_items").delete().in("id", ids);
   }
+  // Renames a category by relabeling every shared-template task currently
+  // in it — there's no separate "category" row to edit, the grouping is
+  // just whatever string these tasks share. Never touches a location-only
+  // task even if it happens to share the same category name.
+  async function renameChecklistCategory(stageN, category, newCategory) {
+    const ids = templateRows
+      .filter((t) => t.stage === stageN && (t.category || "") === (category || "") && !t.location_id)
+      .map((t) => t.id);
+    if (ids.length) await supabase.from("checklist_items").update({ category: newCategory || null }).in("id", ids);
+  }
   // Edits the shared template's own instructions text for a task — unlike
   // updateChecklistItem above (per-location progress), this changes what
   // every non-archived location sees for that task.
@@ -705,6 +715,7 @@ export function useScheduleStore() {
     updateChecklistTemplateItem,
     removeChecklistItem,
     removeChecklistCategory,
+    renameChecklistCategory,
     restoreChecklistItem,
     reorderChecklistCategories,
     reorderChecklistTasks,

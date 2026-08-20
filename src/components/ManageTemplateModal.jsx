@@ -411,7 +411,52 @@ function AddCategoryForm({ onAdd }) {
   );
 }
 
-export default function ManageTemplateModal({ open, onClose, checklistTemplate, onAddTask, onUpdateTask, onRemoveTask, onRemoveCategory, onReorderTasks }) {
+// A category isn't its own row anywhere — it's just whatever string a
+// group of tasks share — so "renaming" it means relabeling every task
+// currently in it. Click-to-edit, same interaction as the task cards.
+function CategoryHeader({ stageN, category, onRename }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(category);
+
+  function startEdit() {
+    setValue(category);
+    setEditing(true);
+  }
+  function save() {
+    const trimmed = value.trim();
+    if (trimmed && trimmed !== category) onRename(stageN, category, trimmed);
+    setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+          if (e.key === "Escape") setEditing(false);
+        }}
+        className="rounded border border-concrete-300 bg-white px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-vend-black outline-none focus:border-vend-black"
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={startEdit}
+      title="Click to rename this category — updates every location"
+      className="rounded px-1 py-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:bg-white hover:text-vend-black"
+    >
+      {category}
+    </button>
+  );
+}
+
+export default function ManageTemplateModal({ open, onClose, checklistTemplate, onAddTask, onUpdateTask, onRemoveTask, onRemoveCategory, onRenameCategory, onReorderTasks }) {
   if (!open) return null;
 
   // Location-only tasks (added from inside a single location's own
@@ -451,7 +496,7 @@ export default function ManageTemplateModal({ open, onClose, checklistTemplate, 
                     <div key={cat || "_"} className="rounded-xl border border-concrete-200 bg-concrete-100/40 p-3">
                       {cat && (
                         <div className="mb-2 flex items-center justify-between gap-2">
-                          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{cat}</span>
+                          <CategoryHeader stageN={stage.n} category={cat} onRename={onRenameCategory} />
                           <button
                             type="button"
                             onClick={() => {

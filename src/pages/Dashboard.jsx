@@ -1419,6 +1419,7 @@ export default function Dashboard({ isAdmin = true }) {
         onUpdateTask={updateChecklistTemplateItem}
         onRemoveTask={store.removeChecklistItem}
         onRemoveCategory={store.removeChecklistCategory}
+        onRenameCategory={store.renameChecklistCategory}
         onReorderTasks={reorderChecklistTasks}
       />
 
