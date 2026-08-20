@@ -1,14 +1,14 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import confetti from "canvas-confetti";
 import { Reorder, useDragControls } from "framer-motion";
 import { Calendar, Check, CheckCheck, ChevronDown, ChevronRight, ExternalLink, GripVertical, Layers, ListChecks, Paperclip, PauseCircle, Pencil, Plus, Rocket, Trash2, X } from "lucide-react";
 import { useScheduleStore } from "../lib/scheduleStore";
 import { useMapStore } from "../lib/mapStore";
-import { uploadAttachment } from "../lib/attachments";
 import { canonPhaseLabel, formatDateRange, UNASSIGNED, calendarPhaseHighlight, latestScheduleDate } from "../lib/dateUtils";
 import { STAGES, STAGE_STYLES, stageByNumber, summarizeChecklist, effectiveStage } from "../lib/checklistUtils";
 import { Checkbox, Field, Select, TextInput, Textarea } from "../components/fields";
 import ManageTemplateModal from "../components/ManageTemplateModal";
+import AttachmentUploadButton from "../components/AttachmentUploadButton";
 
 function markAllDone(items, onUpdate) {
   items.filter((i) => !i.done).forEach((i) => onUpdate(i.itemId, { done: true }));
@@ -98,43 +98,6 @@ function AddLinkControl({ onAdd }) {
       <button type="button" onClick={() => setOpen(false)} className="text-xs font-semibold text-slate-400 hover:text-vend-black">
         Cancel
       </button>
-    </div>
-  );
-}
-
-function AddAttachmentControl({ onAdd }) {
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState("");
-  const fileInputRef = useRef(null);
-
-  async function handleFile(e) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    setError("");
-    setUploading(true);
-    try {
-      const publicUrl = await uploadAttachment(file);
-      onAdd({ label: file.name, url: publicUrl });
-    } catch (err) {
-      setError(err.message || "Upload failed");
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  return (
-    <div>
-      <input ref={fileInputRef} type="file" onChange={handleFile} className="hidden" />
-      <button
-        type="button"
-        onClick={() => fileInputRef.current?.click()}
-        disabled={uploading}
-        className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-vend-black disabled:opacity-40"
-      >
-        <Paperclip size={11} /> {uploading ? "Uploading…" : "Add attachment"}
-      </button>
-      {error && <p className="mt-1 text-[11px] font-semibold text-alert-600">{error}</p>}
     </div>
   );
 }
@@ -571,7 +534,7 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, reorder
 
           <div className="mt-2.5 flex items-center gap-4">
             <AddLinkControl onAdd={addLink} />
-            {onEditNotes && <AddAttachmentControl onAdd={addAttachment} />}
+            {onEditNotes && <AttachmentUploadButton onAdd={addAttachment} />}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">{removeButton}</div>

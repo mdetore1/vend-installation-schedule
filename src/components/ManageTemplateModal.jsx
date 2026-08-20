@@ -3,7 +3,7 @@ import { Reorder, useDragControls } from "framer-motion";
 import { ExternalLink, GripVertical, Paperclip, Plus, Trash2, X } from "lucide-react";
 import { TextInput, Textarea } from "./fields";
 import { STAGES } from "../lib/checklistUtils";
-import { uploadAttachment } from "../lib/attachments";
+import AttachmentUploadButton from "./AttachmentUploadButton";
 
 // A reference hyperlink — always a pasted URL. Kept as its own list,
 // separate from attachments below.
@@ -53,45 +53,6 @@ function AddLinkForm({ onAdd }) {
           Add
         </button>
       </div>
-    </div>
-  );
-}
-
-// An attachment — always a Supabase Storage upload, never a pasted URL.
-// Auto-labeled by filename, kept as its own list separate from links above.
-function AddAttachmentForm({ onAdd }) {
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState("");
-  const fileInputRef = useRef(null);
-
-  async function handleFile(e) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    setError("");
-    setUploading(true);
-    try {
-      const publicUrl = await uploadAttachment(file);
-      onAdd({ label: file.name, url: publicUrl });
-    } catch (err) {
-      setError(err.message || "Upload failed");
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  return (
-    <div>
-      <input ref={fileInputRef} type="file" onChange={handleFile} className="hidden" />
-      <button
-        type="button"
-        onClick={() => fileInputRef.current?.click()}
-        disabled={uploading}
-        className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 transition hover:text-vend-black disabled:opacity-40"
-      >
-        <Paperclip size={11} /> {uploading ? "Uploading…" : "Add attachment"}
-      </button>
-      {error && <p className="mt-1 text-[11px] font-semibold text-alert-600">{error}</p>}
     </div>
   );
 }
@@ -228,7 +189,7 @@ function TemplateTaskRow({ item, onUpdate, onRemove, dragControls }) {
 
           <div className="mt-2.5 flex items-center gap-4">
             <AddLinkForm onAdd={addLink} />
-            <AddAttachmentForm onAdd={addAttachment} />
+            <AttachmentUploadButton onAdd={addAttachment} />
           </div>
         </div>
         <button
