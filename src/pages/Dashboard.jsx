@@ -4,7 +4,7 @@ import { Reorder, useDragControls } from "framer-motion";
 import { Calendar, Check, CheckCheck, ChevronDown, ChevronRight, ExternalLink, GripVertical, Layers, ListChecks, Paperclip, PauseCircle, Pencil, Plus, Rocket, Trash2, X } from "lucide-react";
 import { useScheduleStore } from "../lib/scheduleStore";
 import { useMapStore } from "../lib/mapStore";
-import { canonPhaseLabel, formatDateRange, UNASSIGNED, calendarPhaseHighlight, latestScheduleDate } from "../lib/dateUtils";
+import { canonPhaseLabel, formatDateRange, UNASSIGNED, calendarPhaseHighlight, latestScheduleDate, goLiveStart } from "../lib/dateUtils";
 import { STAGES, STAGE_STYLES, stageByNumber, summarizeChecklist, effectiveStage } from "../lib/checklistUtils";
 import { Checkbox, Field, Select, TextInput, Textarea } from "../components/fields";
 import ManageTemplateModal from "../components/ManageTemplateModal";
@@ -1247,6 +1247,20 @@ export default function Dashboard({ isAdmin = true }) {
   const active = data.locations.filter((l) => !l.archived && !groupedNames.has(l.name));
   const launched = data.locations.filter((l) => l.archived && !groupedNames.has(l.name));
 
+  // One unified list, soonest-Go-Live-first — same auto-sort convention the
+  // Installation Schedule calendar already uses for its own location order.
+  // A grouped client sorts by its primary member's dates, matching how the
+  // group already borrows the primary for everything else.
+  const activeEntries = [
+    ...activeGroups.map((ag) => ({ type: "group", date: goLiveStart(ag.members[0].phases), ...ag })),
+    ...active.map((loc) => ({ type: "location", date: goLiveStart(loc.phases), loc })),
+  ].sort((a, b) => {
+    if (!a.date && !b.date) return 0;
+    if (!a.date) return 1;
+    if (!b.date) return -1;
+    return a.date - b.date;
+  });
+
   // One unified list, most-recently-launched first (by each entry's latest
   // phase end date) — same "most recent finished first" convention the
   // Installation Schedule's own Completed section already uses. A grouped
@@ -1305,20 +1319,27 @@ export default function Dashboard({ isAdmin = true }) {
       </div>
 
       <div className="space-y-3">
-        {activeGroups.map(({ group, members }) => (
-          <ClientGroupCard
-            key={group.id}
-            group={group}
-            locations={members}
-            open={expanded.has(group.id)}
-            onToggle={() => toggleExpanded(group.id)}
-            {...rowProps}
-          />
-        ))}
-        {active.map((loc) => (
-          <LocationRow key={loc.id} location={loc} open={expanded.has(loc.id)} onToggle={() => toggleExpanded(loc.id)} {...rowProps} />
-        ))}
-        {!active.length && !activeGroups.length && <p className="text-sm text-slate-400">No active locations yet.</p>}
+        {activeEntries.map((entry) =>
+          entry.type === "group" ? (
+            <ClientGroupCard
+              key={entry.group.id}
+              group={entry.group}
+              locations={entry.members}
+              open={expanded.has(entry.group.id)}
+              onToggle={() => toggleExpanded(entry.group.id)}
+              {...rowProps}
+            />
+          ) : (
+            <LocationRow
+              key={entry.loc.id}
+              location={entry.loc}
+              open={expanded.has(entry.loc.id)}
+              onToggle={() => toggleExpanded(entry.loc.id)}
+              {...rowProps}
+            />
+          )
+        )}
+        {!activeEntries.length && <p className="text-sm text-slate-400">No active locations yet.</p>}
       </div>
 
       {!!(launched.length || launchedGroups.length) && (
