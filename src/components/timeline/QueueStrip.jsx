@@ -86,33 +86,45 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
         )}
 
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-          {item.place && (
-            <span className="flex shrink-0 items-center gap-1 truncate text-xs text-slate-400">
-              <MapPin size={10} /> {item.place}
-            </span>
-          )}
-          {item.accessType && <Chip>{item.accessType}</Chip>}
-          {!!item.lanes && <Chip>{item.lanes} lanes</Chip>}
-          {item.salesRep && (
-            <span className="shrink-0 truncate rounded-full bg-beacon-100 px-2.5 py-1 text-[11px] font-semibold text-beacon-700">
-              {item.salesRep}
-            </span>
-          )}
-          {item.propertyManagement && <Chip>PM: {item.propertyManagement}</Chip>}
-          {item.ownership && <Chip>Owner: {item.ownership}</Chip>}
-          {item.potentialGoLiveDate && <Chip>Go-live: {formatShort(parseDate(item.potentialGoLiveDate))}</Chip>}
-          {!!item.dealAmount && <Chip>{formatCurrency(item.dealAmount)}</Chip>}
-          {item.hasOnsiteStaff && (
-            <span className="shrink-0 rounded-full bg-mint-200 px-2.5 py-1 text-[11px] font-bold text-mint-700">Spark</span>
-          )}
-          {item.hubspotStage && (
-            <span
-              className="shrink-0 truncate rounded-full bg-[#FF7A59]/15 px-2.5 py-1 text-[11px] font-bold text-[#FF7A59]"
-              title="Synced from HubSpot"
-            >
-              {item.hubspotStage}
-            </span>
-          )}
+          <div className="w-36 shrink-0">
+            {item.place && (
+              <span className="flex items-center gap-1 truncate text-xs text-slate-400">
+                <MapPin size={10} /> {item.place}
+              </span>
+            )}
+          </div>
+          <div className="w-20 shrink-0">{item.accessType && <Chip>{item.accessType}</Chip>}</div>
+          <div className="w-16 shrink-0">{!!item.lanes && <Chip>{item.lanes} lanes</Chip>}</div>
+          <div className="w-28 shrink-0">
+            {item.salesRep && (
+              <span className="block truncate rounded-full bg-beacon-100 px-2.5 py-1 text-center text-[11px] font-semibold text-beacon-700">
+                {item.salesRep}
+              </span>
+            )}
+          </div>
+          <div className="w-28 shrink-0">{item.propertyManagement && <Chip>PM: {item.propertyManagement}</Chip>}</div>
+          <div className="w-28 shrink-0">{item.ownership && <Chip>Owner: {item.ownership}</Chip>}</div>
+          <div className="w-28 shrink-0">
+            {item.potentialGoLiveDate && <Chip>Go-live: {formatShort(parseDate(item.potentialGoLiveDate))}</Chip>}
+          </div>
+          <div className="w-20 shrink-0">{!!item.dealAmount && <Chip>{formatCurrency(item.dealAmount)}</Chip>}</div>
+          <div className="w-16 shrink-0">
+            {item.hasOnsiteStaff && (
+              <span className="block rounded-full bg-mint-200 px-2.5 py-1 text-center text-[11px] font-bold text-mint-700">
+                Spark
+              </span>
+            )}
+          </div>
+          <div className="w-28 shrink-0">
+            {item.hubspotStage && (
+              <span
+                className="block truncate rounded-full bg-[#FF7A59]/15 px-2.5 py-1 text-center text-[11px] font-bold text-[#FF7A59]"
+                title="Synced from HubSpot"
+              >
+                {item.hubspotStage}
+              </span>
+            )}
+          </div>
         </div>
 
         <span
