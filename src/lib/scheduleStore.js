@@ -37,6 +37,17 @@ function phaseToRow(p) {
   };
 }
 
+// Sales Pipeline's own stage order — the queue groups by where a deal
+// actually is before sorting alphabetically within that group, so it reads
+// as "here's what's in Negotiation, here's what's in Final Proposal," not
+// one flat alphabetical list with stages interleaved. Manually-added items
+// with no HubSpot stage sort after every known stage.
+const QUEUE_STAGE_ORDER = ["Discovery", "Qualification", "Scoping", "Proof of Value", "Final Proposal", "Negotiation", "Closed Won"];
+function queueStageRank(stage) {
+  const i = QUEUE_STAGE_ORDER.indexOf(stage);
+  return i === -1 ? QUEUE_STAGE_ORDER.length : i;
+}
+
 function locationToRow(l) {
   return {
     name: l.name,
@@ -227,7 +238,10 @@ export function useScheduleStore() {
       incumbentOperator: q.incumbent_operator,
       dealAmount: q.deal_amount,
       contractSignedDate: q.contract_signed_date,
-    })).sort((a, b) => a.name.localeCompare(b.name));
+    })).sort((a, b) => {
+      const rankDiff = queueStageRank(a.hubspotStage) - queueStageRank(b.hubspotStage);
+      return rankDiff !== 0 ? rankDiff : a.name.localeCompare(b.name);
+    });
     const salesReps = salesRepRows.map((r) => r.name);
     const companyEvents = companyEventRows.map((e) => ({ id: e.id, name: e.name, start: e.start_date, end: e.end_date }));
     return { team, locations, queue, salesReps, companyEvents, checklistTemplate };
