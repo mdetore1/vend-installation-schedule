@@ -17,10 +17,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SALES_PIPELINE_ID = "default";
 const CLOSED_WON_STAGE_ID = "57147742";
-// Closed Won, Close Lost, Nurture (Closed, not lost) — deals here are done
-// being "worked," so they're excluded from the queue entirely rather than
-// just filtered in the UI.
-const EXCLUDED_STAGE_IDS = ["57147742", "57147743", "128934430"];
+// Close Lost, Nurture (Closed, not lost) — deals here are done being
+// "worked" with nothing left to do, so they're excluded from the queue
+// entirely. Closed Won stays IN the sync on purpose: that's the stage that
+// lights up "Add to calendar," and the item leaves the queue on its own once
+// it's promoted from there.
+const EXCLUDED_STAGE_IDS = ["57147743", "128934430"];
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -226,9 +228,10 @@ Deno.serve(async (req) => {
     }
 
     // Remove queue items whose deal has since left the synced set (moved to
-    // Closed Won/Lost/Nurture, or out of the Sales Pipeline entirely). Only
-    // safe to trust "not in this batch means gone" when the fetch wasn't
-    // cut short by the time budget.
+    // Close Lost/Nurture, or out of the Sales Pipeline entirely — Closed Won
+    // deals stay in the synced set until promoted). Only safe to trust "not
+    // in this batch means gone" when the fetch wasn't cut short by the time
+    // budget.
     let removedStale = 0;
     if (!dealsTruncated) {
       const syncedDealIds = new Set(deals.map((d) => d.id));
