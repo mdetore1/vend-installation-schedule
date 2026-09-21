@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronDown, MapPin, Plus, Trash2 } from "lucide-react";
+import { Check, ChevronDown, ExternalLink, MapPin, Plus, Trash2 } from "lucide-react";
 import { TextInput, Select, Checkbox } from "../fields";
 import { formatShort, parseDate } from "../../lib/dateUtils";
 import { ACCESS_TYPES, CONTRACT_STATES } from "../../lib/locationDefaults";
@@ -72,6 +72,19 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
           className="w-64 shrink-0 truncate rounded border border-transparent bg-transparent font-display text-[15px] font-bold text-vend-black outline-none transition focus:border-concrete-300 focus:bg-concrete-100/50 sm:w-96"
         />
 
+        {item.hubspotDealId && (
+          <a
+            href={hubspotDealUrl(item.hubspotDealId)}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            title="Open this deal in HubSpot"
+            className="flex shrink-0 items-center gap-1 rounded-full bg-[#FF7A59]/15 px-2 py-1 text-[11px] font-bold text-[#FF7A59] transition hover:bg-[#FF7A59]/25"
+          >
+            <ExternalLink size={11} /> HubSpot
+          </a>
+        )}
+
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
           {item.place && (
             <span className="flex shrink-0 items-center gap-1 truncate text-xs text-slate-400">
@@ -93,18 +106,12 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
             <span className="shrink-0 rounded-full bg-mint-200 px-2.5 py-1 text-[11px] font-bold text-mint-700">Spark</span>
           )}
           {item.hubspotStage && (
-            <a
-              href={item.hubspotDealId ? hubspotDealUrl(item.hubspotDealId) : undefined}
-              target="_blank"
-              rel="noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className={`shrink-0 truncate rounded-full bg-[#FF7A59]/15 px-2.5 py-1 text-[11px] font-bold text-[#FF7A59] ${
-                item.hubspotDealId ? "hover:bg-[#FF7A59]/25" : "pointer-events-none"
-              }`}
-              title={item.hubspotDealId ? "Open this deal in HubSpot" : "Synced from HubSpot"}
+            <span
+              className="shrink-0 truncate rounded-full bg-[#FF7A59]/15 px-2.5 py-1 text-[11px] font-bold text-[#FF7A59]"
+              title="Synced from HubSpot"
             >
               {item.hubspotStage}
-            </a>
+            </span>
           )}
         </div>
 

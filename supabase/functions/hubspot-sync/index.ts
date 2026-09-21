@@ -256,6 +256,7 @@ Deno.serve(async (req) => {
       if (salesRep && !existingRepNames.has(salesRep.toLowerCase())) newReps.add(salesRep);
 
       rowsToUpsert.push({
+        isNew: !existingQueueDealIds.has(deal.id),
         hubspot_deal_id: deal.id,
         hubspot_stage: stageLabel,
         name: p.dealname || "(unnamed deal)",
@@ -274,11 +275,20 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Split so a rename you make in the app sticks: a brand-new item still
+    // gets its name from HubSpot, but once it's in the queue the sync never
+    // touches that column again — everything else keeps updating normally.
+    // (Two separate calls because a bulk upsert needs every row to share
+    // the same columns; mixing "has name" and "no name" rows in one call
+    // would null out the omitted column for whichever rows lack it.)
     let synced = 0;
-    if (rowsToUpsert.length) {
-      const { error } = await admin.from("queue_items").upsert(rowsToUpsert, { onConflict: "hubspot_deal_id" });
+    const newRows = rowsToUpsert.filter((r) => r.isNew).map(({ isNew, ...r }) => r);
+    const existingRows = rowsToUpsert.filter((r) => !r.isNew).map(({ isNew, name, ...r }) => r);
+    for (const batch of [newRows, existingRows]) {
+      if (!batch.length) continue;
+      const { error } = await admin.from("queue_items").upsert(batch, { onConflict: "hubspot_deal_id" });
       if (error) errors.push({ message: error.message });
-      else synced = rowsToUpsert.length;
+      else synced += batch.length;
     }
 
     if (locationMatches.length) {
