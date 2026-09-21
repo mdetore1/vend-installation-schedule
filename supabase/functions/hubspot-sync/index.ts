@@ -6,9 +6,9 @@
 // Requires TWO manually-added secrets (Edge Functions -> hubspot-sync ->
 // Secrets) beyond the auto-injected SUPABASE_URL / SUPABASE_ANON_KEY /
 // SUPABASE_SERVICE_ROLE_KEY:
-//   HUBSPOT_TOKEN — a HubSpot Private App token with crm.objects.deals.read
-//     and crm.pipelines.read scopes. Add it directly in the Supabase
-//     Dashboard; never paste it anywhere else.
+//   HUBSPOT_TOKEN — a HubSpot Private App token with crm.objects.deals.read,
+//     crm.objects.owners.read, and crm.pipelines.read scopes. Add it
+//     directly in the Supabase Dashboard; never paste it anywhere else.
 // Scheduling: Edge Functions -> hubspot-sync -> Triggers -> add a Cron
 // Trigger (e.g. every 30 minutes). Supabase's own Cron Trigger invokes the
 // function with the project's service_role key as its bearer token, which
@@ -39,11 +39,11 @@ const DEAL_PROPERTIES = [
   "access_type",
   "garage_type",
   "number_of_parking_spaces",
-  "building_class",
   "property_type",
   "parking_operator",
   "of_lanes",
   "do_we_need_staff_",
+  "hubspot_owner_id",
 ];
 
 // "Only match specific words" — a rep typing "No" or "N/A" should not flip
@@ -69,6 +69,24 @@ async function fetchStageLabels(token) {
   const data = await hubspotFetch(`/crm/v3/pipelines/deals/${SALES_PIPELINE_ID}`, token);
   const map = {};
   for (const stage of data.stages || []) map[stage.id] = stage.label;
+  return map;
+}
+
+// Deal owner (HubSpot's own "Deal owner" field, not a separate rep property
+// — there isn't one) id -> full name, so the queue's Sales rep field fills
+// in automatically instead of needing to be typed by hand.
+async function fetchOwnerNames(token) {
+  const map = {};
+  let after;
+  do {
+    const qs = new URLSearchParams({ limit: "500", ...(after ? { after } : {}) });
+    const page = await hubspotFetch(`/crm/v3/owners?${qs}`, token);
+    for (const owner of page.results || []) {
+      const name = [owner.firstName, owner.lastName].filter(Boolean).join(" ").trim() || owner.email;
+      if (name) map[owner.id] = name;
+    }
+    after = page.paging?.next?.after;
+  } while (after);
   return map;
 }
 
@@ -108,16 +126,20 @@ Deno.serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
 
-    const [stageLabels, deals, { data: promotedLocations }] = await Promise.all([
+    const [stageLabels, ownerNames, deals, { data: promotedLocations }, { data: existingReps }] = await Promise.all([
       fetchStageLabels(hubspotToken),
+      fetchOwnerNames(hubspotToken),
       fetchAllSalesDeals(hubspotToken),
       admin.from("locations").select("hubspot_deal_id").not("hubspot_deal_id", "is", null),
+      admin.from("sales_reps").select("name"),
     ]);
     const promotedIds = new Set((promotedLocations || []).map((l) => l.hubspot_deal_id));
+    const existingRepNames = new Set((existingReps || []).map((r) => r.name.toLowerCase()));
 
     let synced = 0;
     let skippedPromoted = 0;
     const errors = [];
+    const newReps = new Set();
 
     for (const deal of deals) {
       if (promotedIds.has(deal.id)) {
@@ -126,6 +148,8 @@ Deno.serve(async (req) => {
       }
       const p = deal.properties || {};
       const stageLabel = stageLabels[p.dealstage] || p.dealstage || null;
+      const salesRep = ownerNames[p.hubspot_owner_id] || null;
+      if (salesRep && !existingRepNames.has(salesRep.toLowerCase())) newReps.add(salesRep);
 
       const row = {
         hubspot_deal_id: deal.id,
@@ -135,9 +159,9 @@ Deno.serve(async (req) => {
         access_type: p.access_type || null,
         lanes: p.of_lanes ? Number(p.of_lanes) : null,
         has_onsite_staff: parseOnsiteStaff(p.do_we_need_staff_),
+        sales_rep: salesRep,
         garage_type: p.garage_type || null,
         number_of_parking_spaces: p.number_of_parking_spaces ? Number(p.number_of_parking_spaces) : null,
-        building_class: p.building_class || null,
         property_type: p.property_type || null,
         incumbent_operator: p.parking_operator || null,
         deal_amount: p.amount ? Number(p.amount) : null,
@@ -149,7 +173,11 @@ Deno.serve(async (req) => {
       else synced++;
     }
 
-    return json({ ok: true, totalDeals: deals.length, synced, skippedPromoted, errors });
+    if (newReps.size) {
+      await admin.from("sales_reps").insert([...newReps].map((name) => ({ name })));
+    }
+
+    return json({ ok: true, totalDeals: deals.length, synced, skippedPromoted, newReps: [...newReps], errors });
   } catch (err) {
     return json({ error: err.message }, 400);
   }

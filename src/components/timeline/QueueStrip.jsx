@@ -7,6 +7,8 @@ import AddQueueItemForm from "./AddQueueItemForm";
 import SalesRepSelect from "./SalesRepSelect";
 
 const miniInputCls = "!py-1.5 !text-xs";
+const HUBSPOT_PORTAL_ID = "7924065";
+const hubspotDealUrl = (dealId) => `https://app.hubspot.com/contacts/${HUBSPOT_PORTAL_ID}/record/0-3/${dealId}`;
 
 function FieldMini({ label, children }) {
   return (
@@ -76,12 +78,18 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
             <span className="shrink-0 rounded-full bg-mint-200 px-2.5 py-1 text-[11px] font-bold text-mint-700">Spark</span>
           )}
           {item.hubspotStage && (
-            <span
-              className="shrink-0 truncate rounded-full bg-[#FF7A59]/15 px-2.5 py-1 text-[11px] font-bold text-[#FF7A59]"
-              title="Synced from HubSpot"
+            <a
+              href={item.hubspotDealId ? hubspotDealUrl(item.hubspotDealId) : undefined}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className={`shrink-0 truncate rounded-full bg-[#FF7A59]/15 px-2.5 py-1 text-[11px] font-bold text-[#FF7A59] ${
+                item.hubspotDealId ? "hover:bg-[#FF7A59]/25" : "pointer-events-none"
+              }`}
+              title={item.hubspotDealId ? "Open this deal in HubSpot" : "Synced from HubSpot"}
             >
               {item.hubspotStage}
-            </span>
+            </a>
           )}
         </div>
 
@@ -209,7 +217,7 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
             </FieldMini>
           </div>
 
-          {(item.hubspotDealId || item.garageType || item.numberOfParkingSpaces || item.buildingClass || item.propertyType || item.incumbentOperator || item.dealAmount || item.contractSignedDate) && (
+          {(item.hubspotDealId || item.garageType || item.numberOfParkingSpaces || item.propertyType || item.incumbentOperator || item.dealAmount || item.contractSignedDate) && (
             <div className="border-t border-concrete-200 p-3.5">
               <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                 From HubSpot
@@ -228,13 +236,6 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
                     min="0"
                     value={item.numberOfParkingSpaces || ""}
                     onChange={(e) => onUpdate({ numberOfParkingSpaces: e.target.value ? Number(e.target.value) : null })}
-                    className={miniInputCls}
-                  />
-                </FieldMini>
-                <FieldMini label="Building class">
-                  <TextInput
-                    value={item.buildingClass || ""}
-                    onChange={(e) => onUpdate({ buildingClass: e.target.value })}
                     className={miniInputCls}
                   />
                 </FieldMini>

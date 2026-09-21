@@ -121,7 +121,6 @@ alter table queue_items add column if not exists hubspot_stage text;
 -- previously tracked anywhere in this app.
 alter table queue_items add column if not exists garage_type text;
 alter table queue_items add column if not exists number_of_parking_spaces integer;
-alter table queue_items add column if not exists building_class text;
 alter table queue_items add column if not exists property_type text;
 alter table queue_items add column if not exists incumbent_operator text;
 

@@ -223,7 +223,6 @@ export function useScheduleStore() {
       hubspotStage: q.hubspot_stage,
       garageType: q.garage_type,
       numberOfParkingSpaces: q.number_of_parking_spaces,
-      buildingClass: q.building_class,
       propertyType: q.property_type,
       incumbentOperator: q.incumbent_operator,
       dealAmount: q.deal_amount,
@@ -522,7 +521,6 @@ export function useScheduleStore() {
       hubspot_stage: item.hubspotStage ?? null,
       garage_type: item.garageType ?? null,
       number_of_parking_spaces: item.numberOfParkingSpaces ?? null,
-      building_class: item.buildingClass ?? null,
       property_type: item.propertyType ?? null,
       incumbent_operator: item.incumbentOperator ?? null,
       deal_amount: item.dealAmount ?? null,
@@ -550,7 +548,6 @@ export function useScheduleStore() {
     if (patch.hubspotStage !== undefined) row.hubspot_stage = patch.hubspotStage;
     if (patch.garageType !== undefined) row.garage_type = patch.garageType;
     if (patch.numberOfParkingSpaces !== undefined) row.number_of_parking_spaces = patch.numberOfParkingSpaces;
-    if (patch.buildingClass !== undefined) row.building_class = patch.buildingClass;
     if (patch.propertyType !== undefined) row.property_type = patch.propertyType;
     if (patch.incumbentOperator !== undefined) row.incumbent_operator = patch.incumbentOperator;
     if (patch.dealAmount !== undefined) row.deal_amount = patch.dealAmount;
