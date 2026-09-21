@@ -10,6 +10,21 @@ const miniInputCls = "!py-1.5 !text-xs";
 const HUBSPOT_PORTAL_ID = "7924065";
 const hubspotDealUrl = (dealId) => `https://app.hubspot.com/contacts/${HUBSPOT_PORTAL_ID}/record/0-3/${dealId}`;
 
+// Sales Pipeline's own stage order — the filter chips should read left to
+// right the same way a deal actually progresses, not in whatever order
+// stages happen to show up in the queue's data.
+const STAGE_ORDER = ["Discovery", "Qualification", "Scoping", "Proof of Value", "Final Proposal", "Negotiation", "Closed Won"];
+function sortByStageOrder(stages) {
+  return [...stages].sort((a, b) => {
+    const ai = STAGE_ORDER.indexOf(a);
+    const bi = STAGE_ORDER.indexOf(b);
+    if (ai === -1 && bi === -1) return a.localeCompare(b);
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+    return ai - bi;
+  });
+}
+
 function FieldMini({ label, children }) {
   return (
     <div>
@@ -295,7 +310,7 @@ export default function QueueStrip({
   const [stageFilter, setStageFilter] = useState(null);
 
   const stages = useMemo(
-    () => [...new Set(queue.map((q) => q.hubspotStage).filter(Boolean))],
+    () => sortByStageOrder([...new Set(queue.map((q) => q.hubspotStage).filter(Boolean))]),
     [queue]
   );
   const filteredQueue = stageFilter ? queue.filter((q) => q.hubspotStage === stageFilter) : queue;

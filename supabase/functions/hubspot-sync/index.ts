@@ -50,6 +50,8 @@ const DEAL_PROPERTIES = [
   "of_lanes",
   "do_we_need_staff_",
   "hubspot_owner_id",
+  "city",
+  "state",
 ];
 
 // "Only match specific words" — a rep typing "No" or "N/A" should not flip
@@ -257,6 +259,7 @@ Deno.serve(async (req) => {
         hubspot_deal_id: deal.id,
         hubspot_stage: stageLabel,
         name: p.dealname || "(unnamed deal)",
+        place: [p.city, p.state].filter(Boolean).join(", ") || null,
         contract_state: isClosedWon ? "Closed Won" : "In Progress",
         access_type: p.access_type || null,
         lanes: p.of_lanes ? Number(p.of_lanes) : null,
