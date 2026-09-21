@@ -67,15 +67,35 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 class OutOfTimeBudget extends Error {}
 
-// Retries on HubSpot's 429 (rate limit), backing off per its own Retry-After
-// header when given. Bails out (rather than waiting into a wall it can't
-// meet) once a wait would blow the time budget, so the caller can stop
-// cleanly instead of the whole function getting killed mid-request.
+// 20s hard cap on each individual network call — without this, a call that
+// just hangs (dropped connection, HubSpot stalling instead of erroring)
+// never hits the 429 branch below at all, sails past the time-budget check
+// entirely, and runs until Supabase's own platform kills the whole function
+// at 150s with no useful response.
+const REQUEST_TIMEOUT_MS = 20_000;
+
+// Retries on HubSpot's 429 (rate limit) or a timed-out request, backing off
+// per its own Retry-After header when given. Bails out (rather than waiting
+// into a wall it can't meet) once a wait would blow the time budget, so the
+// caller can stop cleanly instead of the whole function getting killed
+// mid-request.
 async function hubspotFetch(path, token, deadlineAt, init, attempt = 0) {
-  const res = await fetch(`https://api.hubapi.com${path}`, {
-    ...init,
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...(init?.headers || {}) },
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let res;
+  try {
+    res = await fetch(`https://api.hubapi.com${path}`, {
+      ...init,
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...(init?.headers || {}) },
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err.name !== "AbortError") throw err;
+    if (attempt >= 5 || Date.now() + 1000 >= deadlineAt) throw new OutOfTimeBudget(`${path}: request timed out`);
+    return hubspotFetch(path, token, deadlineAt, init, attempt + 1);
+  } finally {
+    clearTimeout(timer);
+  }
   if (res.status === 429 && attempt < 5) {
     const waitMs = (Number(res.headers.get("Retry-After")) || attempt + 1) * 1000;
     if (Date.now() + waitMs >= deadlineAt) throw new OutOfTimeBudget(`${path}: rate-limited, out of time budget`);
