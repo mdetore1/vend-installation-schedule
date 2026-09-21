@@ -199,11 +199,21 @@ Deno.serve(async (req) => {
     const stageLabels = await fetchStageLabels(hubspotToken, deadlineAt);
     const { map: ownerNames, truncated: ownersTruncated } = await fetchOwnerNames(hubspotToken, deadlineAt);
     const { deals, truncated: dealsTruncated } = await fetchAllSalesDeals(hubspotToken, deadlineAt);
-    const [{ data: promotedLocations }, { data: existingReps }] = await Promise.all([
-      admin.from("locations").select("hubspot_deal_id").not("hubspot_deal_id", "is", null),
+    const [{ data: allLocations }, { data: existingReps }] = await Promise.all([
+      admin.from("locations").select("id, name, hubspot_deal_id"),
       admin.from("sales_reps").select("name"),
     ]);
-    const promotedIds = new Set((promotedLocations || []).map((l) => l.hubspot_deal_id));
+    const promotedIds = new Set(
+      (allLocations || []).filter((l) => l.hubspot_deal_id).map((l) => l.hubspot_deal_id)
+    );
+    // Locations onboarded before this sync existed were never stamped with a
+    // hubspot_deal_id, so a name match is the only way to recognize "this
+    // deal is already a completed location" and stop it from reappearing in
+    // the queue every run. Once matched, the id gets backfilled so future
+    // syncs recognize it directly without needing the name match again.
+    const locationsByName = new Map(
+      (allLocations || []).filter((l) => !l.hubspot_deal_id).map((l) => [l.name.trim().toLowerCase(), l])
+    );
     const existingRepNames = new Set((existingReps || []).map((r) => r.name.toLowerCase()));
 
     let synced = 0;
@@ -217,6 +227,17 @@ Deno.serve(async (req) => {
         continue;
       }
       const p = deal.properties || {};
+      const matchingLocation = p.dealname ? locationsByName.get(p.dealname.trim().toLowerCase()) : null;
+      if (matchingLocation) {
+        await admin.from("locations").update({ hubspot_deal_id: deal.id }).eq("id", matchingLocation.id);
+        // It may already be sitting in the queue from a run before this
+        // match existed — clear it out now rather than waiting on the
+        // staleness cleanup below, which won't catch it (the deal is still
+        // present in this batch, just newly recognized as already handled).
+        await admin.from("queue_items").delete().eq("hubspot_deal_id", deal.id);
+        skippedPromoted++;
+        continue;
+      }
       const stageLabel = stageLabels[p.dealstage] || p.dealstage || null;
       const salesRep = ownerNames[p.hubspot_owner_id] || null;
       if (salesRep && !existingRepNames.has(salesRep.toLowerCase())) newReps.add(salesRep);
