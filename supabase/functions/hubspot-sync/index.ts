@@ -251,9 +251,10 @@ Deno.serve(async (req) => {
     // Close Lost/Nurture, or out of the Sales Pipeline entirely — Closed Won
     // deals stay in the synced set until promoted). Only safe to trust "not
     // in this batch means gone" when the fetch wasn't cut short by the time
-    // budget.
+    // budget AND actually returned something — an empty result is far more
+    // likely a hiccup than "every deal just vanished."
     let removedStale = 0;
-    if (!dealsTruncated) {
+    if (!dealsTruncated && deals.length > 0) {
       const syncedDealIds = new Set(deals.map((d) => d.id));
       const { data: hubspotQueueItems } = await admin
         .from("queue_items")
