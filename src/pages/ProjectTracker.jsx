@@ -195,12 +195,15 @@ export default function ProjectTracker({ isAdmin = true }) {
   // Always auto-sorted soonest-Go-Live-first — recomputed from each
   // location's phase dates on every render, so the calendar re-shuffles
   // itself automatically as dates change instead of relying on a persisted
-  // manual order.
+  // manual order. On-hold locations sink to the bottom regardless of their
+  // Go-Live date (still sorted by date among themselves) and rejoin the
+  // normal order automatically as soon as Hold is turned off.
   const activeLocations = useMemo(() => {
     return data.locations
       .filter((l) => !l.archived && matchesLocationFilter(l))
       .slice()
       .sort((a, b) => {
+        if (!!a.onHold !== !!b.onHold) return a.onHold ? 1 : -1;
         const da = goLiveStart(a.phases);
         const db = goLiveStart(b.phases);
         if (!da && !db) return 0;
