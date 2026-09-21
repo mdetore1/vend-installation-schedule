@@ -199,13 +199,19 @@ Deno.serve(async (req) => {
     const stageLabels = await fetchStageLabels(hubspotToken, deadlineAt);
     const { map: ownerNames, truncated: ownersTruncated } = await fetchOwnerNames(hubspotToken, deadlineAt);
     const { deals, truncated: dealsTruncated } = await fetchAllSalesDeals(hubspotToken, deadlineAt);
-    const [{ data: allLocations }, { data: existingReps }] = await Promise.all([
+    const [{ data: allLocations }, { data: existingReps }, { data: existingQueueRows }] = await Promise.all([
       admin.from("locations").select("id, name, hubspot_deal_id"),
       admin.from("sales_reps").select("name"),
+      admin.from("queue_items").select("hubspot_deal_id").not("hubspot_deal_id", "is", null),
     ]);
     const promotedIds = new Set(
       (allLocations || []).filter((l) => l.hubspot_deal_id).map((l) => l.hubspot_deal_id)
     );
+    // A deal already sitting at Closed Won the first time we ever see it
+    // should never become a fresh queue item — Closed Won should only ever
+    // be something an already-tracked item transitions INTO, never the
+    // starting state of a brand new one.
+    const existingQueueDealIds = new Set((existingQueueRows || []).map((r) => r.hubspot_deal_id));
     // Locations onboarded before this sync existed were never stamped with a
     // hubspot_deal_id, so a name match is the only way to recognize "this
     // deal is already a completed location" and stop it from reappearing in
@@ -217,13 +223,13 @@ Deno.serve(async (req) => {
     const existingRepNames = new Set((existingReps || []).map((r) => r.name.toLowerCase()));
 
     let synced = 0;
-    let skippedPromoted = 0;
+    let skipped = 0;
     const errors = [];
     const newReps = new Set();
 
     for (const deal of deals) {
       if (promotedIds.has(deal.id)) {
-        skippedPromoted++;
+        skipped++;
         continue;
       }
       const p = deal.properties || {};
@@ -235,10 +241,15 @@ Deno.serve(async (req) => {
         // staleness cleanup below, which won't catch it (the deal is still
         // present in this batch, just newly recognized as already handled).
         await admin.from("queue_items").delete().eq("hubspot_deal_id", deal.id);
-        skippedPromoted++;
+        skipped++;
         continue;
       }
       const stageLabel = stageLabels[p.dealstage] || p.dealstage || null;
+      const isClosedWon = stageLabel === "Closed Won" || p.dealstage === CLOSED_WON_STAGE_ID;
+      if (isClosedWon && !existingQueueDealIds.has(deal.id)) {
+        skipped++;
+        continue;
+      }
       const salesRep = ownerNames[p.hubspot_owner_id] || null;
       if (salesRep && !existingRepNames.has(salesRep.toLowerCase())) newReps.add(salesRep);
 
@@ -246,7 +257,7 @@ Deno.serve(async (req) => {
         hubspot_deal_id: deal.id,
         hubspot_stage: stageLabel,
         name: p.dealname || "(unnamed deal)",
-        contract_state: stageLabel === "Closed Won" || p.dealstage === CLOSED_WON_STAGE_ID ? "Closed Won" : "In Progress",
+        contract_state: isClosedWon ? "Closed Won" : "In Progress",
         access_type: p.access_type || null,
         lanes: p.of_lanes ? Number(p.of_lanes) : null,
         has_onsite_staff: parseOnsiteStaff(p.do_we_need_staff_),
@@ -294,7 +305,7 @@ Deno.serve(async (req) => {
       ok: true,
       totalDeals: deals.length,
       synced,
-      skippedPromoted,
+      skipped,
       removedStale,
       newReps: [...newReps],
       errors,
