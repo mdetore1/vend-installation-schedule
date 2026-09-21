@@ -224,10 +224,15 @@ Deno.serve(async (req) => {
     );
     const existingRepNames = new Set((existingReps || []).map((r) => r.name.toLowerCase()));
 
-    let synced = 0;
     let skipped = 0;
     const errors = [];
     const newReps = new Set();
+    const rowsToUpsert = [];
+    // {locationId, dealId} pairs to backfill, and deal ids whose stray queue
+    // item (from before the match existed) needs clearing — batched into one
+    // call each after the loop instead of two awaits per matched deal, same
+    // reasoning as batching the main upsert below.
+    const locationMatches = [];
 
     for (const deal of deals) {
       if (promotedIds.has(deal.id)) {
@@ -237,12 +242,7 @@ Deno.serve(async (req) => {
       const p = deal.properties || {};
       const matchingLocation = p.dealname ? locationsByName.get(p.dealname.trim().toLowerCase()) : null;
       if (matchingLocation) {
-        await admin.from("locations").update({ hubspot_deal_id: deal.id }).eq("id", matchingLocation.id);
-        // It may already be sitting in the queue from a run before this
-        // match existed — clear it out now rather than waiting on the
-        // staleness cleanup below, which won't catch it (the deal is still
-        // present in this batch, just newly recognized as already handled).
-        await admin.from("queue_items").delete().eq("hubspot_deal_id", deal.id);
+        locationMatches.push({ locationId: matchingLocation.id, dealId: deal.id });
         skipped++;
         continue;
       }
@@ -255,7 +255,7 @@ Deno.serve(async (req) => {
       const salesRep = ownerNames[p.hubspot_owner_id] || null;
       if (salesRep && !existingRepNames.has(salesRep.toLowerCase())) newReps.add(salesRep);
 
-      const row = {
+      rowsToUpsert.push({
         hubspot_deal_id: deal.id,
         hubspot_stage: stageLabel,
         name: p.dealname || "(unnamed deal)",
@@ -271,11 +271,30 @@ Deno.serve(async (req) => {
         incumbent_operator: p.parking_operator || null,
         deal_amount: p.amount ? Number(p.amount) : null,
         contract_signed_date: p.contract_signed_date ? p.contract_signed_date.slice(0, 10) : null,
-      };
+      });
+    }
 
-      const { error } = await admin.from("queue_items").upsert(row, { onConflict: "hubspot_deal_id" });
-      if (error) errors.push({ dealId: deal.id, message: error.message });
-      else synced++;
+    let synced = 0;
+    if (rowsToUpsert.length) {
+      const { error } = await admin.from("queue_items").upsert(rowsToUpsert, { onConflict: "hubspot_deal_id" });
+      if (error) errors.push({ message: error.message });
+      else synced = rowsToUpsert.length;
+    }
+
+    if (locationMatches.length) {
+      await Promise.all(
+        locationMatches.map((m) =>
+          admin.from("locations").update({ hubspot_deal_id: m.dealId }).eq("id", m.locationId)
+        )
+      );
+      // It may already be sitting in the queue from a run before the match
+      // existed — clear it out now rather than waiting on the staleness
+      // cleanup below, which won't catch it (the deal is still present in
+      // this batch, just newly recognized as already handled).
+      await admin
+        .from("queue_items")
+        .delete()
+        .in("hubspot_deal_id", locationMatches.map((m) => m.dealId));
     }
 
     if (newReps.size) {
