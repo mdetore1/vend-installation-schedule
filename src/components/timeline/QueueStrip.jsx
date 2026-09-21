@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Check, ChevronDown, MapPin, Plus, Trash2 } from "lucide-react";
 import { TextInput, Select, Checkbox } from "../fields";
 import { formatShort, parseDate } from "../../lib/dateUtils";
@@ -307,13 +307,34 @@ export default function QueueStrip({
   onPromote,
 }) {
   const [showAdd, setShowAdd] = useState(false);
-  const [stageFilter, setStageFilter] = useState(null);
+  // Persisted per-browser so a saved view (e.g. "Negotiation + Final
+  // Proposal" for a sales review) survives a reload instead of resetting.
+  const [stageFilters, setStageFilters] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("salesQueueStageFilters") || "[]");
+      return Array.isArray(saved) ? saved : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("salesQueueStageFilters", JSON.stringify(stageFilters));
+    } catch {
+      // ignore — per-viewer convenience only
+    }
+  }, [stageFilters]);
+
+  function toggleStageFilter(stage) {
+    setStageFilters((prev) => (prev.includes(stage) ? prev.filter((s) => s !== stage) : [...prev, stage]));
+  }
 
   const stages = useMemo(
     () => sortByStageOrder([...new Set(queue.map((q) => q.hubspotStage).filter(Boolean))]),
     [queue]
   );
-  const filteredQueue = stageFilter ? queue.filter((q) => q.hubspotStage === stageFilter) : queue;
+  const filteredQueue = stageFilters.length ? queue.filter((q) => stageFilters.includes(q.hubspotStage)) : queue;
 
   return (
     <div className="mt-4 overflow-hidden rounded-2xl border border-concrete-200">
@@ -323,7 +344,11 @@ export default function QueueStrip({
         className="flex w-full items-center justify-between bg-caution-600 px-5 py-3 text-left text-vend-black transition hover:bg-caution-600/90"
       >
         <span className="text-sm font-semibold">
-          Sales queue <span className="opacity-70">({filteredQueue.length}{stageFilter ? ` of ${queue.length}` : ""})</span>
+          Sales queue{" "}
+          <span className="opacity-70">
+            ({filteredQueue.length}
+            {stageFilters.length ? ` of ${queue.length}` : ""})
+          </span>
         </span>
         <ChevronDown size={16} className={`transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
@@ -336,25 +361,28 @@ export default function QueueStrip({
             <div className="flex flex-wrap items-center gap-1.5 border-b border-concrete-200 bg-white px-3 py-2">
               <button
                 type="button"
-                onClick={() => setStageFilter(null)}
+                onClick={() => setStageFilters([])}
                 className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
-                  !stageFilter ? "bg-vend-black text-white" : "bg-concrete-200 text-slate-500 hover:bg-concrete-300"
+                  !stageFilters.length ? "bg-vend-black text-white" : "bg-concrete-200 text-slate-500 hover:bg-concrete-300"
                 }`}
               >
-                {!stageFilter && <Check size={11} />} All stages
+                {!stageFilters.length && <Check size={11} />} All stages
               </button>
-              {stages.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setStageFilter(stageFilter === s ? null : s)}
-                  className={`flex items-center gap-1 truncate rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
-                    stageFilter === s ? "bg-vend-black text-white" : "bg-concrete-200 text-slate-500 hover:bg-concrete-300"
-                  }`}
-                >
-                  {stageFilter === s && <Check size={11} />} {s}
-                </button>
-              ))}
+              {stages.map((s) => {
+                const active = stageFilters.includes(s);
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => toggleStageFilter(s)}
+                    className={`flex items-center gap-1 truncate rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+                      active ? "bg-vend-black text-white" : "bg-concrete-200 text-slate-500 hover:bg-concrete-300"
+                    }`}
+                  >
+                    {active && <Check size={11} />} {s}
+                  </button>
+                );
+              })}
             </div>
           )}
           <div className="space-y-2 overflow-y-auto bg-concrete-100/40 p-3" style={{ maxHeight: "50vh" }}>
@@ -362,7 +390,7 @@ export default function QueueStrip({
               <p className="px-2 py-4 text-sm text-slate-400">
                 {queue.length === 0
                   ? "Nothing in the queue — add a location sales is working on."
-                  : "No queue items at this stage."}
+                  : "No queue items at these stages."}
               </p>
             )}
             {filteredQueue.map((item) => (
