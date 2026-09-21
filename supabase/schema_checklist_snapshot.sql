@@ -109,3 +109,27 @@ create policy "task attachments deletable by admins"
 -- attachment is always a Supabase Storage upload, a link is always a
 -- pasted URL, and Manage Template shows them as two distinct lists.
 alter table checklist_items add column if not exists attachments jsonb not null default '[]'::jsonb;
+
+-- HubSpot → Sales Queue sync: dedup key (HubSpot's own deal id) and the raw
+-- deal-stage label, kept alongside the queue item so a future stage filter
+-- can be built without a second round-trip to HubSpot. Both null for queue
+-- items added by hand.
+alter table queue_items add column if not exists hubspot_deal_id text unique;
+alter table queue_items add column if not exists hubspot_stage text;
+
+-- Garage-details fields pulled from HubSpot's deal properties — not
+-- previously tracked anywhere in this app.
+alter table queue_items add column if not exists garage_type text;
+alter table queue_items add column if not exists number_of_parking_spaces integer;
+alter table queue_items add column if not exists building_class text;
+alter table queue_items add column if not exists property_type text;
+alter table queue_items add column if not exists incumbent_operator text;
+
+-- Deal-financials fields, same source.
+alter table queue_items add column if not exists deal_amount numeric;
+alter table queue_items add column if not exists contract_signed_date date;
+
+-- Carried over from the queue item on promote — lets the HubSpot sync skip
+-- deals that already made it onto the calendar, instead of re-adding them
+-- to the queue on the next sync once their queue_items row is gone.
+alter table locations add column if not exists hubspot_deal_id text;

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ChevronDown, MapPin, Plus, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Check, ChevronDown, MapPin, Plus, Trash2 } from "lucide-react";
 import { TextInput, Select, Checkbox } from "../fields";
 import { formatShort, parseDate } from "../../lib/dateUtils";
 import { ACCESS_TYPES, CONTRACT_STATES } from "../../lib/locationDefaults";
@@ -23,6 +23,12 @@ function Chip({ children }) {
       {children}
     </span>
   );
+}
+
+function formatCurrency(n) {
+  const num = Number(n);
+  if (!num) return "";
+  return `$${num.toLocaleString()}`;
 }
 
 function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromote }) {
@@ -65,8 +71,17 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
           {item.propertyManagement && <Chip>PM: {item.propertyManagement}</Chip>}
           {item.ownership && <Chip>Owner: {item.ownership}</Chip>}
           {item.potentialGoLiveDate && <Chip>Go-live: {formatShort(parseDate(item.potentialGoLiveDate))}</Chip>}
+          {!!item.dealAmount && <Chip>{formatCurrency(item.dealAmount)}</Chip>}
           {item.hasOnsiteStaff && (
             <span className="shrink-0 rounded-full bg-mint-200 px-2.5 py-1 text-[11px] font-bold text-mint-700">Spark</span>
+          )}
+          {item.hubspotStage && (
+            <span
+              className="shrink-0 truncate rounded-full bg-[#FF7A59]/15 px-2.5 py-1 text-[11px] font-bold text-[#FF7A59]"
+              title="Synced from HubSpot"
+            >
+              {item.hubspotStage}
+            </span>
           )}
         </div>
 
@@ -193,6 +208,71 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
               />
             </FieldMini>
           </div>
+
+          {(item.hubspotDealId || item.garageType || item.numberOfParkingSpaces || item.buildingClass || item.propertyType || item.incumbentOperator || item.dealAmount || item.contractSignedDate) && (
+            <div className="border-t border-concrete-200 p-3.5">
+              <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                From HubSpot
+              </p>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <FieldMini label="Garage type">
+                  <TextInput
+                    value={item.garageType || ""}
+                    onChange={(e) => onUpdate({ garageType: e.target.value })}
+                    className={miniInputCls}
+                  />
+                </FieldMini>
+                <FieldMini label="Parking spaces">
+                  <TextInput
+                    type="number"
+                    min="0"
+                    value={item.numberOfParkingSpaces || ""}
+                    onChange={(e) => onUpdate({ numberOfParkingSpaces: e.target.value ? Number(e.target.value) : null })}
+                    className={miniInputCls}
+                  />
+                </FieldMini>
+                <FieldMini label="Building class">
+                  <TextInput
+                    value={item.buildingClass || ""}
+                    onChange={(e) => onUpdate({ buildingClass: e.target.value })}
+                    className={miniInputCls}
+                  />
+                </FieldMini>
+                <FieldMini label="Property type">
+                  <TextInput
+                    value={item.propertyType || ""}
+                    onChange={(e) => onUpdate({ propertyType: e.target.value })}
+                    className={miniInputCls}
+                  />
+                </FieldMini>
+                <FieldMini label="Incumbent operator">
+                  <TextInput
+                    value={item.incumbentOperator || ""}
+                    onChange={(e) => onUpdate({ incumbentOperator: e.target.value })}
+                    className={miniInputCls}
+                  />
+                </FieldMini>
+                <FieldMini label="Deal amount">
+                  <TextInput
+                    type="number"
+                    min="0"
+                    prefix="$"
+                    value={item.dealAmount || ""}
+                    onChange={(e) => onUpdate({ dealAmount: e.target.value ? Number(e.target.value) : null })}
+                    className={miniInputCls}
+                  />
+                </FieldMini>
+                <FieldMini label="Contract signed">
+                  <TextInput
+                    type="date"
+                    value={item.contractSignedDate || ""}
+                    onChange={(e) => onUpdate({ contractSignedDate: e.target.value })}
+                    className={miniInputCls}
+                  />
+                </FieldMini>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -211,6 +291,13 @@ export default function QueueStrip({
   onPromote,
 }) {
   const [showAdd, setShowAdd] = useState(false);
+  const [stageFilter, setStageFilter] = useState(null);
+
+  const stages = useMemo(
+    () => [...new Set(queue.map((q) => q.hubspotStage).filter(Boolean))],
+    [queue]
+  );
+  const filteredQueue = stageFilter ? queue.filter((q) => q.hubspotStage === stageFilter) : queue;
 
   return (
     <div className="mt-4 overflow-hidden rounded-2xl border border-concrete-200">
@@ -220,7 +307,7 @@ export default function QueueStrip({
         className="flex w-full items-center justify-between bg-caution-600 px-5 py-3 text-left text-vend-black transition hover:bg-caution-600/90"
       >
         <span className="text-sm font-semibold">
-          Sales queue <span className="opacity-70">({queue.length})</span>
+          Sales queue <span className="opacity-70">({filteredQueue.length}{stageFilter ? ` of ${queue.length}` : ""})</span>
         </span>
         <ChevronDown size={16} className={`transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
@@ -229,13 +316,40 @@ export default function QueueStrip({
         className={`grid transition-[grid-template-rows] duration-300 ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
       >
         <div className="overflow-hidden">
+          {stages.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 border-b border-concrete-200 bg-white px-3 py-2">
+              <button
+                type="button"
+                onClick={() => setStageFilter(null)}
+                className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+                  !stageFilter ? "bg-vend-black text-white" : "bg-concrete-200 text-slate-500 hover:bg-concrete-300"
+                }`}
+              >
+                {!stageFilter && <Check size={11} />} All stages
+              </button>
+              {stages.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setStageFilter(stageFilter === s ? null : s)}
+                  className={`flex items-center gap-1 truncate rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+                    stageFilter === s ? "bg-vend-black text-white" : "bg-concrete-200 text-slate-500 hover:bg-concrete-300"
+                  }`}
+                >
+                  {stageFilter === s && <Check size={11} />} {s}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="space-y-2 overflow-y-auto bg-concrete-100/40 p-3" style={{ maxHeight: "50vh" }}>
-            {queue.length === 0 && (
+            {filteredQueue.length === 0 && (
               <p className="px-2 py-4 text-sm text-slate-400">
-                Nothing in the queue — add a location sales is working on.
+                {queue.length === 0
+                  ? "Nothing in the queue — add a location sales is working on."
+                  : "No queue items at this stage."}
               </p>
             )}
-            {queue.map((item) => (
+            {filteredQueue.map((item) => (
               <QueueRow
                 key={item.id}
                 item={item}

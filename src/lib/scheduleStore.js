@@ -219,6 +219,15 @@ export function useScheduleStore() {
       propertyManagement: q.property_management,
       ownership: q.ownership,
       hasOnsiteStaff: !!q.has_onsite_staff,
+      hubspotDealId: q.hubspot_deal_id,
+      hubspotStage: q.hubspot_stage,
+      garageType: q.garage_type,
+      numberOfParkingSpaces: q.number_of_parking_spaces,
+      buildingClass: q.building_class,
+      propertyType: q.property_type,
+      incumbentOperator: q.incumbent_operator,
+      dealAmount: q.deal_amount,
+      contractSignedDate: q.contract_signed_date,
     }));
     const salesReps = salesRepRows.map((r) => r.name);
     const companyEvents = companyEventRows.map((e) => ({ id: e.id, name: e.name, start: e.start_date, end: e.end_date }));
@@ -509,6 +518,15 @@ export function useScheduleStore() {
       property_management: item.propertyManagement ?? null,
       ownership: item.ownership ?? null,
       has_onsite_staff: !!item.hasOnsiteStaff,
+      hubspot_deal_id: item.hubspotDealId ?? null,
+      hubspot_stage: item.hubspotStage ?? null,
+      garage_type: item.garageType ?? null,
+      number_of_parking_spaces: item.numberOfParkingSpaces ?? null,
+      building_class: item.buildingClass ?? null,
+      property_type: item.propertyType ?? null,
+      incumbent_operator: item.incumbentOperator ?? null,
+      deal_amount: item.dealAmount ?? null,
+      contract_signed_date: item.contractSignedDate || null,
     });
   }
   async function addSalesRep(name) {
@@ -529,6 +547,14 @@ export function useScheduleStore() {
     if (patch.propertyManagement !== undefined) row.property_management = patch.propertyManagement;
     if (patch.ownership !== undefined) row.ownership = patch.ownership;
     if (patch.hasOnsiteStaff !== undefined) row.has_onsite_staff = patch.hasOnsiteStaff;
+    if (patch.hubspotStage !== undefined) row.hubspot_stage = patch.hubspotStage;
+    if (patch.garageType !== undefined) row.garage_type = patch.garageType;
+    if (patch.numberOfParkingSpaces !== undefined) row.number_of_parking_spaces = patch.numberOfParkingSpaces;
+    if (patch.buildingClass !== undefined) row.building_class = patch.buildingClass;
+    if (patch.propertyType !== undefined) row.property_type = patch.propertyType;
+    if (patch.incumbentOperator !== undefined) row.incumbent_operator = patch.incumbentOperator;
+    if (patch.dealAmount !== undefined) row.deal_amount = patch.dealAmount;
+    if (patch.contractSignedDate !== undefined) row.contract_signed_date = patch.contractSignedDate || null;
     await supabase.from("queue_items").update(row).eq("id", id);
   }
   async function removeQueueItem(id) {
@@ -550,6 +576,7 @@ export function useScheduleStore() {
         contractor: contractor || "Task Force",
         has_onsite_staff: !!hasOnsiteStaff,
         sales_person_id: salesPersonId && salesPersonId !== UNASSIGNED ? salesPersonId : null,
+        hubspot_deal_id: queueItem.hubspotDealId ?? null,
       })
       .select()
       .single();
