@@ -227,7 +227,7 @@ export function useScheduleStore() {
       incumbentOperator: q.incumbent_operator,
       dealAmount: q.deal_amount,
       contractSignedDate: q.contract_signed_date,
-    }));
+    })).sort((a, b) => a.name.localeCompare(b.name));
     const salesReps = salesRepRows.map((r) => r.name);
     const companyEvents = companyEventRows.map((e) => ({ id: e.id, name: e.name, start: e.start_date, end: e.end_date }));
     return { team, locations, queue, salesReps, companyEvents, checklistTemplate };
