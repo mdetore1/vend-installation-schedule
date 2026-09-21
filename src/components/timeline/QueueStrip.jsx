@@ -69,7 +69,7 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
         <input
           value={item.name}
           onChange={(e) => onUpdate({ name: e.target.value })}
-          className="w-32 shrink-0 truncate rounded border border-transparent bg-transparent font-display text-[15px] font-bold text-vend-black outline-none transition focus:border-concrete-300 focus:bg-concrete-100/50 sm:w-40"
+          className="w-64 shrink-0 truncate rounded border border-transparent bg-transparent font-display text-[15px] font-bold text-vend-black outline-none transition focus:border-concrete-300 focus:bg-concrete-100/50 sm:w-96"
         />
 
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
