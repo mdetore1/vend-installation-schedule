@@ -53,11 +53,19 @@ function parseOnsiteStaff(text) {
   return /\byes\b/i.test(text) || /\bft\b|\bpt\b/i.test(text) || /\d/.test(text);
 }
 
-async function hubspotFetch(path, token, init) {
+// Retries on HubSpot's 429 (rate limit), backing off per its own Retry-After
+// header when given — needed even at moderate request volume since this
+// runs every 30 minutes and the deal/owner lists are paginated.
+async function hubspotFetch(path, token, init, attempt = 0) {
   const res = await fetch(`https://api.hubapi.com${path}`, {
     ...init,
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...(init?.headers || {}) },
   });
+  if (res.status === 429 && attempt < 5) {
+    const waitSeconds = Number(res.headers.get("Retry-After")) || attempt + 1;
+    await new Promise((r) => setTimeout(r, waitSeconds * 1000));
+    return hubspotFetch(path, token, init, attempt + 1);
+  }
   if (!res.ok) throw new Error(`HubSpot ${path} failed: ${res.status} ${await res.text()}`);
   return res.json();
 }
@@ -71,6 +79,8 @@ async function fetchStageLabels(token) {
   for (const stage of data.stages || []) map[stage.id] = stage.label;
   return map;
 }
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Deal owner (HubSpot's own "Deal owner" field, not a separate rep property
 // — there isn't one) id -> full name, so the queue's Sales rep field fills
@@ -86,6 +96,7 @@ async function fetchOwnerNames(token) {
       if (name) map[owner.id] = name;
     }
     after = page.paging?.next?.after;
+    if (after) await sleep(300);
   } while (after);
   return map;
 }
@@ -106,6 +117,7 @@ async function fetchAllSalesDeals(token) {
     });
     deals.push(...(page.results || []));
     after = page.paging?.next?.after;
+    if (after) await sleep(300);
   } while (after);
   return deals;
 }
@@ -126,10 +138,12 @@ Deno.serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
 
-    const [stageLabels, ownerNames, deals, { data: promotedLocations }, { data: existingReps }] = await Promise.all([
-      fetchStageLabels(hubspotToken),
-      fetchOwnerNames(hubspotToken),
-      fetchAllSalesDeals(hubspotToken),
+    // Sequential, not parallel — HubSpot's per-second rate limit is easy to
+    // trip when the stage, owner, and deal-search calls all fire at once.
+    const stageLabels = await fetchStageLabels(hubspotToken);
+    const ownerNames = await fetchOwnerNames(hubspotToken);
+    const deals = await fetchAllSalesDeals(hubspotToken);
+    const [{ data: promotedLocations }, { data: existingReps }] = await Promise.all([
       admin.from("locations").select("hubspot_deal_id").not("hubspot_deal_id", "is", null),
       admin.from("sales_reps").select("name"),
     ]);
