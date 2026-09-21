@@ -53,18 +53,28 @@ function parseOnsiteStaff(text) {
   return /\byes\b/i.test(text) || /\bft\b|\bpt\b/i.test(text) || /\d/.test(text);
 }
 
+// Supabase kills an Edge Function after 150s idle — leave real margin under
+// that so a rate-limit-heavy run always returns a normal response instead of
+// getting silently killed with nothing to show for it.
+const TIME_BUDGET_MS = 100_000;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+class OutOfTimeBudget extends Error {}
+
 // Retries on HubSpot's 429 (rate limit), backing off per its own Retry-After
-// header when given — needed even at moderate request volume since this
-// runs every 30 minutes and the deal/owner lists are paginated.
-async function hubspotFetch(path, token, init, attempt = 0) {
+// header when given. Bails out (rather than waiting into a wall it can't
+// meet) once a wait would blow the time budget, so the caller can stop
+// cleanly instead of the whole function getting killed mid-request.
+async function hubspotFetch(path, token, deadlineAt, init, attempt = 0) {
   const res = await fetch(`https://api.hubapi.com${path}`, {
     ...init,
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...(init?.headers || {}) },
   });
   if (res.status === 429 && attempt < 5) {
-    const waitSeconds = Number(res.headers.get("Retry-After")) || attempt + 1;
-    await new Promise((r) => setTimeout(r, waitSeconds * 1000));
-    return hubspotFetch(path, token, init, attempt + 1);
+    const waitMs = (Number(res.headers.get("Retry-After")) || attempt + 1) * 1000;
+    if (Date.now() + waitMs >= deadlineAt) throw new OutOfTimeBudget(`${path}: rate-limited, out of time budget`);
+    await sleep(waitMs);
+    return hubspotFetch(path, token, deadlineAt, init, attempt + 1);
   }
   if (!res.ok) throw new Error(`HubSpot ${path} failed: ${res.status} ${await res.text()}`);
   return res.json();
@@ -73,53 +83,65 @@ async function hubspotFetch(path, token, init, attempt = 0) {
 // Active (non-archived) stages for the Sales Pipeline, id -> label — fetched
 // live each run instead of hardcoded, so a stage HubSpot marks deprecated
 // drops out on its own without a code change here.
-async function fetchStageLabels(token) {
-  const data = await hubspotFetch(`/crm/v3/pipelines/deals/${SALES_PIPELINE_ID}`, token);
+async function fetchStageLabels(token, deadlineAt) {
+  const data = await hubspotFetch(`/crm/v3/pipelines/deals/${SALES_PIPELINE_ID}`, token, deadlineAt);
   const map = {};
   for (const stage of data.stages || []) map[stage.id] = stage.label;
   return map;
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
 // Deal owner (HubSpot's own "Deal owner" field, not a separate rep property
 // — there isn't one) id -> full name, so the queue's Sales rep field fills
-// in automatically instead of needing to be typed by hand.
-async function fetchOwnerNames(token) {
+// in automatically instead of needing to be typed by hand. Stops and returns
+// what it has (truncated: true) if it runs into the time budget mid-page —
+// the next scheduled run picks up the rest.
+async function fetchOwnerNames(token, deadlineAt) {
   const map = {};
   let after;
-  do {
-    const qs = new URLSearchParams({ limit: "500", ...(after ? { after } : {}) });
-    const page = await hubspotFetch(`/crm/v3/owners?${qs}`, token);
-    for (const owner of page.results || []) {
-      const name = [owner.firstName, owner.lastName].filter(Boolean).join(" ").trim() || owner.email;
-      if (name) map[owner.id] = name;
-    }
-    after = page.paging?.next?.after;
-    if (after) await sleep(300);
-  } while (after);
-  return map;
+  let truncated = false;
+  try {
+    do {
+      const qs = new URLSearchParams({ limit: "500", ...(after ? { after } : {}) });
+      const page = await hubspotFetch(`/crm/v3/owners?${qs}`, token, deadlineAt);
+      for (const owner of page.results || []) {
+        const name = [owner.firstName, owner.lastName].filter(Boolean).join(" ").trim() || owner.email;
+        if (name) map[owner.id] = name;
+      }
+      after = page.paging?.next?.after;
+      if (after) await sleep(500);
+    } while (after);
+  } catch (err) {
+    if (!(err instanceof OutOfTimeBudget)) throw err;
+    truncated = true;
+  }
+  return { map, truncated };
 }
 
-async function fetchAllSalesDeals(token) {
+async function fetchAllSalesDeals(token, deadlineAt) {
   const deals = [];
   let after;
-  do {
-    const body = {
-      filterGroups: [{ filters: [{ propertyName: "pipeline", operator: "EQ", value: SALES_PIPELINE_ID }] }],
-      properties: DEAL_PROPERTIES,
-      limit: 100,
-      ...(after ? { after } : {}),
-    };
-    const page = await hubspotFetch("/crm/v3/objects/deals/search", token, {
-      method: "POST",
-      body: JSON.stringify(body),
-    });
-    deals.push(...(page.results || []));
-    after = page.paging?.next?.after;
-    if (after) await sleep(300);
-  } while (after);
-  return deals;
+  let truncated = false;
+  try {
+    do {
+      const body = {
+        filterGroups: [{ filters: [{ propertyName: "pipeline", operator: "EQ", value: SALES_PIPELINE_ID }] }],
+        properties: DEAL_PROPERTIES,
+        limit: 100,
+        ...(after ? { after } : {}),
+      };
+      const page = await hubspotFetch("/crm/v3/objects/deals/search", token, deadlineAt, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      deals.push(...(page.results || []));
+      after = page.paging?.next?.after;
+      if (after) await sleep(500);
+    } while (after);
+  } catch (err) {
+    if (!(err instanceof OutOfTimeBudget)) throw err;
+    truncated = true;
+  }
+  return { deals, truncated };
 }
 
 Deno.serve(async (req) => {
@@ -137,12 +159,13 @@ Deno.serve(async (req) => {
     if (!hubspotToken) return json({ error: "HUBSPOT_TOKEN secret not set" }, 500);
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
+    const deadlineAt = Date.now() + TIME_BUDGET_MS;
 
     // Sequential, not parallel — HubSpot's per-second rate limit is easy to
     // trip when the stage, owner, and deal-search calls all fire at once.
-    const stageLabels = await fetchStageLabels(hubspotToken);
-    const ownerNames = await fetchOwnerNames(hubspotToken);
-    const deals = await fetchAllSalesDeals(hubspotToken);
+    const stageLabels = await fetchStageLabels(hubspotToken, deadlineAt);
+    const { map: ownerNames, truncated: ownersTruncated } = await fetchOwnerNames(hubspotToken, deadlineAt);
+    const { deals, truncated: dealsTruncated } = await fetchAllSalesDeals(hubspotToken, deadlineAt);
     const [{ data: promotedLocations }, { data: existingReps }] = await Promise.all([
       admin.from("locations").select("hubspot_deal_id").not("hubspot_deal_id", "is", null),
       admin.from("sales_reps").select("name"),
@@ -191,7 +214,20 @@ Deno.serve(async (req) => {
       await admin.from("sales_reps").insert([...newReps].map((name) => ({ name })));
     }
 
-    return json({ ok: true, totalDeals: deals.length, synced, skippedPromoted, newReps: [...newReps], errors });
+    return json({
+      ok: true,
+      totalDeals: deals.length,
+      synced,
+      skippedPromoted,
+      newReps: [...newReps],
+      errors,
+      ownersTruncated,
+      dealsTruncated,
+      note:
+        ownersTruncated || dealsTruncated
+          ? "Hit the time budget before finishing — ran out of retries on HubSpot's rate limit. Synced what it could; the next scheduled run will pick up more."
+          : undefined,
+    });
   } catch (err) {
     return json({ error: err.message }, 400);
   }
