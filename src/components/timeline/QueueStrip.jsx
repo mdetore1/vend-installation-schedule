@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronDown, ExternalLink, MapPin, Plus, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowUpDown, Check, ChevronDown, ExternalLink, MapPin, Plus, Trash2 } from "lucide-react";
 import { TextInput, Select, Checkbox } from "../fields";
 import { formatShort, parseDate } from "../../lib/dateUtils";
 import { ACCESS_TYPES, CONTRACT_STATES } from "../../lib/locationDefaults";
@@ -24,6 +24,52 @@ function sortByStageOrder(stages) {
     return ai - bi;
   });
 }
+
+// Sort options for the Sales Queue list, each a comparator over queue items.
+// "Stage" (pipeline order, then name) is the default — matches how the
+// queue reads without any explicit sort applied.
+const SORT_OPTIONS = [
+  {
+    value: "stage",
+    label: "Stage (pipeline order)",
+    compare: (a, b) => {
+      const ai = STAGE_ORDER.indexOf(a.hubspotStage);
+      const bi = STAGE_ORDER.indexOf(b.hubspotStage);
+      const rank = (i) => (i === -1 ? STAGE_ORDER.length : i);
+      return rank(ai) - rank(bi) || a.name.localeCompare(b.name);
+    },
+  },
+  {
+    value: "amount-desc",
+    label: "Deal amount (high to low)",
+    compare: (a, b) => (b.dealAmount || 0) - (a.dealAmount || 0) || a.name.localeCompare(b.name),
+  },
+  {
+    value: "salesRep",
+    label: "Sales rep (A–Z)",
+    compare: (a, b) => {
+      if (!a.salesRep && !b.salesRep) return a.name.localeCompare(b.name);
+      if (!a.salesRep) return 1;
+      if (!b.salesRep) return -1;
+      return a.salesRep.localeCompare(b.salesRep) || a.name.localeCompare(b.name);
+    },
+  },
+  {
+    value: "name",
+    label: "Name (A–Z)",
+    compare: (a, b) => a.name.localeCompare(b.name),
+  },
+  {
+    value: "goLive",
+    label: "Go-live date (soonest)",
+    compare: (a, b) => {
+      if (!a.potentialGoLiveDate && !b.potentialGoLiveDate) return a.name.localeCompare(b.name);
+      if (!a.potentialGoLiveDate) return 1;
+      if (!b.potentialGoLiveDate) return -1;
+      return a.potentialGoLiveDate.localeCompare(b.potentialGoLiveDate) || a.name.localeCompare(b.name);
+    },
+  },
+];
 
 function FieldMini({ label, children }) {
   return (
@@ -337,11 +383,43 @@ export default function QueueStrip({
     setStageFilters((prev) => (prev.includes(stage) ? prev.filter((s) => s !== stage) : [...prev, stage]));
   }
 
+  const [sortMode, setSortMode] = useState(() => {
+    try {
+      return localStorage.getItem("salesQueueSortMode") || "stage";
+    } catch {
+      return "stage";
+    }
+  });
+  const [sortOpen, setSortOpen] = useState(false);
+  const sortBtnRef = useRef(null);
+  const sortPanelRef = useRef(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("salesQueueSortMode", sortMode);
+    } catch {
+      // ignore — per-viewer convenience only
+    }
+  }, [sortMode]);
+
+  useEffect(() => {
+    if (!sortOpen) return;
+    const onDocDown = (e) => {
+      if (sortBtnRef.current?.contains(e.target) || sortPanelRef.current?.contains(e.target)) return;
+      setSortOpen(false);
+    };
+    document.addEventListener("pointerdown", onDocDown);
+    return () => document.removeEventListener("pointerdown", onDocDown);
+  }, [sortOpen]);
+
   const stages = useMemo(
     () => sortByStageOrder([...new Set(queue.map((q) => q.hubspotStage).filter(Boolean))]),
     [queue]
   );
-  const filteredQueue = stageFilters.length ? queue.filter((q) => stageFilters.includes(q.hubspotStage)) : queue;
+  const activeSort = SORT_OPTIONS.find((s) => s.value === sortMode) || SORT_OPTIONS[0];
+  const filteredQueue = (stageFilters.length ? queue.filter((q) => stageFilters.includes(q.hubspotStage)) : queue)
+    .slice()
+    .sort(activeSort.compare);
 
   return (
     <div className="mt-4 overflow-hidden rounded-2xl border border-concrete-200">
@@ -364,34 +442,75 @@ export default function QueueStrip({
         className={`grid transition-[grid-template-rows] duration-300 ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
       >
         <div className="overflow-hidden">
-          {stages.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5 border-b border-concrete-200 bg-white px-3 py-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-concrete-200 bg-white px-3 py-2">
+            {stages.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setStageFilters([])}
+                  className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+                    !stageFilters.length ? "bg-vend-black text-white" : "bg-concrete-200 text-slate-500 hover:bg-concrete-300"
+                  }`}
+                >
+                  {!stageFilters.length && <Check size={11} />} All stages
+                </button>
+                {stages.map((s) => {
+                  const active = stageFilters.includes(s);
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => toggleStageFilter(s)}
+                      className={`flex items-center gap-1 truncate rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+                        active ? "bg-vend-black text-white" : "bg-concrete-200 text-slate-500 hover:bg-concrete-300"
+                      }`}
+                    >
+                      {active && <Check size={11} />} {s}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div />
+            )}
+
+            <div className="relative shrink-0">
               <button
+                ref={sortBtnRef}
                 type="button"
-                onClick={() => setStageFilters([])}
-                className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
-                  !stageFilters.length ? "bg-vend-black text-white" : "bg-concrete-200 text-slate-500 hover:bg-concrete-300"
+                onClick={() => setSortOpen((v) => !v)}
+                className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
+                  sortOpen ? "border-vend-black bg-concrete-100 text-vend-black" : "border-concrete-200 text-slate-500 hover:border-slate-300"
                 }`}
               >
-                {!stageFilters.length && <Check size={11} />} All stages
+                <ArrowUpDown size={12} /> Sort: {activeSort.label}
+                <ChevronDown size={11} className={`transition-transform ${sortOpen ? "rotate-180" : ""}`} />
               </button>
-              {stages.map((s) => {
-                const active = stageFilters.includes(s);
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => toggleStageFilter(s)}
-                    className={`flex items-center gap-1 truncate rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
-                      active ? "bg-vend-black text-white" : "bg-concrete-200 text-slate-500 hover:bg-concrete-300"
-                    }`}
-                  >
-                    {active && <Check size={11} />} {s}
-                  </button>
-                );
-              })}
+              {sortOpen && (
+                <div
+                  ref={sortPanelRef}
+                  className="absolute right-0 top-full z-20 mt-1.5 w-56 rounded-xl border border-concrete-200 bg-white p-1.5 shadow-xl"
+                >
+                  {SORT_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => {
+                        setSortMode(opt.value);
+                        setSortOpen(false);
+                      }}
+                      className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium transition ${
+                        opt.value === sortMode ? "bg-concrete-100 text-vend-black" : "text-slate-600 hover:bg-concrete-100/60"
+                      }`}
+                    >
+                      {opt.value === sortMode ? <Check size={13} className="shrink-0" /> : <span className="w-[13px] shrink-0" />}
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
+          </div>
           <div className="space-y-2 overflow-y-auto bg-concrete-100/40 p-3" style={{ maxHeight: "50vh" }}>
             {filteredQueue.length === 0 && (
               <p className="px-2 py-4 text-sm text-slate-400">
