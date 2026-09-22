@@ -132,3 +132,12 @@ alter table queue_items add column if not exists contract_signed_date date;
 -- deals that already made it onto the calendar, instead of re-adding them
 -- to the queue on the next sync once their queue_items row is gone.
 alter table locations add column if not exists hubspot_deal_id text;
+
+-- A free-text label (e.g. "Station Square") letting multiple queue items
+-- collapse into one client card for reviewing the queue, same idea as the
+-- Dashboard's client groups but deliberately NOT the same map_groups table
+-- those use — a queue grouping is just an organizing view here. It's never
+-- copied onto the location a queue item promotes into, so each garage
+-- still lands on the calendar as its own separate location with its own
+-- timeline, not merged back into a shared card.
+alter table queue_items add column if not exists sales_group text;

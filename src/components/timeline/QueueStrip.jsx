@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpDown, Check, ChevronDown, ExternalLink, MapPin, Plus, Trash2 } from "lucide-react";
+import { ArrowUpDown, Check, ChevronDown, ChevronRight, ExternalLink, Layers, MapPin, Plus, Trash2 } from "lucide-react";
 import { TextInput, Select, Checkbox } from "../fields";
 import { formatShort, parseDate } from "../../lib/dateUtils";
 import { ACCESS_TYPES, CONTRACT_STATES } from "../../lib/locationDefaults";
@@ -25,51 +25,89 @@ function sortByStageOrder(stages) {
   });
 }
 
-// Sort options for the Sales Queue list, each a comparator over queue items.
-// "Stage" (pipeline order, then name) is the default — matches how the
-// queue reads without any explicit sort applied.
+// Sort options for the Sales Queue list. "Stage" (pipeline order, then
+// name) is the default — matches how the queue reads without any explicit
+// sort applied. Actual comparison lives in compareEntries below, since a
+// grouped client card (see groupQueueItems) needs an aggregate value per
+// mode, not just a single item's.
 const SORT_OPTIONS = [
-  {
-    value: "stage",
-    label: "Stage (pipeline order)",
-    compare: (a, b) => {
-      const ai = STAGE_ORDER.indexOf(a.hubspotStage);
-      const bi = STAGE_ORDER.indexOf(b.hubspotStage);
-      const rank = (i) => (i === -1 ? STAGE_ORDER.length : i);
-      return rank(ai) - rank(bi) || a.name.localeCompare(b.name);
-    },
-  },
-  {
-    value: "amount-desc",
-    label: "Deal amount (high to low)",
-    compare: (a, b) => (b.dealAmount || 0) - (a.dealAmount || 0) || a.name.localeCompare(b.name),
-  },
-  {
-    value: "salesRep",
-    label: "Sales rep (A–Z)",
-    compare: (a, b) => {
-      if (!a.salesRep && !b.salesRep) return a.name.localeCompare(b.name);
-      if (!a.salesRep) return 1;
-      if (!b.salesRep) return -1;
-      return a.salesRep.localeCompare(b.salesRep) || a.name.localeCompare(b.name);
-    },
-  },
-  {
-    value: "name",
-    label: "Name (A–Z)",
-    compare: (a, b) => a.name.localeCompare(b.name),
-  },
-  {
-    value: "goLive",
-    label: "Go-live date (soonest)",
-    compare: (a, b) => {
-      if (!a.potentialGoLiveDate && !b.potentialGoLiveDate) return a.name.localeCompare(b.name);
-      if (!a.potentialGoLiveDate) return 1;
-      if (!b.potentialGoLiveDate) return -1;
-      return a.potentialGoLiveDate.localeCompare(b.potentialGoLiveDate) || a.name.localeCompare(b.name);
-    },
-  },
+  { value: "stage", label: "Stage (pipeline order)" },
+  { value: "amount-desc", label: "Deal amount (high to low)" },
+  { value: "salesRep", label: "Sales rep (A–Z)" },
+  { value: "name", label: "Name (A–Z)" },
+  { value: "goLive", label: "Go-live date (soonest)" },
 ];
+
+function stageRank(stage) {
+  const i = STAGE_ORDER.indexOf(stage);
+  return i === -1 ? STAGE_ORDER.length : i;
+}
+
+// Groups items that share a manually-set salesGroup label (e.g. "Station
+// Square") — deliberately NOT the Dashboard/Map's map_groups table, since
+// that grouping carries over onto whichever locations it names. This one
+// is purely a Sales Queue view: promoting a grouped item drops the label
+// entirely, so each garage still lands on the calendar as its own
+// independent location. Only groups when 2+ items share a label, so
+// setting a one-off label on a single item doesn't form a group of one.
+function groupQueueItems(items) {
+  const byKey = new Map();
+  for (const item of items) {
+    const key = item.salesGroup?.trim() || null;
+    if (!key) continue;
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push(item);
+  }
+  const grouped = new Set();
+  const groups = [];
+  for (const [key, members] of byKey) {
+    if (members.length < 2) continue;
+    groups.push({ key, members });
+    members.forEach((m) => grouped.add(m.id));
+  }
+  const standalone = items.filter((item) => !grouped.has(item.id));
+  return { groups, standalone };
+}
+
+function entryName(entry) {
+  return entry.type === "group" ? entry.key : entry.item.name;
+}
+
+// A group's value for a given sort mode is an aggregate over its members —
+// summed deal amount, most-advanced stage, soonest go-live, etc. — so a
+// group sorts alongside standalone items sensibly instead of needing its
+// own separate section.
+function entrySortValue(entry, mode) {
+  if (mode === "amount-desc") {
+    return entry.type === "group"
+      ? entry.members.reduce((s, m) => s + (m.dealAmount || 0), 0)
+      : entry.item.dealAmount || 0;
+  }
+  if (mode === "stage") {
+    return entry.type === "group"
+      ? Math.min(...entry.members.map((m) => stageRank(m.hubspotStage)))
+      : stageRank(entry.item.hubspotStage);
+  }
+  if (mode === "salesRep") {
+    return entry.type === "group" ? entry.members.find((m) => m.salesRep)?.salesRep || null : entry.item.salesRep || null;
+  }
+  if (mode === "goLive") {
+    return entry.type === "group"
+      ? entry.members.map((m) => m.potentialGoLiveDate).filter(Boolean).sort()[0] || null
+      : entry.item.potentialGoLiveDate || null;
+  }
+  return entryName(entry);
+}
+
+function compareEntries(a, b, mode) {
+  const av = entrySortValue(a, mode);
+  const bv = entrySortValue(b, mode);
+  if (mode === "amount-desc" || mode === "stage") return av - bv || entryName(a).localeCompare(entryName(b));
+  if (av == null && bv == null) return entryName(a).localeCompare(entryName(b));
+  if (av == null) return 1;
+  if (bv == null) return -1;
+  return String(av).localeCompare(String(bv)) || entryName(a).localeCompare(entryName(b));
+}
 
 function FieldMini({ label, children }) {
   return (
@@ -262,6 +300,15 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
                 className={miniInputCls}
               />
             </FieldMini>
+            <FieldMini label="Group (e.g. Station Square)">
+              <TextInput
+                list="sales-group-options"
+                value={item.salesGroup || ""}
+                onChange={(e) => onUpdate({ salesGroup: e.target.value })}
+                placeholder="Same name on 2+ items groups them"
+                className={miniInputCls}
+              />
+            </FieldMini>
             <FieldMini label="Property mgmt">
               <TextInput
                 value={item.propertyManagement || ""}
@@ -348,6 +395,54 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
   );
 }
 
+// Collapsible client card for a set of queue items sharing a salesGroup
+// label — same visual idea as the Dashboard's ClientGroupCard (a rollup
+// with a total), but each member still renders as its own full QueueRow
+// when expanded, so promoting one is exactly the same "Add to calendar"
+// action as any standalone item.
+function QueueGroupCard({ group, salesReps, onAddSalesRep, onUpdate, onRemove, onPromote }) {
+  const [open, setOpen] = useState(false);
+  const totalAmount = group.members.reduce((s, m) => s + (m.dealAmount || 0), 0);
+  const anyClosedWon = group.members.some((m) => m.contractState === "Closed Won");
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-concrete-200 bg-white shadow-sm transition hover:border-concrete-300">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3 text-left"
+      >
+        <span className={`h-2 w-2 shrink-0 rounded-full ${anyClosedWon ? "bg-go" : "bg-caution"}`} />
+        <Layers size={14} className="shrink-0 text-beacon-700" />
+        <span className="font-display text-[15px] font-bold text-vend-black">{group.key}</span>
+        <span className="shrink-0 rounded-full bg-beacon-100 px-2.5 py-1 text-[11px] font-semibold text-beacon-700">
+          {group.members.length} garages
+        </span>
+        {!!totalAmount && <Chip>{formatCurrency(totalAmount)} total</Chip>}
+        <ChevronRight size={15} className={`ml-auto shrink-0 text-slate-400 transition-transform ${open ? "rotate-90" : ""}`} />
+      </button>
+
+      <div className={`grid transition-[grid-template-rows] duration-200 ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+        <div className="overflow-hidden">
+          <div className="space-y-2 border-t border-concrete-200 bg-concrete-100/40 p-2">
+            {group.members.map((item) => (
+              <QueueRow
+                key={item.id}
+                item={item}
+                salesReps={salesReps}
+                onAddSalesRep={onAddSalesRep}
+                onUpdate={(patch) => onUpdate(item.id, patch)}
+                onRemove={() => onRemove(item.id)}
+                onPromote={() => onPromote(item.id)}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function QueueStrip({
   queue,
   salesReps,
@@ -416,10 +511,18 @@ export default function QueueStrip({
     () => sortByStageOrder([...new Set(queue.map((q) => q.hubspotStage).filter(Boolean))]),
     [queue]
   );
+  const existingGroupNames = useMemo(
+    () => [...new Set(queue.map((q) => q.salesGroup).filter(Boolean))].sort(),
+    [queue]
+  );
   const activeSort = SORT_OPTIONS.find((s) => s.value === sortMode) || SORT_OPTIONS[0];
-  const filteredQueue = (stageFilters.length ? queue.filter((q) => stageFilters.includes(q.hubspotStage)) : queue)
-    .slice()
-    .sort(activeSort.compare);
+  const filteredItems = stageFilters.length ? queue.filter((q) => stageFilters.includes(q.hubspotStage)) : queue;
+  const { groups, standalone } = groupQueueItems(filteredItems);
+  const entries = [
+    ...groups.map((g) => ({ type: "group", ...g })),
+    ...standalone.map((item) => ({ type: "item", item })),
+  ].sort((a, b) => compareEntries(a, b, sortMode));
+  const filteredCount = groups.reduce((s, g) => s + g.members.length, 0) + standalone.length;
 
   return (
     <div className="mt-4 overflow-hidden rounded-2xl border border-concrete-200">
@@ -431,7 +534,7 @@ export default function QueueStrip({
         <span className="text-sm font-semibold">
           Sales queue{" "}
           <span className="opacity-70">
-            ({filteredQueue.length}
+            ({filteredCount}
             {stageFilters.length ? ` of ${queue.length}` : ""})
           </span>
         </span>
@@ -511,25 +614,42 @@ export default function QueueStrip({
               )}
             </div>
           </div>
+          <datalist id="sales-group-options">
+            {existingGroupNames.map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
           <div className="space-y-2 overflow-y-auto bg-concrete-100/40 p-3" style={{ maxHeight: "50vh" }}>
-            {filteredQueue.length === 0 && (
+            {entries.length === 0 && (
               <p className="px-2 py-4 text-sm text-slate-400">
                 {queue.length === 0
                   ? "Nothing in the queue — add a location sales is working on."
                   : "No queue items at these stages."}
               </p>
             )}
-            {filteredQueue.map((item) => (
-              <QueueRow
-                key={item.id}
-                item={item}
-                salesReps={salesReps}
-                onAddSalesRep={onAddSalesRep}
-                onUpdate={(patch) => onUpdate(item.id, patch)}
-                onRemove={() => onRemove(item.id)}
-                onPromote={() => onPromote(item.id)}
-              />
-            ))}
+            {entries.map((entry) =>
+              entry.type === "group" ? (
+                <QueueGroupCard
+                  key={entry.key}
+                  group={entry}
+                  salesReps={salesReps}
+                  onAddSalesRep={onAddSalesRep}
+                  onUpdate={onUpdate}
+                  onRemove={onRemove}
+                  onPromote={onPromote}
+                />
+              ) : (
+                <QueueRow
+                  key={entry.item.id}
+                  item={entry.item}
+                  salesReps={salesReps}
+                  onAddSalesRep={onAddSalesRep}
+                  onUpdate={(patch) => onUpdate(entry.item.id, patch)}
+                  onRemove={() => onRemove(entry.item.id)}
+                  onPromote={() => onPromote(entry.item.id)}
+                />
+              )
+            )}
           </div>
           <div className="border-t border-concrete-200 bg-white p-3">
             <button

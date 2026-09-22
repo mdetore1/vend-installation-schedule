@@ -238,6 +238,7 @@ export function useScheduleStore() {
       incumbentOperator: q.incumbent_operator,
       dealAmount: q.deal_amount,
       contractSignedDate: q.contract_signed_date,
+      salesGroup: q.sales_group,
     })).sort((a, b) => {
       const rankDiff = queueStageRank(a.hubspotStage) - queueStageRank(b.hubspotStage);
       return rankDiff !== 0 ? rankDiff : a.name.localeCompare(b.name);
@@ -539,6 +540,7 @@ export function useScheduleStore() {
       incumbent_operator: item.incumbentOperator ?? null,
       deal_amount: item.dealAmount ?? null,
       contract_signed_date: item.contractSignedDate || null,
+      sales_group: item.salesGroup || null,
     });
   }
   async function addSalesRep(name) {
@@ -560,6 +562,7 @@ export function useScheduleStore() {
     if (patch.ownership !== undefined) row.ownership = patch.ownership;
     if (patch.hasOnsiteStaff !== undefined) row.has_onsite_staff = patch.hasOnsiteStaff;
     if (patch.hubspotStage !== undefined) row.hubspot_stage = patch.hubspotStage;
+    if (patch.salesGroup !== undefined) row.sales_group = patch.salesGroup || null;
     if (patch.garageType !== undefined) row.garage_type = patch.garageType;
     if (patch.numberOfParkingSpaces !== undefined) row.number_of_parking_spaces = patch.numberOfParkingSpaces;
     if (patch.propertyType !== undefined) row.property_type = patch.propertyType;
