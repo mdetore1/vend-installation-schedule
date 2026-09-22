@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpDown, Check, ChevronDown, ChevronRight, ExternalLink, Layers, MapPin, Plus, Trash2 } from "lucide-react";
-import { TextInput, Select, Checkbox } from "../fields";
+import { ArrowUpDown, Check, ChevronDown, ChevronRight, ExternalLink, Layers, MapPin, Plus, Trash2, X } from "lucide-react";
+import { TextInput, Select, Checkbox, Field } from "../fields";
 import { formatShort, parseDate } from "../../lib/dateUtils";
 import { ACCESS_TYPES, CONTRACT_STATES } from "../../lib/locationDefaults";
 import AddQueueItemForm from "./AddQueueItemForm";
@@ -102,7 +102,8 @@ function entrySortValue(entry, mode) {
 function compareEntries(a, b, mode) {
   const av = entrySortValue(a, mode);
   const bv = entrySortValue(b, mode);
-  if (mode === "amount-desc" || mode === "stage") return av - bv || entryName(a).localeCompare(entryName(b));
+  if (mode === "amount-desc") return bv - av || entryName(a).localeCompare(entryName(b));
+  if (mode === "stage") return av - bv || entryName(a).localeCompare(entryName(b));
   if (av == null && bv == null) return entryName(a).localeCompare(entryName(b));
   if (av == null) return 1;
   if (bv == null) return -1;
@@ -300,15 +301,6 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
                 className={miniInputCls}
               />
             </FieldMini>
-            <FieldMini label="Group (e.g. Station Square)">
-              <TextInput
-                list="sales-group-options"
-                value={item.salesGroup || ""}
-                onChange={(e) => onUpdate({ salesGroup: e.target.value })}
-                placeholder="Same name on 2+ items groups them"
-                className={miniInputCls}
-              />
-            </FieldMini>
             <FieldMini label="Property mgmt">
               <TextInput
                 value={item.propertyManagement || ""}
@@ -443,6 +435,168 @@ function QueueGroupCard({ group, salesReps, onAddSalesRep, onUpdate, onRemove, o
   );
 }
 
+// Search-and-select group management, same UX as the Dashboard's "Group
+// locations into a client" modal — pick a name, check off 2+ queue items,
+// save. Existing groups list here for editing (change membership or rename)
+// or ungrouping entirely.
+function QueueGroupModal({ open, onClose, groups, queue, onApplyGroup, onUngroup }) {
+  const [filter, setFilter] = useState("");
+  const [selected, setSelected] = useState(() => new Set());
+  const [groupName, setGroupName] = useState("");
+  const [editingKey, setEditingKey] = useState(null);
+
+  if (!open) return null;
+
+  const groupedElsewhere = new Set(
+    groups.filter((g) => g.key !== editingKey).flatMap((g) => g.members.map((m) => m.id))
+  );
+  const available = queue.filter(
+    (item) => !groupedElsewhere.has(item.id) && item.name.toLowerCase().includes(filter.toLowerCase())
+  );
+
+  function toggle(id) {
+    setSelected((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function resetForm() {
+    setEditingKey(null);
+    setGroupName("");
+    setSelected(new Set());
+    setFilter("");
+  }
+
+  function startEdit(g) {
+    setEditingKey(g.key);
+    setGroupName(g.key);
+    setSelected(new Set(g.members.map((m) => m.id)));
+    setFilter("");
+  }
+
+  function submit() {
+    if (!groupName.trim() || selected.size < 2) return;
+    const previousMemberIds = editingKey ? groups.find((g) => g.key === editingKey)?.members.map((m) => m.id) || [] : [];
+    onApplyGroup(groupName.trim(), [...selected], previousMemberIds);
+    resetForm();
+  }
+
+  function handleUngroup(g) {
+    onUngroup(g.members.map((m) => m.id));
+    if (editingKey === g.key) resetForm();
+  }
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-vend-black/40 p-4">
+      <div className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-concrete-200 px-6 py-4">
+          <h2 className="font-display text-lg font-bold text-vend-black">Group queue items into a client</h2>
+          <button
+            type="button"
+            onClick={() => {
+              resetForm();
+              onClose();
+            }}
+            className="text-slate-300 hover:text-vend-black"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex-1 space-y-5 overflow-y-auto p-6">
+          {groups.length > 0 && (
+            <div>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">Existing groups</p>
+              <div className="space-y-2">
+                {groups.map((g) => (
+                  <div
+                    key={g.key}
+                    className={`flex items-center justify-between rounded-xl border px-3 py-2 ${
+                      editingKey === g.key ? "border-vend-black bg-concrete-100/50" : "border-concrete-200"
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-vend-black">{g.key}</p>
+                      <p className="text-xs text-slate-400">{g.members.length} garages</p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <button type="button" onClick={() => startEdit(g)} className="text-xs font-semibold text-slate-500 hover:text-vend-black">
+                        Edit
+                      </button>
+                      <button type="button" onClick={() => handleUngroup(g)} className="text-xs font-semibold text-alert-600 hover:text-alert-700">
+                        Ungroup
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                {editingKey ? "Editing group" : "Create a new group"}
+              </p>
+              {editingKey && (
+                <button type="button" onClick={resetForm} className="text-xs font-semibold text-slate-500 hover:text-vend-black">
+                  Cancel — start new group
+                </button>
+              )}
+            </div>
+            <div className="space-y-3">
+              <Field label="Client name">
+                <TextInput value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="e.g. Station Square" />
+              </Field>
+              <Field label="Filter queue items">
+                <TextInput value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Start typing a name…" />
+              </Field>
+              <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-concrete-200 p-2">
+                {available.length === 0 && <p className="px-2 py-3 text-sm text-slate-400">No matching queue items.</p>}
+                {available.map((item) => (
+                  <div key={item.id} className="rounded-lg px-2 py-1.5 hover:bg-concrete-100/50">
+                    <Checkbox
+                      checked={selected.has(item.id)}
+                      onChange={() => toggle(item.id)}
+                      label={item.name}
+                      description={item.place || item.hubspotStage || ""}
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-slate-400">{selected.size} selected — pick at least 2 to group.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 border-t border-concrete-200 px-6 py-4">
+          <button
+            type="button"
+            onClick={() => {
+              resetForm();
+              onClose();
+            }}
+            className="rounded-full px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-concrete-100"
+          >
+            Close
+          </button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!groupName.trim() || selected.size < 2}
+            className="rounded-full bg-vend-black px-5 py-2 text-sm font-semibold text-white transition disabled:opacity-40"
+          >
+            {editingKey ? "Save changes" : "Create group"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function QueueStrip({
   queue,
   salesReps,
@@ -511,10 +665,20 @@ export default function QueueStrip({
     () => sortByStageOrder([...new Set(queue.map((q) => q.hubspotStage).filter(Boolean))]),
     [queue]
   );
-  const existingGroupNames = useMemo(
-    () => [...new Set(queue.map((q) => q.salesGroup).filter(Boolean))].sort(),
-    [queue]
-  );
+  // Unfiltered groups (for the manage-groups modal) vs. the stage-filtered
+  // ones actually shown in the list — a group might have members outside
+  // the current stage filter, but should still be editable.
+  const { groups: allGroups } = useMemo(() => groupQueueItems(queue), [queue]);
+  const [showGroupModal, setShowGroupModal] = useState(false);
+
+  function applyGroup(groupName, memberIds, previousMemberIds) {
+    previousMemberIds.filter((id) => !memberIds.includes(id)).forEach((id) => onUpdate(id, { salesGroup: null }));
+    memberIds.forEach((id) => onUpdate(id, { salesGroup: groupName }));
+  }
+  function ungroupItems(memberIds) {
+    memberIds.forEach((id) => onUpdate(id, { salesGroup: null }));
+  }
+
   const activeSort = SORT_OPTIONS.find((s) => s.value === sortMode) || SORT_OPTIONS[0];
   const filteredItems = stageFilters.length ? queue.filter((q) => stageFilters.includes(q.hubspotStage)) : queue;
   const { groups, standalone } = groupQueueItems(filteredItems);
@@ -577,48 +741,53 @@ export default function QueueStrip({
               <div />
             )}
 
-            <div className="relative shrink-0">
+            <div className="flex shrink-0 items-center gap-1.5">
               <button
-                ref={sortBtnRef}
                 type="button"
-                onClick={() => setSortOpen((v) => !v)}
-                className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
-                  sortOpen ? "border-vend-black bg-concrete-100 text-vend-black" : "border-concrete-200 text-slate-500 hover:border-slate-300"
-                }`}
+                onClick={() => setShowGroupModal(true)}
+                className="flex items-center gap-1.5 rounded-full border border-concrete-200 px-2.5 py-1 text-[11px] font-semibold text-slate-500 transition hover:border-slate-300"
               >
-                <ArrowUpDown size={12} /> Sort: {activeSort.label}
-                <ChevronDown size={11} className={`transition-transform ${sortOpen ? "rotate-180" : ""}`} />
+                <Layers size={12} /> Group items
               </button>
-              {sortOpen && (
-                <div
-                  ref={sortPanelRef}
-                  className="absolute right-0 top-full z-20 mt-1.5 w-56 rounded-xl border border-concrete-200 bg-white p-1.5 shadow-xl"
+
+              <div className="relative">
+                <button
+                  ref={sortBtnRef}
+                  type="button"
+                  onClick={() => setSortOpen((v) => !v)}
+                  className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
+                    sortOpen ? "border-vend-black bg-concrete-100 text-vend-black" : "border-concrete-200 text-slate-500 hover:border-slate-300"
+                  }`}
                 >
-                  {SORT_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => {
-                        setSortMode(opt.value);
-                        setSortOpen(false);
-                      }}
-                      className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium transition ${
-                        opt.value === sortMode ? "bg-concrete-100 text-vend-black" : "text-slate-600 hover:bg-concrete-100/60"
-                      }`}
-                    >
-                      {opt.value === sortMode ? <Check size={13} className="shrink-0" /> : <span className="w-[13px] shrink-0" />}
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              )}
+                  <ArrowUpDown size={12} /> Sort: {activeSort.label}
+                  <ChevronDown size={11} className={`transition-transform ${sortOpen ? "rotate-180" : ""}`} />
+                </button>
+                {sortOpen && (
+                  <div
+                    ref={sortPanelRef}
+                    className="absolute right-0 top-full z-20 mt-1.5 w-56 rounded-xl border border-concrete-200 bg-white p-1.5 shadow-xl"
+                  >
+                    {SORT_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => {
+                          setSortMode(opt.value);
+                          setSortOpen(false);
+                        }}
+                        className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium transition ${
+                          opt.value === sortMode ? "bg-concrete-100 text-vend-black" : "text-slate-600 hover:bg-concrete-100/60"
+                        }`}
+                      >
+                        {opt.value === sortMode ? <Check size={13} className="shrink-0" /> : <span className="w-[13px] shrink-0" />}
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-          <datalist id="sales-group-options">
-            {existingGroupNames.map((name) => (
-              <option key={name} value={name} />
-            ))}
-          </datalist>
           <div className="space-y-2 overflow-y-auto bg-concrete-100/40 p-3" style={{ maxHeight: "50vh" }}>
             {entries.length === 0 && (
               <p className="px-2 py-4 text-sm text-slate-400">
@@ -672,6 +841,15 @@ export default function QueueStrip({
           onAdd(item);
           setShowAdd(false);
         }}
+      />
+
+      <QueueGroupModal
+        open={showGroupModal}
+        onClose={() => setShowGroupModal(false)}
+        groups={allGroups}
+        queue={queue}
+        onApplyGroup={applyGroup}
+        onUngroup={ungroupItems}
       />
     </div>
   );
