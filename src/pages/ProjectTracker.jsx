@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { LayoutGroup } from "framer-motion";
-import { Minus, Plus, X } from "lucide-react";
+import { Minus, Plus } from "lucide-react";
 import { useLocalStorage } from "../lib/storage";
 import { useScheduleStore } from "../lib/scheduleStore";
+import { useUndoToast } from "../lib/useUndoToast";
+import UndoToast from "../components/UndoToast";
 import {
   parseDate,
   addDays,
@@ -90,16 +92,16 @@ export default function ProjectTracker({ isAdmin = true }) {
     addQueueItem,
     addSalesRep,
     updateQueueItem,
-    removeQueueItem,
     promoteQueueItem,
   } = mutators;
 
   // A single-slot "undo my last action" — covers the handful of things
   // most likely to be an "oops" (dragged the wrong bar, deleted the wrong
-  // phase/location, misclicked archive or remove-teammate). Each wrapped
-  // mutator below snapshots the prior state before writing, then a plain
-  // inverse write on undo restores it.
-  const [undoAction, setUndoAction] = useState(null); // { label, run }
+  // phase/location, misclicked archive or remove-teammate, removed the
+  // wrong queue item). Each wrapped mutator below snapshots the prior state
+  // before writing, then a plain inverse write on undo restores it.
+  // Auto-dismisses after a minute (see useUndoToast).
+  const { undoAction, setUndoAction, runUndo, dismiss: dismissUndo } = useUndoToast();
 
   async function updatePhase(locId, phaseId, patch) {
     if (!isAdmin) return denyWrite();
@@ -156,11 +158,13 @@ export default function ProjectTracker({ isAdmin = true }) {
     }
   }
 
-  async function runUndo() {
-    const action = undoAction;
-    if (!action) return;
-    setUndoAction(null);
-    await action.run();
+  async function removeQueueItemWithUndo(id) {
+    if (!isAdmin) return denyWrite();
+    const prevItem = (data.queue || []).find((q) => q.id === id);
+    await store.removeQueueItem(id);
+    if (prevItem) {
+      setUndoAction({ label: `Removed "${prevItem.name}" from the queue`, run: () => store.restoreQueueItem(prevItem) });
+    }
   }
 
   const [pxPerDay, setPxPerDay] = useState(9);
@@ -466,7 +470,7 @@ export default function ProjectTracker({ isAdmin = true }) {
           onToggle={() => setQueueOpen((v) => !v)}
           onAdd={addQueueItem}
           onUpdate={updateQueueItem}
-          onRemove={removeQueueItem}
+          onRemove={removeQueueItemWithUndo}
           onPromote={beginPromoteQueueItem}
         />
 
@@ -532,26 +536,7 @@ export default function ProjectTracker({ isAdmin = true }) {
         onSubmit={finalizeEditLocation}
       />
 
-      {undoAction && (
-        <div className="fixed bottom-6 left-1/2 z-[9999] flex -translate-x-1/2 items-center gap-3 rounded-full bg-vend-black px-4 py-2.5 text-sm font-semibold text-white shadow-xl">
-          <span>{undoAction.label}</span>
-          <button
-            type="button"
-            onClick={runUndo}
-            className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-wide transition hover:bg-white/25"
-          >
-            Undo
-          </button>
-          <button
-            type="button"
-            onClick={() => setUndoAction(null)}
-            aria-label="Dismiss"
-            className="text-white/50 transition hover:text-white"
-          >
-            <X size={14} />
-          </button>
-        </div>
-      )}
+      <UndoToast action={undoAction} onUndo={runUndo} onDismiss={dismissUndo} />
     </div>
   );
 }

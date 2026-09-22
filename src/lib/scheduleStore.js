@@ -543,6 +543,32 @@ export function useScheduleStore() {
       sales_group: item.salesGroup || null,
     });
   }
+  // Re-inserts a removed queue item with its original id — same "undo my
+  // last action" pattern as restoreLocation/restoreChecklistItem.
+  async function restoreQueueItem(item) {
+    await supabase.from("queue_items").insert({
+      id: item.id,
+      name: item.name,
+      place: item.place || "",
+      lanes: item.lanes ?? null,
+      access_type: item.accessType ?? null,
+      contract_state: item.contractState || "In Progress",
+      potential_go_live_date: item.potentialGoLiveDate || null,
+      sales_rep: item.salesRep ?? null,
+      property_management: item.propertyManagement ?? null,
+      ownership: item.ownership ?? null,
+      has_onsite_staff: !!item.hasOnsiteStaff,
+      hubspot_deal_id: item.hubspotDealId ?? null,
+      hubspot_stage: item.hubspotStage ?? null,
+      garage_type: item.garageType ?? null,
+      number_of_parking_spaces: item.numberOfParkingSpaces ?? null,
+      property_type: item.propertyType ?? null,
+      incumbent_operator: item.incumbentOperator ?? null,
+      deal_amount: item.dealAmount ?? null,
+      contract_signed_date: item.contractSignedDate || null,
+      sales_group: item.salesGroup || null,
+    });
+  }
   async function addSalesRep(name) {
     const trimmed = name.trim();
     if (!trimmed) return;
@@ -750,6 +776,7 @@ export function useScheduleStore() {
     addSalesRep,
     updateQueueItem,
     removeQueueItem,
+    restoreQueueItem,
     promoteQueueItem,
     updateChecklistItem,
     addChecklistItem,

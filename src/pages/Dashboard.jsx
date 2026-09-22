@@ -4,6 +4,8 @@ import { Reorder, useDragControls } from "framer-motion";
 import { Calendar, Check, CheckCheck, ChevronDown, ChevronRight, ExternalLink, GripVertical, Layers, ListChecks, Paperclip, PauseCircle, Pencil, Plus, Rocket, Trash2, X } from "lucide-react";
 import { useScheduleStore } from "../lib/scheduleStore";
 import { useMapStore } from "../lib/mapStore";
+import { useUndoToast } from "../lib/useUndoToast";
+import UndoToast from "../components/UndoToast";
 import { canonPhaseLabel, formatDateRange, UNASSIGNED, calendarPhaseHighlight, latestScheduleDate, goLiveStart } from "../lib/dateUtils";
 import { STAGES, STAGE_STYLES, stageByNumber, summarizeChecklist, effectiveStage } from "../lib/checklistUtils";
 import { Checkbox, Field, Select, TextInput, Textarea } from "../components/fields";
@@ -1192,7 +1194,8 @@ export default function Dashboard({ isAdmin = true }) {
   const [showManageTemplate, setShowManageTemplate] = useState(false);
   // A single-slot "undo my last action" for deleted template tasks — matches
   // the pattern already used for phases/locations/teammates elsewhere.
-  const [undoAction, setUndoAction] = useState(null);
+  // Auto-dismisses after a minute (see useUndoToast).
+  const { undoAction, setUndoAction, runUndo, dismiss: dismissUndo } = useUndoToast();
 
   const toggleExpanded = (id) => {
     setExpanded((prev) => {
@@ -1221,13 +1224,6 @@ export default function Dashboard({ isAdmin = true }) {
         run: () => store.updateChecklistItem(locationId, item.itemId, { excluded: false }),
       });
     }
-  }
-
-  async function runUndo() {
-    const action = undoAction;
-    if (!action) return;
-    setUndoAction(null);
-    await action.run();
   }
 
   if (!loaded) {
@@ -1407,26 +1403,7 @@ export default function Dashboard({ isAdmin = true }) {
         onReorderTasks={reorderChecklistTasks}
       />
 
-      {undoAction && (
-        <div className="fixed bottom-6 left-1/2 z-[9999] flex -translate-x-1/2 items-center gap-3 rounded-full bg-vend-black px-4 py-2.5 text-sm font-semibold text-white shadow-xl">
-          <span>{undoAction.label}</span>
-          <button
-            type="button"
-            onClick={runUndo}
-            className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-wide transition hover:bg-white/25"
-          >
-            Undo
-          </button>
-          <button
-            type="button"
-            onClick={() => setUndoAction(null)}
-            aria-label="Dismiss"
-            className="text-white/50 transition hover:text-white"
-          >
-            <X size={14} />
-          </button>
-        </div>
-      )}
+      <UndoToast action={undoAction} onUndo={runUndo} onDismiss={dismissUndo} />
     </div>
   );
 }
