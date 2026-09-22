@@ -394,8 +394,22 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
 // action as any standalone item.
 function QueueGroupCard({ group, salesReps, onAddSalesRep, onUpdate, onRemove, onPromote }) {
   const [open, setOpen] = useState(false);
-  const totalAmount = group.members.reduce((s, m) => s + (m.dealAmount || 0), 0);
-  const anyClosedWon = group.members.some((m) => m.contractState === "Closed Won");
+  const { members } = group;
+  const totalAmount = members.reduce((s, m) => s + (m.dealAmount || 0), 0);
+  const totalLanes = members.reduce((s, m) => s + (Number(m.lanes) || 0), 0);
+  const anyClosedWon = members.some((m) => m.contractState === "Closed Won");
+  const anySpark = members.some((m) => m.hasOnsiteStaff);
+  // Only worth showing a field at the group level when every garage agrees
+  // on it — a mixed set (e.g. two cities, two access types) isn't a single
+  // fact to summarize, so it's left for the expanded rows instead.
+  const uniform = (getValue) => {
+    const values = [...new Set(members.map(getValue).filter(Boolean))];
+    return values.length === 1 ? values[0] : null;
+  };
+  const commonPlace = uniform((m) => m.place);
+  const commonAccessType = uniform((m) => m.accessType);
+  const commonSalesRep = uniform((m) => m.salesRep);
+  const commonStage = uniform((m) => m.hubspotStage);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-concrete-200 bg-white shadow-sm transition hover:border-concrete-300">
@@ -408,9 +422,32 @@ function QueueGroupCard({ group, salesReps, onAddSalesRep, onUpdate, onRemove, o
         <Layers size={14} className="shrink-0 text-beacon-700" />
         <span className="font-display text-[15px] font-bold text-vend-black">{group.key}</span>
         <span className="shrink-0 rounded-full bg-beacon-100 px-2.5 py-1 text-[11px] font-semibold text-beacon-700">
-          {group.members.length} garages
+          {members.length} garages
         </span>
+        {commonPlace && (
+          <span className="flex shrink-0 items-center gap-1 truncate text-xs text-slate-400">
+            <MapPin size={10} /> {commonPlace}
+          </span>
+        )}
+        {commonSalesRep && (
+          <span className="shrink-0 truncate rounded-full bg-beacon-100 px-2.5 py-1 text-[11px] font-semibold text-beacon-700">
+            {commonSalesRep}
+          </span>
+        )}
         {!!totalAmount && <Chip>{formatCurrency(totalAmount)} total</Chip>}
+        {commonAccessType && <Chip>{commonAccessType}</Chip>}
+        {!!totalLanes && <Chip>{totalLanes} lanes total</Chip>}
+        {anySpark && (
+          <span className="shrink-0 rounded-full bg-mint-200 px-2.5 py-1 text-[11px] font-bold text-mint-700">Spark</span>
+        )}
+        {commonStage && (
+          <span
+            className="shrink-0 truncate rounded-full bg-[#FF7A59]/15 px-2.5 py-1 text-[11px] font-bold text-[#FF7A59]"
+            title="Synced from HubSpot"
+          >
+            {commonStage}
+          </span>
+        )}
         <ChevronRight size={15} className={`ml-auto shrink-0 text-slate-400 transition-transform ${open ? "rotate-90" : ""}`} />
       </button>
 
