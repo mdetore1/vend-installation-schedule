@@ -122,12 +122,12 @@ export default function LocationRow({
             )}
           </div>
         </button>
-        <div className="ml-auto flex shrink-0 items-center gap-1 self-start">
+        <div className="ml-auto flex shrink-0 items-center gap-0.5">
           {onDuplicateLocation && (
             <button
               type="button"
               onClick={() => onDuplicateLocation(location)}
-              className="text-slate-200 opacity-0 transition hover:text-vend-black group-hover/row:opacity-100"
+              className="shrink-0 rounded-full p-1.5 text-slate-300 transition hover:bg-concrete-100 hover:text-vend-black"
               aria-label="Duplicate garage"
               title="Duplicate garage"
             >
@@ -138,7 +138,7 @@ export default function LocationRow({
             <button
               type="button"
               onClick={() => onSplitLocation(location)}
-              className="text-slate-200 opacity-0 transition hover:text-vend-black group-hover/row:opacity-100"
+              className="shrink-0 rounded-full p-1.5 text-slate-300 transition hover:bg-concrete-100 hover:text-vend-black"
               aria-label="Split into garages"
               title="Split into garages"
             >
@@ -148,7 +148,7 @@ export default function LocationRow({
           <button
             type="button"
             onClick={() => onDeleteLocation(location.id)}
-            className="text-slate-200 opacity-0 transition hover:text-alert-600 group-hover/row:opacity-100"
+            className="shrink-0 rounded-full p-1.5 text-slate-300 transition hover:bg-alert-100 hover:text-alert-600"
             aria-label="Remove location"
           >
             <Trash2 size={14} />
