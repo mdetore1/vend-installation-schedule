@@ -108,21 +108,21 @@ export default function LocationRow({
           className="-mx-1 min-w-0 flex-1 rounded px-1 py-0.5 text-left transition hover:bg-concrete-100/50"
           title="Edit location & phases"
         >
+          {group && (
+            <span
+              role={onEditGroup ? "button" : undefined}
+              onClick={onEditGroup ? (e) => { e.stopPropagation(); onEditGroup(group); } : undefined}
+              title={onEditGroup ? "Rename or add/remove garages" : undefined}
+              className={`mb-0.5 flex items-center gap-1 truncate text-[10px] font-bold text-beacon-700 ${
+                onEditGroup ? "cursor-pointer hover:text-beacon-700/70" : ""
+              }`}
+            >
+              <Layers size={10} className="shrink-0" />
+              {group.name}
+            </span>
+          )}
           <p className="truncate text-sm font-semibold text-vend-black">{location.name}</p>
           <div className="mt-0.5 flex flex-wrap items-center gap-1">
-            {group && (
-              <span
-                role={onEditGroup ? "button" : undefined}
-                onClick={onEditGroup ? (e) => { e.stopPropagation(); onEditGroup(group); } : undefined}
-                title={onEditGroup ? "Rename or add/remove garages" : undefined}
-                className={`inline-flex max-w-full items-center gap-1 truncate rounded-full bg-beacon-100 px-2 py-0.5 text-[10px] font-bold text-beacon-700 ${
-                  onEditGroup ? "cursor-pointer hover:bg-beacon-100/70" : ""
-                }`}
-              >
-                <Layers size={10} className="shrink-0" />
-                {group.name}
-              </span>
-            )}
             <span className="inline-flex max-w-full items-center gap-1 truncate rounded-full bg-concrete-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
               <MapPin size={10} className="shrink-0 text-slate-400" />
               {location.place || "Add city, state"}
