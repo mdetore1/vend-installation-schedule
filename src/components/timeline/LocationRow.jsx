@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Reorder, useDragControls } from "framer-motion";
-import { GripVertical, MapPin, RotateCcw, Split, Trash2 } from "lucide-react";
+import { Copy, GripVertical, MapPin, RotateCcw, Split, Trash2 } from "lucide-react";
 import { Checkbox } from "../fields";
 import { canonPhaseLabel, rangesOverlap } from "../../lib/dateUtils";
 import PhaseBar from "./PhaseBar";
@@ -21,6 +21,7 @@ export default function LocationRow({
   onDeleteLocation,
   onEditLocation,
   onSplitLocation,
+  onDuplicateLocation,
   onShiftPhases,
   onDuplicatePhase,
   allLocations,
@@ -121,27 +122,38 @@ export default function LocationRow({
             )}
           </div>
         </button>
-        {onSplitLocation && (
+        <div className="ml-auto flex shrink-0 items-center gap-1 self-start">
+          {onDuplicateLocation && (
+            <button
+              type="button"
+              onClick={() => onDuplicateLocation(location)}
+              className="text-slate-200 opacity-0 transition hover:text-vend-black group-hover/row:opacity-100"
+              aria-label="Duplicate garage"
+              title="Duplicate garage"
+            >
+              <Copy size={14} />
+            </button>
+          )}
+          {onSplitLocation && (
+            <button
+              type="button"
+              onClick={() => onSplitLocation(location)}
+              className="text-slate-200 opacity-0 transition hover:text-vend-black group-hover/row:opacity-100"
+              aria-label="Split into garages"
+              title="Split into garages"
+            >
+              <Split size={14} />
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => onSplitLocation(location)}
-            className="ml-auto shrink-0 self-start text-slate-200 opacity-0 transition hover:text-vend-black group-hover/row:opacity-100"
-            aria-label="Split into garages"
-            title="Split into garages"
+            onClick={() => onDeleteLocation(location.id)}
+            className="text-slate-200 opacity-0 transition hover:text-alert-600 group-hover/row:opacity-100"
+            aria-label="Remove location"
           >
-            <Split size={14} />
+            <Trash2 size={14} />
           </button>
-        )}
-        <button
-          type="button"
-          onClick={() => onDeleteLocation(location.id)}
-          className={`shrink-0 self-start text-slate-200 opacity-0 transition hover:text-alert-600 group-hover/row:opacity-100 ${
-            onSplitLocation ? "" : "ml-auto"
-          }`}
-          aria-label="Remove location"
-        >
-          <Trash2 size={14} />
-        </button>
+        </div>
         {teamById[location.salesPersonId] && (
           <span className="pointer-events-none absolute bottom-1 right-3 text-[10px] font-medium text-slate-400">
             {teamById[location.salesPersonId].name}

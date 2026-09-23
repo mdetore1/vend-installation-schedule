@@ -96,6 +96,7 @@ export default function TimelineGrid({
   onDeleteLocation,
   onEditLocation,
   onSplitLocation,
+  onDuplicateLocation,
   onAddLocation,
   onShiftPhases,
   onDuplicatePhase,
@@ -312,6 +313,7 @@ export default function TimelineGrid({
                   onDeleteLocation={onDeleteLocation}
                   onEditLocation={onEditLocation}
                   onSplitLocation={onSplitLocation}
+                  onDuplicateLocation={onDuplicateLocation}
                   onShiftPhases={onShiftPhases}
                   onDuplicatePhase={onDuplicatePhase}
                   allLocations={locations}

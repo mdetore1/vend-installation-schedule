@@ -206,6 +206,33 @@ export default function ProjectTracker({ isAdmin = true }) {
     await createGroup({ name: baseName, memberNames });
   }
 
+  // A plain copy of one location — same timeline/settings, its own new row,
+  // not renamed or grouped with the original (use "Group locations" after
+  // if the two should show together).
+  async function duplicateLocation(location) {
+    if (!isAdmin) return denyWrite();
+    const existingNames = new Set(data.locations.map((l) => l.name));
+    let name = `${location.name} (copy)`;
+    let n = 2;
+    while (existingNames.has(name)) {
+      name = `${location.name} (copy ${n})`;
+      n++;
+    }
+    await addLocation({
+      name,
+      place: location.place,
+      lanes: location.lanes,
+      accessType: location.accessType,
+      salesRep: location.salesRep,
+      propertyManagement: location.propertyManagement,
+      ownership: location.ownership,
+      contractor: location.contractor,
+      hasOnsiteStaff: location.hasOnsiteStaff,
+      salesPersonId: location.salesPersonId,
+      phases: location.phases.map((p) => ({ ...p, id: newId() })),
+    });
+  }
+
   const [pxPerDay, setPxPerDay] = useState(9);
   // One combined filter — { type: "owner"|"contractor"|"onsite", value } or
   // null — hides non-matching locations entirely rather than dimming their
@@ -496,6 +523,7 @@ export default function ProjectTracker({ isAdmin = true }) {
             onDeleteLocation={deleteLocation}
             onEditLocation={openEditLocation}
             onSplitLocation={setSplitTarget}
+            onDuplicateLocation={duplicateLocation}
             onAddLocation={openAddModal}
             onShiftPhases={shiftPhasesByIds}
             onDuplicatePhase={duplicatePhase}
