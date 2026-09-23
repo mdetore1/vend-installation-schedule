@@ -348,7 +348,7 @@ export default function TimelineGrid({
               entry.type === "group-block" ? (
                 <div
                   key={`group-${entry.group.id}`}
-                  className="my-1.5 overflow-hidden rounded-lg border-2 border-beacon-600/40"
+                  className="my-1.5 border-2 border-beacon-600/40"
                 >
                   <LocationGroupHeader
                     group={entry.group}
