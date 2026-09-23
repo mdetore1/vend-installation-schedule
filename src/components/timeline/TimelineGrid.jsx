@@ -43,15 +43,18 @@ function buildDisplayEntries(locations, groups) {
   return entries;
 }
 
-// A compact chip, not a full-width bar — sized to fit just its own content
-// instead of stretching to match the label column's width (which is a
-// value that can drift from the column's actual rendered edge). Lives
-// entirely in the sticky label column; the calendar/timeline side shows
-// nothing for this row at all.
-function LocationGroupHeader({ group, memberCount, salesRepName, onEditGroup }) {
+// Same structure as the "Out of office"/"Company Events" label rows above
+// the calendar (OOORow.jsx) — a sticky, exact-width label cell plus a plain
+// `relative flex-1` sibling for the timeline side. That pattern already
+// renders correctly in this exact view with no width or stacking issues,
+// so this copies it instead of inventing a new one.
+function LocationGroupHeader({ group, memberCount, salesRepName, labelWidth, onEditGroup }) {
   return (
-    <div className="mt-2 flex">
-      <div className="sticky left-0 z-[45] inline-flex items-center gap-1.5 rounded-md bg-beacon-600 px-3 py-1">
+    <div className="flex border-b border-concrete-200" style={{ height: 32 }}>
+      <div
+        className="sticky left-0 z-[45] flex h-full shrink-0 items-center gap-1.5 border-r border-beacon-700 bg-beacon-600 px-3"
+        style={{ width: labelWidth }}
+      >
         <Layers size={11} className="shrink-0 text-white" />
         <span className="truncate text-[11px] font-bold text-white">{group.name}</span>
         <span className="shrink-0 text-[10px] font-medium text-white/70">{memberCount} garages</span>
@@ -67,9 +70,10 @@ function LocationGroupHeader({ group, memberCount, salesRepName, onEditGroup }) 
           </button>
         )}
         {salesRepName && (
-          <span className="shrink-0 truncate pl-1 text-[10px] font-medium text-white/70">· {salesRepName}</span>
+          <span className="ml-auto shrink-0 truncate pl-2 text-[10px] font-medium text-white/70">{salesRepName}</span>
         )}
       </div>
+      <div className="relative flex-1" />
     </div>
   );
 }
@@ -353,6 +357,7 @@ export default function TimelineGrid({
                   group={entry.group}
                   memberCount={entry.memberCount}
                   salesRepName={team.find((t) => t.id === entry.sharedSalesPersonId)?.name}
+                  labelWidth={displayLabelWidth}
                   onEditGroup={onEditGroup}
                 />
               ) : (
