@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Layers, Plus, X } from "lucide-react";
+import { Layers, Pencil, Plus, X } from "lucide-react";
 import { AnimatePresence, Reorder } from "framer-motion";
 import { buildMonthTicks, buildQuarterTicks, buildWeekendBands, diffDays, todayStart } from "../../lib/dateUtils";
 import LocationRow, { ROW_HEIGHT } from "./LocationRow";
@@ -37,27 +37,37 @@ function buildDisplayEntries(locations, groups) {
     // every member row below.
     const salesPersonIds = [...new Set(members.map((m) => m.salesPersonId).filter(Boolean))];
     const sharedSalesPersonId = salesPersonIds.length === 1 ? salesPersonIds[0] : null;
-    entries.push({ type: "group-header", group, memberCount: members.length, sharedSalesPersonId });
-    members.forEach((m) =>
-      entries.push({ type: "location", location: m, hideSalesRepLabel: !!sharedSalesPersonId })
-    );
+    entries.push({ type: "group-block", group, members, sharedSalesPersonId });
   }
   return entries;
 }
 
-function LocationGroupHeader({ group, memberCount, salesRepName, labelWidth }) {
+function LocationGroupHeader({ group, memberCount, salesRepName, labelWidth, onEditGroup }) {
   return (
-    <div className="mt-2 flex items-center border-b border-concrete-200" style={{ height: GROUP_HEADER_HEIGHT }}>
+    <div className="flex items-center border-b border-beacon-600/30 bg-beacon-100/50" style={{ height: GROUP_HEADER_HEIGHT }}>
       <div
-        className="sticky left-0 z-[45] flex h-full shrink-0 items-center gap-1.5 border-r border-l-[3px] border-concrete-200 border-l-beacon-600 bg-concrete-100/70 px-3"
+        className="sticky left-0 z-[45] flex h-full shrink-0 items-center gap-1.5 border-r border-beacon-600/30 bg-beacon-100/50 px-3"
         style={{ width: labelWidth }}
       >
         <Layers size={11} className="shrink-0 text-beacon-700" />
-        <span className="truncate text-[11px] font-bold text-vend-black">{group.name}</span>
-        <span className="shrink-0 text-[10px] font-medium text-slate-400">{memberCount} garages</span>
-        {salesRepName && <span className="ml-auto shrink-0 truncate text-[10px] font-medium text-slate-400">{salesRepName}</span>}
+        <span className="truncate text-[11px] font-bold text-beacon-700">{group.name}</span>
+        <span className="shrink-0 text-[10px] font-medium text-beacon-700/70">{memberCount} garages</span>
+        {onEditGroup && (
+          <button
+            type="button"
+            onClick={() => onEditGroup(group)}
+            className="shrink-0 rounded-full p-1 text-beacon-700/60 transition hover:bg-white hover:text-beacon-700"
+            aria-label="Edit group"
+            title="Rename or add/remove garages"
+          >
+            <Pencil size={10} />
+          </button>
+        )}
+        {salesRepName && (
+          <span className="ml-auto shrink-0 truncate pl-2 text-[10px] font-medium text-beacon-700/70">{salesRepName}</span>
+        )}
       </div>
-      <div className="h-full flex-1 bg-concrete-100/40" />
+      <div className="h-full flex-1" />
     </div>
   );
 }
@@ -105,6 +115,7 @@ export default function TimelineGrid({
   onEditLocation,
   onSplitLocation,
   onDuplicateLocation,
+  onEditGroup,
   onAddLocation,
   onShiftPhases,
   onDuplicatePhase,
@@ -192,6 +203,39 @@ export default function TimelineGrid({
     document.addEventListener("pointerdown", onDocDown);
     return () => document.removeEventListener("pointerdown", onDocDown);
   }, [selectedPhaseIds]);
+
+  // Shared prop list for every LocationRow instance, whether it's standalone
+  // or a member inside a group block — avoids the same ~20 props being
+  // written out twice.
+  function locationRowProps(location, extra) {
+    return {
+      location,
+      team,
+      pxPerDay,
+      rangeStart,
+      onUpdatePhase,
+      onDeletePhase,
+      onArchive,
+      onDeleteLocation,
+      onEditLocation,
+      onSplitLocation,
+      onDuplicateLocation,
+      onShiftPhases,
+      onDuplicatePhase,
+      allLocations: locations,
+      labelWidth: displayLabelWidth,
+      restoreMode,
+      draggable: sortable,
+      doubleBookedPhaseIds,
+      selectedPhaseIds,
+      onToggleSelect: toggleSelect,
+      dragGroup,
+      onDragGroupChange: setDragGroup,
+      openPhaseId,
+      onOpenPhase: setOpenPhaseId,
+      ...extra,
+    };
+  }
 
   return (
     <div style={{ width: displayLabelWidth + totalWidth, minWidth: "100%" }}>
@@ -301,43 +345,27 @@ export default function TimelineGrid({
         >
           <AnimatePresence initial={false}>
             {displayEntries.map((entry) =>
-              entry.type === "group-header" ? (
-                <LocationGroupHeader
+              entry.type === "group-block" ? (
+                <div
                   key={`group-${entry.group.id}`}
-                  group={entry.group}
-                  memberCount={entry.memberCount}
-                  salesRepName={team.find((t) => t.id === entry.sharedSalesPersonId)?.name}
-                  labelWidth={displayLabelWidth}
-                />
+                  className="my-1.5 overflow-hidden rounded-lg border-2 border-beacon-600/40"
+                >
+                  <LocationGroupHeader
+                    group={entry.group}
+                    memberCount={entry.members.length}
+                    salesRepName={team.find((t) => t.id === entry.sharedSalesPersonId)?.name}
+                    labelWidth={displayLabelWidth}
+                    onEditGroup={onEditGroup}
+                  />
+                  {entry.members.map((location) => (
+                    <LocationRow
+                      key={location.id}
+                      {...locationRowProps(location, { hideSalesRepLabel: !!entry.sharedSalesPersonId })}
+                    />
+                  ))}
+                </div>
               ) : (
-                <LocationRow
-                  key={entry.location.id}
-                  location={entry.location}
-                  hideSalesRepLabel={entry.hideSalesRepLabel}
-                  team={team}
-                  pxPerDay={pxPerDay}
-                  rangeStart={rangeStart}
-                  onUpdatePhase={onUpdatePhase}
-                  onDeletePhase={onDeletePhase}
-                  onArchive={onArchive}
-                  onDeleteLocation={onDeleteLocation}
-                  onEditLocation={onEditLocation}
-                  onSplitLocation={onSplitLocation}
-                  onDuplicateLocation={onDuplicateLocation}
-                  onShiftPhases={onShiftPhases}
-                  onDuplicatePhase={onDuplicatePhase}
-                  allLocations={locations}
-                  labelWidth={displayLabelWidth}
-                  restoreMode={restoreMode}
-                  draggable={sortable}
-                  doubleBookedPhaseIds={doubleBookedPhaseIds}
-                  selectedPhaseIds={selectedPhaseIds}
-                  onToggleSelect={toggleSelect}
-                  dragGroup={dragGroup}
-                  onDragGroupChange={setDragGroup}
-                  openPhaseId={openPhaseId}
-                  onOpenPhase={setOpenPhaseId}
-                />
+                <LocationRow key={entry.location.id} {...locationRowProps(entry.location)} />
               )
             )}
           </AnimatePresence>

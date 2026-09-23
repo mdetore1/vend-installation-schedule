@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { Field, TextInput, Checkbox } from "./fields";
 
@@ -7,11 +7,33 @@ import { Field, TextInput, Checkbox } from "./fields";
 // grouped here shows up grouped on the map (and the Installation Schedule)
 // too, and vice versa. Shared by Dashboard.jsx and ProjectTracker.jsx
 // rather than duplicated, since both need the exact same grouping data.
-export default function ManageLocationGroupsModal({ open, onClose, groups, locations, onCreateGroup, onUpdateGroup, onDeleteGroup }) {
+export default function ManageLocationGroupsModal({
+  open,
+  onClose,
+  groups,
+  locations,
+  onCreateGroup,
+  onUpdateGroup,
+  onDeleteGroup,
+  initialEditGroup,
+}) {
   const [filter, setFilter] = useState("");
   const [selected, setSelected] = useState(() => new Set());
   const [groupName, setGroupName] = useState("");
   const [editingId, setEditingId] = useState(null);
+
+  // Opening via a specific group's own "edit" pencil (e.g. from the
+  // Installation Schedule) jumps straight into editing that group instead
+  // of landing on the generic "create new" view.
+  useEffect(() => {
+    if (!open || !initialEditGroup) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing local form state to which group was targeted, not derivable from render
+    setEditingId(initialEditGroup.id);
+    setGroupName(initialEditGroup.name);
+    setSelected(new Set(initialEditGroup.memberNames));
+    setFilter("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when the modal (re)opens targeting a group, not on every groups refetch
+  }, [open, initialEditGroup?.id]);
 
   if (!open) return null;
 

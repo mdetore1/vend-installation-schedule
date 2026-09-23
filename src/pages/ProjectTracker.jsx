@@ -77,6 +77,7 @@ export default function ProjectTracker({ isAdmin = true }) {
   const mapStore = useMapStore();
   const { groups, createGroup, updateGroup, deleteGroup } = mapStore;
   const [showGroups, setShowGroups] = useState(false);
+  const [groupModalEditTarget, setGroupModalEditTarget] = useState(null);
   // Every write goes through the shared database now — a viewer's clicks
   // never reach Supabase at all, so there's nothing to bypass client-side.
   const denyWrite = () => window.alert("You have view-only access — ask an admin to make this change.");
@@ -182,11 +183,25 @@ export default function ProjectTracker({ isAdmin = true }) {
   // location "<name> 1" and adds "<name> 2..N" as full copies of its
   // current timeline/settings, then groups all N under the original name
   // exactly like doing it by hand from "Group locations" would.
+  // map_groups tracks membership by exact location NAME (not id), so
+  // renaming a garage silently drops it out of its group unless whatever
+  // group listed the old name gets updated to the new one too.
+  async function syncGroupMembershipOnRename(oldName, newName) {
+    if (!oldName || !newName || oldName === newName) return;
+    const affected = groups.find((g) => g.memberNames.includes(oldName));
+    if (!affected) return;
+    await updateGroup(affected.id, {
+      name: affected.name,
+      memberNames: affected.memberNames.map((n) => (n === oldName ? newName : n)),
+    });
+  }
+
   const [splitTarget, setSplitTarget] = useState(null);
   async function splitLocation(location, count) {
     if (!isAdmin) return denyWrite();
     const baseName = location.name;
     await updateLocation(location.id, { name: `${baseName} 1` });
+    await syncGroupMembershipOnRename(baseName, `${baseName} 1`);
     for (let i = 2; i <= count; i++) {
       await addLocation({
         name: `${baseName} ${i}`,
@@ -432,6 +447,7 @@ export default function ProjectTracker({ isAdmin = true }) {
   function finalizeEditLocation(patch) {
     if (!editingLocation) return;
     updateLocation(editingLocation.id, patch);
+    if (patch.name) syncGroupMembershipOnRename(editingLocation.name, patch.name);
     setEditingLocation(null);
   }
 
@@ -524,6 +540,10 @@ export default function ProjectTracker({ isAdmin = true }) {
             onEditLocation={openEditLocation}
             onSplitLocation={setSplitTarget}
             onDuplicateLocation={duplicateLocation}
+            onEditGroup={(group) => {
+              setGroupModalEditTarget(group);
+              setShowGroups(true);
+            }}
             onAddLocation={openAddModal}
             onShiftPhases={shiftPhasesByIds}
             onDuplicatePhase={duplicatePhase}
@@ -623,12 +643,16 @@ export default function ProjectTracker({ isAdmin = true }) {
 
       <ManageLocationGroupsModal
         open={showGroups}
-        onClose={() => setShowGroups(false)}
+        onClose={() => {
+          setShowGroups(false);
+          setGroupModalEditTarget(null);
+        }}
         groups={groups}
         locations={data.locations}
         onCreateGroup={createGroup}
         onUpdateGroup={updateGroup}
         onDeleteGroup={deleteGroup}
+        initialEditGroup={groupModalEditTarget}
       />
 
       <UndoToast action={undoAction} onUndo={runUndo} onDismiss={dismissUndo} />
