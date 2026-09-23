@@ -5,8 +5,6 @@ import { buildMonthTicks, buildQuarterTicks, buildWeekendBands, diffDays, todayS
 import LocationRow, { ROW_HEIGHT } from "./LocationRow";
 import OOORow from "./OOORow";
 
-const GROUP_HEADER_HEIGHT = 28;
-
 // Clusters locations that belong to the same map_groups group together
 // (positioned at the earliest member's slot in the given order, so the
 // existing go-live sort still decides where the cluster sits), with a
@@ -51,9 +49,9 @@ function buildDisplayEntries(locations, groups) {
 // stacking, and no separate "row" appearance in the calendar itself.
 function LocationGroupHeader({ group, memberCount, salesRepName, labelWidth, onEditGroup }) {
   return (
-    <div className="mt-2 flex" style={{ height: GROUP_HEADER_HEIGHT }}>
+    <div className="mt-2 flex">
       <div
-        className="sticky left-0 z-[45] flex h-full shrink-0 items-center gap-1.5 rounded-md bg-beacon-600 px-3"
+        className="sticky left-0 z-[45] flex shrink-0 items-center gap-1.5 rounded-md bg-beacon-600 px-3 py-1"
         style={{ width: labelWidth }}
       >
         <Layers size={11} className="shrink-0 text-white" />
