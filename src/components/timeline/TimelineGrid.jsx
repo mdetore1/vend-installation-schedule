@@ -47,19 +47,19 @@ function buildDisplayEntries(locations, groups) {
 
 function LocationGroupHeader({ group, memberCount, salesRepName, labelWidth, onEditGroup }) {
   return (
-    <div className="mt-2 flex items-center border-b border-beacon-600/30" style={{ height: GROUP_HEADER_HEIGHT }}>
+    <div className="mt-2 flex items-center bg-beacon-600" style={{ height: GROUP_HEADER_HEIGHT }}>
       <div
-        className="sticky left-0 z-[45] flex h-full shrink-0 items-center gap-1.5 border-r border-l-[3px] border-concrete-200 border-l-beacon-600 bg-beacon-100/60 px-3"
+        className="sticky left-0 z-[45] flex h-full shrink-0 items-center gap-1.5 bg-beacon-600 px-3"
         style={{ width: labelWidth }}
       >
-        <Layers size={11} className="shrink-0 text-beacon-700" />
-        <span className="truncate text-[11px] font-bold text-beacon-700">{group.name}</span>
-        <span className="shrink-0 text-[10px] font-medium text-beacon-700/70">{memberCount} garages</span>
+        <Layers size={11} className="shrink-0 text-white" />
+        <span className="truncate text-[11px] font-bold text-white">{group.name}</span>
+        <span className="shrink-0 text-[10px] font-medium text-white/70">{memberCount} garages</span>
         {onEditGroup && (
           <button
             type="button"
             onClick={() => onEditGroup(group)}
-            className="shrink-0 rounded-full p-1 text-beacon-700/60 transition hover:bg-white hover:text-beacon-700"
+            className="shrink-0 rounded-full p-1 text-white/70 transition hover:bg-white/20 hover:text-white"
             aria-label="Edit group"
             title="Rename or add/remove garages"
           >
@@ -67,7 +67,7 @@ function LocationGroupHeader({ group, memberCount, salesRepName, labelWidth, onE
           </button>
         )}
         {salesRepName && (
-          <span className="ml-auto shrink-0 truncate pl-2 text-[10px] font-medium text-beacon-700/70">{salesRepName}</span>
+          <span className="ml-auto shrink-0 truncate pl-2 text-[10px] font-medium text-white/70">{salesRepName}</span>
         )}
       </div>
       <div className="h-full flex-1" />
