@@ -36,9 +36,7 @@ function buildDisplayEntries(locations, groups) {
     const salesPersonIds = [...new Set(members.map((m) => m.salesPersonId).filter(Boolean))];
     const sharedSalesPersonId = salesPersonIds.length === 1 ? salesPersonIds[0] : null;
     entries.push({ type: "group-header", group, memberCount: members.length, sharedSalesPersonId });
-    members.forEach((m) =>
-      entries.push({ type: "location", location: m, hideSalesRepLabel: !!sharedSalesPersonId, inGroup: true })
-    );
+    members.forEach((m) => entries.push({ type: "location", location: m, hideSalesRepLabel: !!sharedSalesPersonId }));
   }
   return entries;
 }
@@ -363,7 +361,7 @@ export default function TimelineGrid({
               ) : (
                 <LocationRow
                   key={entry.location.id}
-                  {...locationRowProps(entry.location, { hideSalesRepLabel: entry.hideSalesRepLabel, inGroup: entry.inGroup })}
+                  {...locationRowProps(entry.location, { hideSalesRepLabel: entry.hideSalesRepLabel })}
                 />
               )
             )}
