@@ -43,17 +43,15 @@ function buildDisplayEntries(locations, groups) {
   return entries;
 }
 
-// Lives entirely in the sticky label column — deliberately renders NOTHING
-// on the calendar/timeline side, just an ordinary transparent gap there, so
-// there's no colored band to fight the timeline's own grid-line overlay for
-// stacking, and no separate "row" appearance in the calendar itself.
-function LocationGroupHeader({ group, memberCount, salesRepName, labelWidth, onEditGroup }) {
+// A compact chip, not a full-width bar — sized to fit just its own content
+// instead of stretching to match the label column's width (which is a
+// value that can drift from the column's actual rendered edge). Lives
+// entirely in the sticky label column; the calendar/timeline side shows
+// nothing for this row at all.
+function LocationGroupHeader({ group, memberCount, salesRepName, onEditGroup }) {
   return (
     <div className="mt-2 flex">
-      <div
-        className="sticky left-0 z-[45] flex shrink-0 items-center gap-1.5 rounded-md bg-beacon-600 px-3 py-1"
-        style={{ width: labelWidth }}
-      >
+      <div className="sticky left-0 z-[45] inline-flex items-center gap-1.5 rounded-md bg-beacon-600 px-3 py-1">
         <Layers size={11} className="shrink-0 text-white" />
         <span className="truncate text-[11px] font-bold text-white">{group.name}</span>
         <span className="shrink-0 text-[10px] font-medium text-white/70">{memberCount} garages</span>
@@ -69,10 +67,9 @@ function LocationGroupHeader({ group, memberCount, salesRepName, labelWidth, onE
           </button>
         )}
         {salesRepName && (
-          <span className="ml-auto shrink-0 truncate pl-2 text-[10px] font-medium text-white/70">{salesRepName}</span>
+          <span className="shrink-0 truncate pl-1 text-[10px] font-medium text-white/70">· {salesRepName}</span>
         )}
       </div>
-      <div className="h-full flex-1" />
     </div>
   );
 }
@@ -356,7 +353,6 @@ export default function TimelineGrid({
                   group={entry.group}
                   memberCount={entry.memberCount}
                   salesRepName={team.find((t) => t.id === entry.sharedSalesPersonId)?.name}
-                  labelWidth={displayLabelWidth}
                   onEditGroup={onEditGroup}
                 />
               ) : (
