@@ -1,81 +1,24 @@
 import { useEffect, useState } from "react";
-import { Layers, Pencil, Plus, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { AnimatePresence, Reorder } from "framer-motion";
 import { buildMonthTicks, buildQuarterTicks, buildWeekendBands, diffDays, todayStart } from "../../lib/dateUtils";
 import LocationRow, { ROW_HEIGHT } from "./LocationRow";
 import OOORow from "./OOORow";
 
-// Clusters locations that belong to the same map_groups group together
-// (positioned at the earliest member's slot in the given order, so the
-// existing go-live sort still decides where the cluster sits), with a
-// header inserted right before each cluster. Ungrouped locations pass
-// through unchanged in their original order.
+// Tags each location that belongs to a map_groups group with that group —
+// no separate header row at all, just a small badge on the location's own
+// row (see LocationRow's groupBadge). Sidesteps the whole category of
+// separate-row height/stacking/alignment issues a dedicated header row ran
+// into. Ungrouped locations pass through unchanged.
 function buildDisplayEntries(locations, groups) {
   if (!groups?.length) return locations.map((location) => ({ type: "location", location }));
-  const memberOf = new Map();
+  const groupByLocationId = new Map();
   for (const g of groups) {
     for (const loc of locations) {
-      if (g.memberNames.includes(loc.name)) memberOf.set(loc.id, g);
+      if (g.memberNames.includes(loc.name)) groupByLocationId.set(loc.id, g);
     }
   }
-  const consumed = new Set();
-  const entries = [];
-  for (const loc of locations) {
-    if (consumed.has(loc.id)) continue;
-    const group = memberOf.get(loc.id);
-    if (!group) {
-      consumed.add(loc.id);
-      entries.push({ type: "location", location: loc });
-      continue;
-    }
-    const members = locations.filter((l) => memberOf.get(l.id) === group);
-    members.forEach((m) => consumed.add(m.id));
-    // Every garage under one client is almost always sold by the same
-    // person — show it once on the header instead of repeating it on
-    // every member row below.
-    const salesPersonIds = [...new Set(members.map((m) => m.salesPersonId).filter(Boolean))];
-    const sharedSalesPersonId = salesPersonIds.length === 1 ? salesPersonIds[0] : null;
-    entries.push({ type: "group-header", group, memberCount: members.length, sharedSalesPersonId });
-    members.forEach((m) =>
-      entries.push({ type: "location", location: m, hideSalesRepLabel: !!sharedSalesPersonId, inGroup: true })
-    );
-  }
-  return entries;
-}
-
-// Same structure as the "Out of office"/"Company Events" label rows above
-// the calendar (OOORow.jsx) — a sticky, exact-width label cell plus a plain
-// `relative flex-1` sibling for the timeline side. That pattern already
-// renders correctly in this exact view with no width or stacking issues,
-// so this copies it instead of inventing a new one.
-function LocationGroupHeader({ group, memberCount, salesRepName, labelWidth, onEditGroup }) {
-  return (
-    <div className="flex border-b border-concrete-200" style={{ height: 32 }}>
-      <div
-        className="sticky left-0 z-[45] flex h-full shrink-0 items-center gap-1.5 border-r border-beacon-700 bg-beacon-600 px-3"
-        style={{ width: labelWidth }}
-      >
-        <Layers size={11} className="shrink-0 text-white" />
-        <span className="truncate text-[11px] font-bold text-white">{group.name}</span>
-        <span className="shrink-0 text-[10px] font-medium text-white/70">{memberCount} garages</span>
-        {onEditGroup && (
-          <button
-            type="button"
-            onClick={() => onEditGroup(group)}
-            className="shrink-0 rounded-full p-1 text-white/70 transition hover:bg-white/20 hover:text-white"
-            aria-label="Edit group"
-            title="Rename or add/remove garages"
-          >
-            <Pencil size={10} />
-          </button>
-        )}
-        {salesRepName && (
-          <span className="ml-auto shrink-0 truncate pl-2 text-[10px] font-medium text-white/70">{salesRepName}</span>
-        )}
-      </div>
-      <div className="relative flex-1" />
-    </div>
-  );
+  return locations.map((location) => ({ type: "location", location, group: groupByLocationId.get(location.id) }));
 }
 
 const QUARTER_HEIGHT = 26;
@@ -350,23 +293,12 @@ export default function TimelineGrid({
           className="contents"
         >
           <AnimatePresence initial={false}>
-            {displayEntries.map((entry) =>
-              entry.type === "group-header" ? (
-                <LocationGroupHeader
-                  key={`group-${entry.group.id}`}
-                  group={entry.group}
-                  memberCount={entry.memberCount}
-                  salesRepName={team.find((t) => t.id === entry.sharedSalesPersonId)?.name}
-                  labelWidth={displayLabelWidth}
-                  onEditGroup={onEditGroup}
-                />
-              ) : (
-                <LocationRow
-                  key={entry.location.id}
-                  {...locationRowProps(entry.location, { hideSalesRepLabel: entry.hideSalesRepLabel, inGroup: entry.inGroup })}
-                />
-              )
-            )}
+            {displayEntries.map((entry) => (
+              <LocationRow
+                key={entry.location.id}
+                {...locationRowProps(entry.location, { group: entry.group, onEditGroup })}
+              />
+            ))}
           </AnimatePresence>
         </Reorder.Group>
 

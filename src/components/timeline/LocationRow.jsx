@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Reorder, useDragControls } from "framer-motion";
-import { Copy, GripVertical, MapPin, RotateCcw, Split, Trash2 } from "lucide-react";
+import { Copy, GripVertical, Layers, MapPin, RotateCcw, Split, Trash2 } from "lucide-react";
 import { Checkbox } from "../fields";
 import { canonPhaseLabel, rangesOverlap } from "../../lib/dateUtils";
 import PhaseBar from "./PhaseBar";
@@ -12,8 +12,8 @@ const NO_SELECTION = new Set();
 
 export default function LocationRow({
   location,
-  hideSalesRepLabel = false,
-  inGroup = false,
+  group,
+  onEditGroup,
   team,
   pxPerDay,
   rangeStart,
@@ -71,9 +71,9 @@ export default function LocationRow({
       style={{ height: ROW_HEIGHT }}
     >
       <div
-        className={`sticky left-0 z-[45] flex shrink-0 items-center gap-2 px-4 relative ${
+        className={`sticky left-0 z-[45] flex shrink-0 items-center gap-2 bg-white px-4 relative ${
           location.onHold ? "border-r-2 border-dashed border-caution-600" : "border-r border-concrete-200"
-        } ${!location.onHold && inGroup ? "bg-beacon-100/40" : "bg-white"}`}
+        }`}
         style={
           location.onHold
             ? {
@@ -110,6 +110,19 @@ export default function LocationRow({
         >
           <p className="truncate text-sm font-semibold text-vend-black">{location.name}</p>
           <div className="mt-0.5 flex flex-wrap items-center gap-1">
+            {group && (
+              <span
+                role={onEditGroup ? "button" : undefined}
+                onClick={onEditGroup ? (e) => { e.stopPropagation(); onEditGroup(group); } : undefined}
+                title={onEditGroup ? "Rename or add/remove garages" : undefined}
+                className={`inline-flex max-w-full items-center gap-1 truncate rounded-full bg-beacon-100 px-2 py-0.5 text-[10px] font-bold text-beacon-700 ${
+                  onEditGroup ? "cursor-pointer hover:bg-beacon-100/70" : ""
+                }`}
+              >
+                <Layers size={10} className="shrink-0" />
+                {group.name}
+              </span>
+            )}
             <span className="inline-flex max-w-full items-center gap-1 truncate rounded-full bg-concrete-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
               <MapPin size={10} className="shrink-0 text-slate-400" />
               {location.place || "Add city, state"}
@@ -156,7 +169,7 @@ export default function LocationRow({
             <Trash2 size={14} />
           </button>
         </div>
-        {!hideSalesRepLabel && teamById[location.salesPersonId] && (
+        {teamById[location.salesPersonId] && (
           <span className="pointer-events-none absolute bottom-1 right-3 text-[10px] font-medium text-slate-400">
             {teamById[location.salesPersonId].name}
           </span>
