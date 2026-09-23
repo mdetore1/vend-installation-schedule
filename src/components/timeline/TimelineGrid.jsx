@@ -1,9 +1,58 @@
 import { useEffect, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Layers, Plus, X } from "lucide-react";
 import { AnimatePresence, Reorder } from "framer-motion";
 import { buildMonthTicks, buildQuarterTicks, buildWeekendBands, diffDays, todayStart } from "../../lib/dateUtils";
 import LocationRow, { ROW_HEIGHT } from "./LocationRow";
 import OOORow from "./OOORow";
+
+const GROUP_HEADER_HEIGHT = 40;
+
+// Clusters locations that belong to the same map_groups group together
+// (positioned at the earliest member's slot in the given order, so the
+// existing go-live sort still decides where the cluster sits), with a
+// header inserted right before each cluster. Ungrouped locations pass
+// through unchanged in their original order.
+function buildDisplayEntries(locations, groups) {
+  if (!groups?.length) return locations.map((location) => ({ type: "location", location }));
+  const memberOf = new Map();
+  for (const g of groups) {
+    for (const loc of locations) {
+      if (g.memberNames.includes(loc.name)) memberOf.set(loc.id, g);
+    }
+  }
+  const consumed = new Set();
+  const entries = [];
+  for (const loc of locations) {
+    if (consumed.has(loc.id)) continue;
+    const group = memberOf.get(loc.id);
+    if (!group) {
+      consumed.add(loc.id);
+      entries.push({ type: "location", location: loc });
+      continue;
+    }
+    const members = locations.filter((l) => memberOf.get(l.id) === group);
+    members.forEach((m) => consumed.add(m.id));
+    entries.push({ type: "group-header", group, memberCount: members.length });
+    members.forEach((m) => entries.push({ type: "location", location: m }));
+  }
+  return entries;
+}
+
+function LocationGroupHeader({ group, memberCount, labelWidth }) {
+  return (
+    <div className="flex border-b border-concrete-200 bg-beacon-100/40" style={{ height: GROUP_HEADER_HEIGHT }}>
+      <div
+        className="sticky left-0 z-[45] flex shrink-0 items-center gap-2 border-r border-concrete-200 bg-beacon-100/40 px-4"
+        style={{ width: labelWidth }}
+      >
+        <Layers size={13} className="shrink-0 text-beacon-700" />
+        <span className="truncate text-xs font-bold uppercase tracking-wide text-beacon-700">{group.name}</span>
+        <span className="ml-auto shrink-0 text-[10px] font-semibold text-beacon-700/70">{memberCount} garages</span>
+      </div>
+      <div className="flex-1" />
+    </div>
+  );
+}
 
 const QUARTER_HEIGHT = 26;
 const MONTH_HEIGHT = 34;
@@ -35,6 +84,7 @@ function BlankRow({ labelWidth, onClick }) {
 
 export default function TimelineGrid({
   locations,
+  groups = [],
   team,
   pxPerDay,
   rangeStart,
@@ -45,6 +95,7 @@ export default function TimelineGrid({
   onArchive,
   onDeleteLocation,
   onEditLocation,
+  onSplitLocation,
   onAddLocation,
   onShiftPhases,
   onDuplicatePhase,
@@ -70,6 +121,7 @@ export default function TimelineGrid({
   const weekendBands = buildWeekendBands(rangeStart, rangeEnd);
   const todayOffset = diffDays(rangeStart, todayStart()) * pxPerDay;
   const thisYear = new Date().getFullYear();
+  const displayEntries = buildDisplayEntries(locations, groups);
 
   // Phases the user has explicitly grouped (shift-click) so a drag on any one
   // of them moves the whole set together; otherwise a drag only moves that
@@ -239,33 +291,43 @@ export default function TimelineGrid({
           className="contents"
         >
           <AnimatePresence initial={false}>
-            {locations.map((loc) => (
-              <LocationRow
-                key={loc.id}
-                location={loc}
-                team={team}
-                pxPerDay={pxPerDay}
-                rangeStart={rangeStart}
-                onUpdatePhase={onUpdatePhase}
-                onDeletePhase={onDeletePhase}
-                onArchive={onArchive}
-                onDeleteLocation={onDeleteLocation}
-                onEditLocation={onEditLocation}
-                onShiftPhases={onShiftPhases}
-                onDuplicatePhase={onDuplicatePhase}
-                allLocations={locations}
-                labelWidth={displayLabelWidth}
-                restoreMode={restoreMode}
-                draggable={sortable}
-                doubleBookedPhaseIds={doubleBookedPhaseIds}
-                selectedPhaseIds={selectedPhaseIds}
-                onToggleSelect={toggleSelect}
-                dragGroup={dragGroup}
-                onDragGroupChange={setDragGroup}
-                openPhaseId={openPhaseId}
-                onOpenPhase={setOpenPhaseId}
-              />
-            ))}
+            {displayEntries.map((entry) =>
+              entry.type === "group-header" ? (
+                <LocationGroupHeader
+                  key={`group-${entry.group.id}`}
+                  group={entry.group}
+                  memberCount={entry.memberCount}
+                  labelWidth={displayLabelWidth}
+                />
+              ) : (
+                <LocationRow
+                  key={entry.location.id}
+                  location={entry.location}
+                  team={team}
+                  pxPerDay={pxPerDay}
+                  rangeStart={rangeStart}
+                  onUpdatePhase={onUpdatePhase}
+                  onDeletePhase={onDeletePhase}
+                  onArchive={onArchive}
+                  onDeleteLocation={onDeleteLocation}
+                  onEditLocation={onEditLocation}
+                  onSplitLocation={onSplitLocation}
+                  onShiftPhases={onShiftPhases}
+                  onDuplicatePhase={onDuplicatePhase}
+                  allLocations={locations}
+                  labelWidth={displayLabelWidth}
+                  restoreMode={restoreMode}
+                  draggable={sortable}
+                  doubleBookedPhaseIds={doubleBookedPhaseIds}
+                  selectedPhaseIds={selectedPhaseIds}
+                  onToggleSelect={toggleSelect}
+                  dragGroup={dragGroup}
+                  onDragGroupChange={setDragGroup}
+                  openPhaseId={openPhaseId}
+                  onOpenPhase={setOpenPhaseId}
+                />
+              )
+            )}
           </AnimatePresence>
         </Reorder.Group>
 

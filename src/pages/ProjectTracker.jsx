@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { LayoutGroup } from "framer-motion";
-import { Minus, Plus } from "lucide-react";
-import { useLocalStorage } from "../lib/storage";
+import { Layers, Minus, Plus } from "lucide-react";
+import { useLocalStorage, newId } from "../lib/storage";
 import { useScheduleStore } from "../lib/scheduleStore";
+import { useMapStore } from "../lib/mapStore";
 import { useUndoToast } from "../lib/useUndoToast";
 import UndoToast from "../components/UndoToast";
+import ManageLocationGroupsModal from "../components/ManageLocationGroupsModal";
 import {
   parseDate,
   addDays,
@@ -23,6 +25,7 @@ import TimelineGrid from "../components/timeline/TimelineGrid";
 import CompletedStrip from "../components/timeline/CompletedStrip";
 import QueueStrip from "../components/timeline/QueueStrip";
 import AddLocationForm from "../components/timeline/AddLocationForm";
+import SplitLocationModal from "../components/timeline/SplitLocationModal";
 
 const MIN_PX = 3;
 const MAX_PX = 20;
@@ -67,6 +70,13 @@ function measureTextWidth(text, font) {
 export default function ProjectTracker({ isAdmin = true }) {
   const store = useScheduleStore();
   const { data } = store;
+  // Same map_groups records the Locations Map/Dashboard's "Group locations"
+  // feature reads and writes — grouping Station Square here also groups it
+  // there, and vice versa, one shared notion of "these garages belong
+  // together" instead of a separate Schedule-only concept.
+  const mapStore = useMapStore();
+  const { groups, createGroup, updateGroup, deleteGroup } = mapStore;
+  const [showGroups, setShowGroups] = useState(false);
   // Every write goes through the shared database now — a viewer's clicks
   // never reach Supabase at all, so there's nothing to bypass client-side.
   const denyWrite = () => window.alert("You have view-only access — ask an admin to make this change.");
@@ -165,6 +175,35 @@ export default function ProjectTracker({ isAdmin = true }) {
     if (prevItem) {
       setUndoAction({ label: `Removed "${prevItem.name}" from the queue`, run: () => store.restoreQueueItem(prevItem) });
     }
+  }
+
+  // One garage that actually covers several physical garages (e.g. "Four
+  // Oaks Place" needs 3 separate rows/timelines) — renames the existing
+  // location "<name> 1" and adds "<name> 2..N" as full copies of its
+  // current timeline/settings, then groups all N under the original name
+  // exactly like doing it by hand from "Group locations" would.
+  const [splitTarget, setSplitTarget] = useState(null);
+  async function splitLocation(location, count) {
+    if (!isAdmin) return denyWrite();
+    const baseName = location.name;
+    await updateLocation(location.id, { name: `${baseName} 1` });
+    for (let i = 2; i <= count; i++) {
+      await addLocation({
+        name: `${baseName} ${i}`,
+        place: location.place,
+        lanes: location.lanes,
+        accessType: location.accessType,
+        salesRep: location.salesRep,
+        propertyManagement: location.propertyManagement,
+        ownership: location.ownership,
+        contractor: location.contractor,
+        hasOnsiteStaff: location.hasOnsiteStaff,
+        salesPersonId: location.salesPersonId,
+        phases: location.phases.map((p) => ({ ...p, id: newId() })),
+      });
+    }
+    const memberNames = Array.from({ length: count }, (_, i) => `${baseName} ${i + 1}`);
+    await createGroup({ name: baseName, memberNames });
   }
 
   const [pxPerDay, setPxPerDay] = useState(9);
@@ -417,6 +456,15 @@ export default function ProjectTracker({ isAdmin = true }) {
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <LocationFilter team={data.team} contractors={contractors} filter={locationFilter} onFilterChange={setLocationFilter} />
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => setShowGroups(true)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-concrete-300 px-3.5 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-vend-black hover:text-vend-black"
+          >
+            <Layers size={13} /> Group locations
+          </button>
+        )}
         <TeamManagerButton
           team={data.team}
           onAddTeammate={addTeammate}
@@ -436,6 +484,7 @@ export default function ProjectTracker({ isAdmin = true }) {
         >
           <TimelineGrid
             locations={activeLocations}
+            groups={groups}
             team={data.team}
             pxPerDay={pxPerDay}
             rangeStart={rangeStart}
@@ -446,6 +495,7 @@ export default function ProjectTracker({ isAdmin = true }) {
             onArchive={(id) => handleArchive(id, true)}
             onDeleteLocation={deleteLocation}
             onEditLocation={openEditLocation}
+            onSplitLocation={setSplitTarget}
             onAddLocation={openAddModal}
             onShiftPhases={shiftPhasesByIds}
             onDuplicatePhase={duplicatePhase}
@@ -534,6 +584,23 @@ export default function ProjectTracker({ isAdmin = true }) {
         initialSalesPersonId={editingLocation?.salesPersonId || UNASSIGNED}
         initialPhases={editingLocation?.phases}
         onSubmit={finalizeEditLocation}
+      />
+
+      <SplitLocationModal
+        open={!!splitTarget}
+        location={splitTarget}
+        onClose={() => setSplitTarget(null)}
+        onSubmit={(count) => splitLocation(splitTarget, count)}
+      />
+
+      <ManageLocationGroupsModal
+        open={showGroups}
+        onClose={() => setShowGroups(false)}
+        groups={groups}
+        locations={data.locations}
+        onCreateGroup={createGroup}
+        onUpdateGroup={updateGroup}
+        onDeleteGroup={deleteGroup}
       />
 
       <UndoToast action={undoAction} onUndo={runUndo} onDismiss={dismissUndo} />

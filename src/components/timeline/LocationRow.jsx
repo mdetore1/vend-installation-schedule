@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Reorder, useDragControls } from "framer-motion";
-import { GripVertical, MapPin, RotateCcw, Trash2 } from "lucide-react";
+import { GripVertical, MapPin, RotateCcw, Split, Trash2 } from "lucide-react";
 import { Checkbox } from "../fields";
 import { canonPhaseLabel, rangesOverlap } from "../../lib/dateUtils";
 import PhaseBar from "./PhaseBar";
@@ -20,6 +20,7 @@ export default function LocationRow({
   onArchive,
   onDeleteLocation,
   onEditLocation,
+  onSplitLocation,
   onShiftPhases,
   onDuplicatePhase,
   allLocations,
@@ -120,10 +121,23 @@ export default function LocationRow({
             )}
           </div>
         </button>
+        {onSplitLocation && (
+          <button
+            type="button"
+            onClick={() => onSplitLocation(location)}
+            className="ml-auto shrink-0 self-start text-slate-200 opacity-0 transition hover:text-vend-black group-hover/row:opacity-100"
+            aria-label="Split into garages"
+            title="Split into garages"
+          >
+            <Split size={14} />
+          </button>
+        )}
         <button
           type="button"
           onClick={() => onDeleteLocation(location.id)}
-          className="ml-auto shrink-0 self-start text-slate-200 opacity-0 transition hover:text-alert-600 group-hover/row:opacity-100"
+          className={`shrink-0 self-start text-slate-200 opacity-0 transition hover:text-alert-600 group-hover/row:opacity-100 ${
+            onSplitLocation ? "" : "ml-auto"
+          }`}
           aria-label="Remove location"
         >
           <Trash2 size={14} />
