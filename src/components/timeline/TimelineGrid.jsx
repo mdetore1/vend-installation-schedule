@@ -5,7 +5,7 @@ import { buildMonthTicks, buildQuarterTicks, buildWeekendBands, diffDays, todayS
 import LocationRow, { ROW_HEIGHT } from "./LocationRow";
 import OOORow from "./OOORow";
 
-const GROUP_HEADER_HEIGHT = 40;
+const GROUP_HEADER_HEIGHT = 46;
 
 // Clusters locations that belong to the same map_groups group together
 // (positioned at the earliest member's slot in the given order, so the
@@ -40,16 +40,18 @@ function buildDisplayEntries(locations, groups) {
 
 function LocationGroupHeader({ group, memberCount, labelWidth }) {
   return (
-    <div className="flex border-b border-concrete-200 bg-beacon-100/40" style={{ height: GROUP_HEADER_HEIGHT }}>
+    <div className="mt-1.5 flex border-b border-concrete-200 bg-beacon-600" style={{ height: GROUP_HEADER_HEIGHT }}>
       <div
-        className="sticky left-0 z-[45] flex shrink-0 items-center gap-2 border-r border-concrete-200 bg-beacon-100/40 px-4"
+        className="sticky left-0 z-[45] flex shrink-0 items-center gap-2 border-r border-beacon-700/30 bg-beacon-600 px-4"
         style={{ width: labelWidth }}
       >
-        <Layers size={13} className="shrink-0 text-beacon-700" />
-        <span className="truncate text-xs font-bold uppercase tracking-wide text-beacon-700">{group.name}</span>
-        <span className="ml-auto shrink-0 text-[10px] font-semibold text-beacon-700/70">{memberCount} garages</span>
+        <Layers size={14} className="shrink-0 text-white" />
+        <span className="truncate text-xs font-bold uppercase tracking-wide text-white">{group.name}</span>
+        <span className="ml-auto shrink-0 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold text-white">
+          {memberCount} garages
+        </span>
       </div>
-      <div className="flex-1" />
+      <div className="flex-1 bg-beacon-600/10" />
     </div>
   );
 }
