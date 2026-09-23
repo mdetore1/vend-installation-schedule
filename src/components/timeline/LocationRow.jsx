@@ -13,6 +13,7 @@ const NO_SELECTION = new Set();
 export default function LocationRow({
   location,
   hideSalesRepLabel = false,
+  inGroup = false,
   team,
   pxPerDay,
   rangeStart,
@@ -72,7 +73,7 @@ export default function LocationRow({
       <div
         className={`sticky left-0 z-[45] flex shrink-0 items-center gap-2 bg-white px-4 relative ${
           location.onHold ? "border-r-2 border-dashed border-caution-600" : "border-r border-concrete-200"
-        }`}
+        } ${inGroup ? "border-l-[3px] border-l-beacon-600" : ""}`}
         style={
           location.onHold
             ? {

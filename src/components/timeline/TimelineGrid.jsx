@@ -37,16 +37,19 @@ function buildDisplayEntries(locations, groups) {
     // every member row below.
     const salesPersonIds = [...new Set(members.map((m) => m.salesPersonId).filter(Boolean))];
     const sharedSalesPersonId = salesPersonIds.length === 1 ? salesPersonIds[0] : null;
-    entries.push({ type: "group-block", group, members, sharedSalesPersonId });
+    entries.push({ type: "group-header", group, memberCount: members.length, sharedSalesPersonId });
+    members.forEach((m) =>
+      entries.push({ type: "location", location: m, hideSalesRepLabel: !!sharedSalesPersonId, inGroup: true })
+    );
   }
   return entries;
 }
 
 function LocationGroupHeader({ group, memberCount, salesRepName, labelWidth, onEditGroup }) {
   return (
-    <div className="flex items-center border-b border-beacon-600/30 bg-beacon-100/50" style={{ height: GROUP_HEADER_HEIGHT }}>
+    <div className="mt-2 flex items-center border-b border-beacon-600/30" style={{ height: GROUP_HEADER_HEIGHT }}>
       <div
-        className="sticky left-0 z-[45] flex h-full shrink-0 items-center gap-1.5 border-r border-beacon-600/30 bg-beacon-100/50 px-3"
+        className="sticky left-0 z-[45] flex h-full shrink-0 items-center gap-1.5 border-r border-l-[3px] border-concrete-200 border-l-beacon-600 bg-beacon-100/60 px-3"
         style={{ width: labelWidth }}
       >
         <Layers size={11} className="shrink-0 text-beacon-700" />
@@ -345,27 +348,20 @@ export default function TimelineGrid({
         >
           <AnimatePresence initial={false}>
             {displayEntries.map((entry) =>
-              entry.type === "group-block" ? (
-                <div
+              entry.type === "group-header" ? (
+                <LocationGroupHeader
                   key={`group-${entry.group.id}`}
-                  className="my-1.5 border-2 border-beacon-600/40"
-                >
-                  <LocationGroupHeader
-                    group={entry.group}
-                    memberCount={entry.members.length}
-                    salesRepName={team.find((t) => t.id === entry.sharedSalesPersonId)?.name}
-                    labelWidth={displayLabelWidth}
-                    onEditGroup={onEditGroup}
-                  />
-                  {entry.members.map((location) => (
-                    <LocationRow
-                      key={location.id}
-                      {...locationRowProps(location, { hideSalesRepLabel: !!entry.sharedSalesPersonId })}
-                    />
-                  ))}
-                </div>
+                  group={entry.group}
+                  memberCount={entry.memberCount}
+                  salesRepName={team.find((t) => t.id === entry.sharedSalesPersonId)?.name}
+                  labelWidth={displayLabelWidth}
+                  onEditGroup={onEditGroup}
+                />
               ) : (
-                <LocationRow key={entry.location.id} {...locationRowProps(entry.location)} />
+                <LocationRow
+                  key={entry.location.id}
+                  {...locationRowProps(entry.location, { hideSalesRepLabel: entry.hideSalesRepLabel, inGroup: entry.inGroup })}
+                />
               )
             )}
           </AnimatePresence>
