@@ -70,7 +70,7 @@ function LocationGroupHeader({ group, memberCount, salesRepName, labelWidth, onE
           <span className="ml-auto shrink-0 truncate pl-2 text-[10px] font-medium text-white/70">{salesRepName}</span>
         )}
       </div>
-      <div className="h-full flex-1" />
+      <div className="relative z-[45] h-full flex-1 bg-beacon-600" />
     </div>
   );
 }
