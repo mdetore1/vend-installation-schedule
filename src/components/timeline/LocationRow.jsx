@@ -123,7 +123,7 @@ export default function LocationRow({
             )}
           </div>
         </button>
-        <div className="ml-auto flex shrink-0 items-center gap-0.5">
+        <div className="ml-auto flex shrink-0 items-center gap-0.5 opacity-0 transition group-hover/row:opacity-100">
           {onDuplicateLocation && (
             <button
               type="button"
