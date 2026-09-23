@@ -138,38 +138,38 @@ export default function LocationRow({
               )}
             </div>
           </button>
-          <div className="ml-auto flex shrink-0 items-center gap-0.5 opacity-0 transition group-hover/row:opacity-100">
-            {onDuplicateLocation && (
-              <button
-                type="button"
-                onClick={() => onDuplicateLocation(location)}
-                className="shrink-0 rounded-full p-1.5 text-slate-300 transition hover:bg-concrete-100 hover:text-vend-black"
-                aria-label="Duplicate garage"
-                title="Duplicate garage"
-              >
-                <Copy size={14} />
-              </button>
-            )}
-            {onSplitLocation && (
-              <button
-                type="button"
-                onClick={() => onSplitLocation(location)}
-                className="shrink-0 rounded-full p-1.5 text-slate-300 transition hover:bg-concrete-100 hover:text-vend-black"
-                aria-label="Split into garages"
-                title="Split into garages"
-              >
-                <Split size={14} />
-              </button>
-            )}
+        </div>
+        <div className="absolute right-2 top-1 flex shrink-0 items-center gap-0.5 opacity-0 transition group-hover/row:opacity-100">
+          {onDuplicateLocation && (
             <button
               type="button"
-              onClick={() => onDeleteLocation(location.id)}
-              className="shrink-0 rounded-full p-1.5 text-slate-300 transition hover:bg-alert-100 hover:text-alert-600"
-              aria-label="Remove location"
+              onClick={() => onDuplicateLocation(location)}
+              className="shrink-0 rounded-full p-1.5 text-slate-300 transition hover:bg-concrete-100 hover:text-vend-black"
+              aria-label="Duplicate garage"
+              title="Duplicate garage"
             >
-              <Trash2 size={14} />
+              <Copy size={14} />
             </button>
-          </div>
+          )}
+          {onSplitLocation && (
+            <button
+              type="button"
+              onClick={() => onSplitLocation(location)}
+              className="shrink-0 rounded-full p-1.5 text-slate-300 transition hover:bg-concrete-100 hover:text-vend-black"
+              aria-label="Split into garages"
+              title="Split into garages"
+            >
+              <Split size={14} />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => onDeleteLocation(location.id)}
+            className="shrink-0 rounded-full p-1.5 text-slate-300 transition hover:bg-alert-100 hover:text-alert-600"
+            aria-label="Remove location"
+          >
+            <Trash2 size={14} />
+          </button>
         </div>
         {teamById[location.salesPersonId] && (
           <span className="pointer-events-none absolute bottom-1 right-3 text-[10px] font-medium text-slate-400">
