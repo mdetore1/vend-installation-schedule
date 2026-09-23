@@ -45,11 +45,15 @@ function buildDisplayEntries(locations, groups) {
   return entries;
 }
 
+// Lives entirely in the sticky label column — deliberately renders NOTHING
+// on the calendar/timeline side, just an ordinary transparent gap there, so
+// there's no colored band to fight the timeline's own grid-line overlay for
+// stacking, and no separate "row" appearance in the calendar itself.
 function LocationGroupHeader({ group, memberCount, salesRepName, labelWidth, onEditGroup }) {
   return (
-    <div className="mt-2 flex items-center bg-beacon-600" style={{ height: GROUP_HEADER_HEIGHT }}>
+    <div className="mt-2 flex" style={{ height: GROUP_HEADER_HEIGHT }}>
       <div
-        className="sticky left-0 z-[45] flex h-full shrink-0 items-center gap-1.5 bg-beacon-600 px-3"
+        className="sticky left-0 z-[45] flex h-full shrink-0 items-center gap-1.5 rounded-md bg-beacon-600 px-3"
         style={{ width: labelWidth }}
       >
         <Layers size={11} className="shrink-0 text-white" />
@@ -70,7 +74,7 @@ function LocationGroupHeader({ group, memberCount, salesRepName, labelWidth, onE
           <span className="ml-auto shrink-0 truncate pl-2 text-[10px] font-medium text-white/70">{salesRepName}</span>
         )}
       </div>
-      <div className="relative z-[40] h-full flex-1 bg-beacon-600" />
+      <div className="h-full flex-1" />
     </div>
   );
 }
