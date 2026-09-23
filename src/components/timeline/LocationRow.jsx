@@ -71,7 +71,7 @@ export default function LocationRow({
       style={{ height: ROW_HEIGHT }}
     >
       <div
-        className={`sticky left-0 z-[45] flex shrink-0 items-center gap-2 bg-white px-4 relative ${
+        className={`sticky left-0 z-[45] flex shrink-0 flex-col justify-center gap-0.5 bg-white px-4 relative ${
           location.onHold ? "border-r-2 border-dashed border-caution-600" : "border-r border-concrete-200"
         }`}
         style={
@@ -83,91 +83,93 @@ export default function LocationRow({
             : { width: labelWidth }
         }
       >
-        {draggable && (
+        {group && (
           <span
-            onPointerDown={(e) => controls.start(e)}
-            className="shrink-0 cursor-grab touch-none text-slate-200 transition hover:text-slate-400"
+            role={onEditGroup ? "button" : undefined}
+            onClick={onEditGroup ? (e) => { e.stopPropagation(); onEditGroup(group); } : undefined}
+            title={onEditGroup ? "Rename or add/remove garages" : undefined}
+            className={`flex items-center gap-1 truncate text-[10px] font-bold text-beacon-700 ${
+              onEditGroup ? "cursor-pointer hover:text-beacon-700/70" : ""
+            }`}
           >
-            <GripVertical size={16} />
+            <Layers size={10} className="shrink-0" />
+            {group.name}
           </span>
         )}
-        {restoreMode ? (
-          <button
-            type="button"
-            onClick={() => onArchive(location.id)}
-            className="flex shrink-0 items-center gap-1 rounded-full border border-concrete-300 px-2 py-1 text-[11px] font-semibold text-slate-500 transition hover:border-vend-black hover:text-vend-black"
-          >
-            <RotateCcw size={11} /> Restore
-          </button>
-        ) : (
-          <Checkbox checked={allDone} onChange={() => onArchive(location.id)} />
-        )}
-        <button
-          type="button"
-          onClick={() => onEditLocation?.(location)}
-          className="-mx-1 min-w-0 flex-1 rounded px-1 py-0.5 text-left transition hover:bg-concrete-100/50"
-          title="Edit location & phases"
-        >
-          {group && (
+        <div className="flex items-center gap-2">
+          {draggable && (
             <span
-              role={onEditGroup ? "button" : undefined}
-              onClick={onEditGroup ? (e) => { e.stopPropagation(); onEditGroup(group); } : undefined}
-              title={onEditGroup ? "Rename or add/remove garages" : undefined}
-              className={`mb-0.5 flex items-center gap-1 truncate text-[10px] font-bold text-beacon-700 ${
-                onEditGroup ? "cursor-pointer hover:text-beacon-700/70" : ""
-              }`}
+              onPointerDown={(e) => controls.start(e)}
+              className="shrink-0 cursor-grab touch-none text-slate-200 transition hover:text-slate-400"
             >
-              <Layers size={10} className="shrink-0" />
-              {group.name}
+              <GripVertical size={16} />
             </span>
           )}
-          <p className="truncate text-sm font-semibold text-vend-black">{location.name}</p>
-          <div className="mt-0.5 flex flex-wrap items-center gap-1">
-            <span className="inline-flex max-w-full items-center gap-1 truncate rounded-full bg-concrete-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
-              <MapPin size={10} className="shrink-0 text-slate-400" />
-              {location.place || "Add city, state"}
-            </span>
-            {location.hasOnsiteStaff && (
-              <span className="shrink-0 rounded-full bg-mint-200 px-2 py-0.5 text-[10px] font-bold text-mint-700">Spark</span>
-            )}
-            {location.onHold && (
-              <span className="shrink-0 rounded-full bg-caution-100 px-2 py-0.5 text-[10px] font-bold text-caution-700">
-                On Hold
-              </span>
-            )}
-          </div>
-        </button>
-        <div className="ml-auto flex shrink-0 items-center gap-0.5 opacity-0 transition group-hover/row:opacity-100">
-          {onDuplicateLocation && (
+          {restoreMode ? (
             <button
               type="button"
-              onClick={() => onDuplicateLocation(location)}
-              className="shrink-0 rounded-full p-1.5 text-slate-300 transition hover:bg-concrete-100 hover:text-vend-black"
-              aria-label="Duplicate garage"
-              title="Duplicate garage"
+              onClick={() => onArchive(location.id)}
+              className="flex shrink-0 items-center gap-1 rounded-full border border-concrete-300 px-2 py-1 text-[11px] font-semibold text-slate-500 transition hover:border-vend-black hover:text-vend-black"
             >
-              <Copy size={14} />
+              <RotateCcw size={11} /> Restore
             </button>
-          )}
-          {onSplitLocation && (
-            <button
-              type="button"
-              onClick={() => onSplitLocation(location)}
-              className="shrink-0 rounded-full p-1.5 text-slate-300 transition hover:bg-concrete-100 hover:text-vend-black"
-              aria-label="Split into garages"
-              title="Split into garages"
-            >
-              <Split size={14} />
-            </button>
+          ) : (
+            <Checkbox checked={allDone} onChange={() => onArchive(location.id)} />
           )}
           <button
             type="button"
-            onClick={() => onDeleteLocation(location.id)}
-            className="shrink-0 rounded-full p-1.5 text-slate-300 transition hover:bg-alert-100 hover:text-alert-600"
-            aria-label="Remove location"
+            onClick={() => onEditLocation?.(location)}
+            className="-mx-1 min-w-0 flex-1 rounded px-1 py-0.5 text-left transition hover:bg-concrete-100/50"
+            title="Edit location & phases"
           >
-            <Trash2 size={14} />
+            <p className="truncate text-sm font-semibold text-vend-black">{location.name}</p>
+            <div className="mt-0.5 flex flex-wrap items-center gap-1">
+              <span className="inline-flex max-w-full items-center gap-1 truncate rounded-full bg-concrete-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                <MapPin size={10} className="shrink-0 text-slate-400" />
+                {location.place || "Add city, state"}
+              </span>
+              {location.hasOnsiteStaff && (
+                <span className="shrink-0 rounded-full bg-mint-200 px-2 py-0.5 text-[10px] font-bold text-mint-700">Spark</span>
+              )}
+              {location.onHold && (
+                <span className="shrink-0 rounded-full bg-caution-100 px-2 py-0.5 text-[10px] font-bold text-caution-700">
+                  On Hold
+                </span>
+              )}
+            </div>
           </button>
+          <div className="ml-auto flex shrink-0 items-center gap-0.5 opacity-0 transition group-hover/row:opacity-100">
+            {onDuplicateLocation && (
+              <button
+                type="button"
+                onClick={() => onDuplicateLocation(location)}
+                className="shrink-0 rounded-full p-1.5 text-slate-300 transition hover:bg-concrete-100 hover:text-vend-black"
+                aria-label="Duplicate garage"
+                title="Duplicate garage"
+              >
+                <Copy size={14} />
+              </button>
+            )}
+            {onSplitLocation && (
+              <button
+                type="button"
+                onClick={() => onSplitLocation(location)}
+                className="shrink-0 rounded-full p-1.5 text-slate-300 transition hover:bg-concrete-100 hover:text-vend-black"
+                aria-label="Split into garages"
+                title="Split into garages"
+              >
+                <Split size={14} />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => onDeleteLocation(location.id)}
+              className="shrink-0 rounded-full p-1.5 text-slate-300 transition hover:bg-alert-100 hover:text-alert-600"
+              aria-label="Remove location"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
         </div>
         {teamById[location.salesPersonId] && (
           <span className="pointer-events-none absolute bottom-1 right-3 text-[10px] font-medium text-slate-400">
