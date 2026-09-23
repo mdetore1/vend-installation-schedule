@@ -12,6 +12,7 @@ const NO_SELECTION = new Set();
 
 export default function LocationRow({
   location,
+  hideSalesRepLabel = false,
   team,
   pxPerDay,
   rangeStart,
@@ -154,7 +155,7 @@ export default function LocationRow({
             <Trash2 size={14} />
           </button>
         </div>
-        {teamById[location.salesPersonId] && (
+        {!hideSalesRepLabel && teamById[location.salesPersonId] && (
           <span className="pointer-events-none absolute bottom-1 right-3 text-[10px] font-medium text-slate-400">
             {teamById[location.salesPersonId].name}
           </span>

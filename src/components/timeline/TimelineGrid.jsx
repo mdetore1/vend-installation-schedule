@@ -5,7 +5,7 @@ import { buildMonthTicks, buildQuarterTicks, buildWeekendBands, diffDays, todayS
 import LocationRow, { ROW_HEIGHT } from "./LocationRow";
 import OOORow from "./OOORow";
 
-const GROUP_HEADER_HEIGHT = 46;
+const GROUP_HEADER_HEIGHT = 28;
 
 // Clusters locations that belong to the same map_groups group together
 // (positioned at the earliest member's slot in the given order, so the
@@ -32,26 +32,32 @@ function buildDisplayEntries(locations, groups) {
     }
     const members = locations.filter((l) => memberOf.get(l.id) === group);
     members.forEach((m) => consumed.add(m.id));
-    entries.push({ type: "group-header", group, memberCount: members.length });
-    members.forEach((m) => entries.push({ type: "location", location: m }));
+    // Every garage under one client is almost always sold by the same
+    // person — show it once on the header instead of repeating it on
+    // every member row below.
+    const salesPersonIds = [...new Set(members.map((m) => m.salesPersonId).filter(Boolean))];
+    const sharedSalesPersonId = salesPersonIds.length === 1 ? salesPersonIds[0] : null;
+    entries.push({ type: "group-header", group, memberCount: members.length, sharedSalesPersonId });
+    members.forEach((m) =>
+      entries.push({ type: "location", location: m, hideSalesRepLabel: !!sharedSalesPersonId })
+    );
   }
   return entries;
 }
 
-function LocationGroupHeader({ group, memberCount, labelWidth }) {
+function LocationGroupHeader({ group, memberCount, salesRepName, labelWidth }) {
   return (
-    <div className="mt-1.5 flex border-b border-concrete-200 bg-beacon-600" style={{ height: GROUP_HEADER_HEIGHT }}>
+    <div className="mt-2 flex items-center border-b border-concrete-200" style={{ height: GROUP_HEADER_HEIGHT }}>
       <div
-        className="sticky left-0 z-[45] flex shrink-0 items-center gap-2 border-r border-beacon-700/30 bg-beacon-600 px-4"
+        className="sticky left-0 z-[45] flex h-full shrink-0 items-center gap-1.5 border-r border-l-[3px] border-concrete-200 border-l-beacon-600 bg-concrete-100/70 px-3"
         style={{ width: labelWidth }}
       >
-        <Layers size={14} className="shrink-0 text-white" />
-        <span className="truncate text-xs font-bold uppercase tracking-wide text-white">{group.name}</span>
-        <span className="ml-auto shrink-0 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold text-white">
-          {memberCount} garages
-        </span>
+        <Layers size={11} className="shrink-0 text-beacon-700" />
+        <span className="truncate text-[11px] font-bold text-vend-black">{group.name}</span>
+        <span className="shrink-0 text-[10px] font-medium text-slate-400">{memberCount} garages</span>
+        {salesRepName && <span className="ml-auto shrink-0 truncate text-[10px] font-medium text-slate-400">{salesRepName}</span>}
       </div>
-      <div className="flex-1 bg-beacon-600/10" />
+      <div className="h-full flex-1 bg-concrete-100/40" />
     </div>
   );
 }
@@ -300,12 +306,14 @@ export default function TimelineGrid({
                   key={`group-${entry.group.id}`}
                   group={entry.group}
                   memberCount={entry.memberCount}
+                  salesRepName={team.find((t) => t.id === entry.sharedSalesPersonId)?.name}
                   labelWidth={displayLabelWidth}
                 />
               ) : (
                 <LocationRow
                   key={entry.location.id}
                   location={entry.location}
+                  hideSalesRepLabel={entry.hideSalesRepLabel}
                   team={team}
                   pxPerDay={pxPerDay}
                   rangeStart={rangeStart}
