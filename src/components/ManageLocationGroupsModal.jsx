@@ -153,7 +153,13 @@ export default function ManageLocationGroupsModal({
                 <TextInput value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Start typing a name…" />
               </Field>
               <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-concrete-200 p-2">
-                {available.length === 0 && <p className="px-2 py-3 text-sm text-slate-400">No matching locations.</p>}
+                {available.length === 0 && (
+                  <p className="px-2 py-3 text-sm text-slate-400">
+                    {editingId && selected.size > 0
+                      ? "None of this group's saved locations match a current garage — it's likely stale (from an old rename, a deleted garage, or a duplicate group record). Ungroup it above, or start a new group instead."
+                      : "No matching locations."}
+                  </p>
+                )}
                 {available.map((l) => (
                   <div key={l.name} className="rounded-lg px-2 py-1.5 hover:bg-concrete-100/50">
                     <Checkbox checked={selected.has(l.name)} onChange={() => toggle(l.name)} label={l.name} description={l.place || (l.archived ? "Launched" : "Onboarding")} />
