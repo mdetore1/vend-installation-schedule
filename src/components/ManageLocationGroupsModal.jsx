@@ -38,8 +38,15 @@ export default function ManageLocationGroupsModal({
   if (!open) return null;
 
   const groupedElsewhere = new Set(groups.filter((g) => g.id !== editingId).flatMap((g) => g.memberNames));
+  // A location currently selected for THIS edit always stays visible, even if
+  // it's also (incorrectly) listed on another group's memberNames — e.g. from
+  // splitting an already-grouped garage again, which can leave the same name
+  // on two group rows. Without this, editing a group whose members overlap
+  // another group hides every one of its own garages from the checklist
+  // (nothing to check, nothing to remove), even though the group plainly has
+  // members — the empty list is the bug, not the group.
   const available = locations.filter(
-    (l) => !groupedElsewhere.has(l.name) && l.name.toLowerCase().includes(filter.toLowerCase())
+    (l) => (selected.has(l.name) || !groupedElsewhere.has(l.name)) && l.name.toLowerCase().includes(filter.toLowerCase())
   );
 
   function toggle(name) {

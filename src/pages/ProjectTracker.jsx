@@ -200,8 +200,9 @@ export default function ProjectTracker({ isAdmin = true }) {
   async function splitLocation(location, count) {
     if (!isAdmin) return denyWrite();
     const baseName = location.name;
-    await updateLocation(location.id, { name: `${baseName} 1` });
-    await syncGroupMembershipOnRename(baseName, `${baseName} 1`);
+    const renamedName = `${baseName} 1`;
+    await updateLocation(location.id, { name: renamedName });
+    await syncGroupMembershipOnRename(baseName, renamedName);
     for (let i = 2; i <= count; i++) {
       await addLocation({
         name: `${baseName} ${i}`,
@@ -217,8 +218,21 @@ export default function ProjectTracker({ isAdmin = true }) {
         phases: location.phases.map((p) => ({ ...p, id: newId() })),
       });
     }
-    const memberNames = Array.from({ length: count }, (_, i) => `${baseName} ${i + 1}`);
-    await createGroup({ name: baseName, memberNames });
+    const newNames = Array.from({ length: count - 1 }, (_, i) => `${baseName} ${i + 2}`);
+    // If this garage was already part of a group (splitting one member of an
+    // existing group further), fold the new garages into THAT group instead
+    // of creating a second, overlapping one — two group rows sharing a
+    // member breaks "Group locations" edit view (a location's name matching
+    // another group's memberNames hides it from the checklist there).
+    const existingGroup = groups.find((g) => g.memberNames.includes(renamedName));
+    if (existingGroup) {
+      await updateGroup(existingGroup.id, {
+        name: existingGroup.name,
+        memberNames: [...existingGroup.memberNames, ...newNames],
+      });
+    } else {
+      await createGroup({ name: baseName, memberNames: [renamedName, ...newNames] });
+    }
   }
 
   // A plain copy of one location — same timeline/settings, its own new row,
