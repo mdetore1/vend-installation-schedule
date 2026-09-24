@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpDown, Check, ChevronDown, ChevronRight, ExternalLink, Layers, MapPin, Plus, Trash2, X } from "lucide-react";
-import { TextInput, Select, Checkbox, Field } from "../fields";
+import { TextInput, DebouncedTextInput, Select, Checkbox, Field } from "../fields";
+import { useDebouncedCommit } from "../../lib/useDebouncedCommit";
 import { formatShort, parseDate } from "../../lib/dateUtils";
 import { ACCESS_TYPES, CONTRACT_STATES } from "../../lib/locationDefaults";
 import AddQueueItemForm from "./AddQueueItemForm";
@@ -136,6 +137,7 @@ function formatCurrency(n) {
 function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromote }) {
   const [expanded, setExpanded] = useState(false);
   const isClosedWon = item.contractState === "Closed Won";
+  const nameField = useDebouncedCommit(item.name, (name) => onUpdate({ name }));
 
   return (
     <div className="overflow-hidden rounded-2xl border border-concrete-200 bg-white shadow-sm transition hover:border-concrete-300">
@@ -152,8 +154,7 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
         />
 
         <input
-          value={item.name}
-          onChange={(e) => onUpdate({ name: e.target.value })}
+          {...nameField}
           className="w-64 shrink-0 truncate rounded border border-transparent bg-transparent font-display text-[15px] font-bold text-vend-black outline-none transition focus:border-concrete-300 focus:bg-concrete-100/50 sm:w-96"
         />
 
@@ -252,9 +253,9 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
         <div className="overflow-hidden">
           <div className="grid grid-cols-2 gap-3 border-t border-concrete-200 bg-concrete-100/30 p-3.5 sm:grid-cols-4">
             <FieldMini label="City, state">
-              <TextInput
+              <DebouncedTextInput
                 value={item.place || ""}
-                onChange={(e) => onUpdate({ place: e.target.value })}
+                onCommit={(v) => onUpdate({ place: v })}
                 placeholder="City, state"
                 className={miniInputCls}
               />
@@ -268,11 +269,11 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
               />
             </FieldMini>
             <FieldMini label="Lanes">
-              <TextInput
+              <DebouncedTextInput
                 type="number"
                 min="0"
                 value={item.lanes || ""}
-                onChange={(e) => onUpdate({ lanes: e.target.value })}
+                onCommit={(v) => onUpdate({ lanes: v })}
                 className={miniInputCls}
               />
             </FieldMini>
@@ -302,16 +303,16 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
               />
             </FieldMini>
             <FieldMini label="Property mgmt">
-              <TextInput
+              <DebouncedTextInput
                 value={item.propertyManagement || ""}
-                onChange={(e) => onUpdate({ propertyManagement: e.target.value })}
+                onCommit={(v) => onUpdate({ propertyManagement: v })}
                 className={miniInputCls}
               />
             </FieldMini>
             <FieldMini label="Ownership">
-              <TextInput
+              <DebouncedTextInput
                 value={item.ownership || ""}
-                onChange={(e) => onUpdate({ ownership: e.target.value })}
+                onCommit={(v) => onUpdate({ ownership: v })}
                 className={miniInputCls}
               />
             </FieldMini>
@@ -331,42 +332,42 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
               </p>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <FieldMini label="Garage type">
-                  <TextInput
+                  <DebouncedTextInput
                     value={item.garageType || ""}
-                    onChange={(e) => onUpdate({ garageType: e.target.value })}
+                    onCommit={(v) => onUpdate({ garageType: v })}
                     className={miniInputCls}
                   />
                 </FieldMini>
                 <FieldMini label="Parking spaces">
-                  <TextInput
+                  <DebouncedTextInput
                     type="number"
                     min="0"
                     value={item.numberOfParkingSpaces || ""}
-                    onChange={(e) => onUpdate({ numberOfParkingSpaces: e.target.value ? Number(e.target.value) : null })}
+                    onCommit={(v) => onUpdate({ numberOfParkingSpaces: v ? Number(v) : null })}
                     className={miniInputCls}
                   />
                 </FieldMini>
                 <FieldMini label="Property type">
-                  <TextInput
+                  <DebouncedTextInput
                     value={item.propertyType || ""}
-                    onChange={(e) => onUpdate({ propertyType: e.target.value })}
+                    onCommit={(v) => onUpdate({ propertyType: v })}
                     className={miniInputCls}
                   />
                 </FieldMini>
                 <FieldMini label="Incumbent operator">
-                  <TextInput
+                  <DebouncedTextInput
                     value={item.incumbentOperator || ""}
-                    onChange={(e) => onUpdate({ incumbentOperator: e.target.value })}
+                    onCommit={(v) => onUpdate({ incumbentOperator: v })}
                     className={miniInputCls}
                   />
                 </FieldMini>
                 <FieldMini label="Deal amount">
-                  <TextInput
+                  <DebouncedTextInput
                     type="number"
                     min="0"
                     prefix="$"
                     value={item.dealAmount || ""}
-                    onChange={(e) => onUpdate({ dealAmount: e.target.value ? Number(e.target.value) : null })}
+                    onCommit={(v) => onUpdate({ dealAmount: v ? Number(v) : null })}
                     className={miniInputCls}
                   />
                 </FieldMini>

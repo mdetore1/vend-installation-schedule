@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Check, ChevronDown, Image as ImageIcon, Plus, Trash2, UploadCloud, X } from "lucide-react";
 import { readLogoFile } from "../lib/logoFile";
+import { useDebouncedCommit } from "../lib/useDebouncedCommit";
 
 /* ── shared styles ─────────────────────────────────────────────────────── */
 const baseInput =
@@ -49,6 +50,24 @@ export function TextInput({ prefix, suffix, className = "", ...props }) {
 
 export function Textarea({ className = "", rows = 3, ...props }) {
   return <textarea rows={rows} {...props} className={`${baseInput} resize-y ${className}`} />;
+}
+
+export function DebouncedTextInput({ value, onCommit, onFocus, onBlur, ...props }) {
+  const debounced = useDebouncedCommit(value, onCommit);
+  return (
+    <TextInput
+      {...props}
+      {...debounced}
+      onFocus={(e) => {
+        debounced.onFocus();
+        onFocus?.(e);
+      }}
+      onBlur={(e) => {
+        debounced.onBlur();
+        onBlur?.(e);
+      }}
+    />
+  );
 }
 
 /* ── Phone input (auto-formats to (111) 111-1111) ──────────────────────── */
