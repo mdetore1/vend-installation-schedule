@@ -456,9 +456,13 @@ export function useScheduleStore() {
       patch.checklist_snapshot = null;
     }
     await supabase.from("locations").update(patch).eq("id", locId);
-    if (archived) {
-      await supabase.from("phases").update({ done: true }).eq("location_id", locId);
-    }
+    // Archiving force-completes every phase (so the checkbox reads as done);
+    // restoring has to put them back to not-done, or the checkbox stays
+    // checked forever even though the location is back in the active list.
+    // The one place that needs each phase's true prior state back (undoing
+    // an archive within the 60s undo window) re-applies it right after this
+    // call — see setArchived's caller in ProjectTracker.jsx.
+    await supabase.from("phases").update({ done: archived }).eq("location_id", locId);
   }
 
   async function setStageOverride(locId, stage) {
