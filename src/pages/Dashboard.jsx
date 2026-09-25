@@ -1087,13 +1087,17 @@ export default function Dashboard({ isAdmin = true }) {
   const launched = data.locations.filter((l) => l.archived && !groupedNames.has(l.name));
 
   // One unified list, soonest-Go-Live-first — same auto-sort convention the
-  // Installation Schedule calendar already uses for its own location order.
-  // A grouped client sorts by its primary member's dates, matching how the
-  // group already borrows the primary for everything else.
+  // Installation Schedule calendar already uses for its own location order,
+  // on-hold entries included: they sink to the bottom regardless of date,
+  // still sorted by date among themselves, and rejoin the normal order as
+  // soon as Hold is turned off. A grouped client sorts (and holds) by its
+  // primary member, matching how the group already borrows the primary for
+  // everything else.
   const activeEntries = [
-    ...activeGroups.map((ag) => ({ type: "group", date: goLiveStart(ag.members[0].phases), ...ag })),
-    ...active.map((loc) => ({ type: "location", date: goLiveStart(loc.phases), loc })),
+    ...activeGroups.map((ag) => ({ type: "group", date: goLiveStart(ag.members[0].phases), onHold: !!ag.members[0].onHold, ...ag })),
+    ...active.map((loc) => ({ type: "location", date: goLiveStart(loc.phases), onHold: !!loc.onHold, loc })),
   ].sort((a, b) => {
+    if (a.onHold !== b.onHold) return a.onHold ? 1 : -1;
     if (!a.date && !b.date) return 0;
     if (!a.date) return 1;
     if (!b.date) return -1;
