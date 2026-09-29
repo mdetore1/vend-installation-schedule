@@ -1,14 +1,37 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Reorder, useDragControls } from "framer-motion";
 import { Copy, GripVertical, Layers, MapPin, RotateCcw, Split, Trash2 } from "lucide-react";
 import { Checkbox } from "../fields";
-import { canonPhaseLabel, rangesOverlap } from "../../lib/dateUtils";
+import { canonPhaseLabel, diffDays, parseDate, rangesOverlap } from "../../lib/dateUtils";
 import PhaseBar from "./PhaseBar";
 
 export const ROW_HEIGHT = 68;
+const PHASE_LANE_HEIGHT = 52;
 
 const NO_CONFLICTS = new Set();
 const NO_SELECTION = new Set();
+
+// Same greedy interval partitioning OOORow uses for overlapping time-off/
+// company-event bars — each phase goes in the first lane whose last-placed
+// phase doesn't overlap it, so genuinely overlapping phases (a real
+// scheduling conflict, or a duplicated one) stack into separate lanes
+// instead of rendering directly on top of each other. The common case (no
+// overlap) always resolves to a single lane, so it changes nothing there.
+function assignPhaseLanes(entries) {
+  const laneEnds = [];
+  const placed = [];
+  for (const entry of entries) {
+    let lane = laneEnds.findIndex((end) => end < entry.startDay);
+    if (lane === -1) {
+      lane = laneEnds.length;
+      laneEnds.push(entry.endDay);
+    } else {
+      laneEnds[lane] = entry.endDay;
+    }
+    placed.push({ ...entry, lane });
+  }
+  return { placed, laneCount: Math.max(laneEnds.length, 1) };
+}
 
 export default function LocationRow({
   location,
@@ -56,6 +79,19 @@ export default function LocationRow({
     [...location.phases].sort((a, b) => a.start.localeCompare(b.start)).map((p, i) => [p.id, i % 2])
   );
 
+  const { laneById, laneCount } = useMemo(() => {
+    const entries = location.phases
+      .map((p) => ({
+        id: p.id,
+        startDay: diffDays(rangeStart, parseDate(p.start)),
+        endDay: diffDays(rangeStart, parseDate(p.end)),
+      }))
+      .sort((a, b) => a.startDay - b.startDay);
+    const { placed, laneCount } = assignPhaseLanes(entries);
+    return { laneById: new Map(placed.map((e) => [e.id, e.lane])), laneCount };
+  }, [location.phases, rangeStart]);
+  const rowHeight = laneCount > 1 ? laneCount * PHASE_LANE_HEIGHT : ROW_HEIGHT;
+
   return (
     <Reorder.Item
       value={location}
@@ -68,7 +104,7 @@ export default function LocationRow({
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ type: "spring", stiffness: 400, damping: 34 }}
       className="group/row flex border-b border-concrete-200"
-      style={{ height: ROW_HEIGHT }}
+      style={{ height: rowHeight }}
     >
       <div
         className={`sticky left-0 z-[45] flex shrink-0 flex-col justify-center gap-0.5 bg-white px-4 relative ${
@@ -212,6 +248,7 @@ export default function LocationRow({
               open={openPhaseId === phase.id}
               onOpenChange={(next) => onOpenPhase?.(next ? phase.id : null)}
               labelStagger={staggerByPhaseId.get(phase.id)}
+              laneTop={laneCount > 1 ? laneById.get(phase.id) * PHASE_LANE_HEIGHT + PHASE_LANE_HEIGHT / 2 : null}
               onChange={(patch) => onUpdatePhase(location.id, phase.id, patch)}
               onDelete={() => onDeletePhase(location.id, phase.id)}
               onMoving={(dx, groupIds) => onDragGroupChange({ draggerId: phase.id, ids: new Set(groupIds), dx })}

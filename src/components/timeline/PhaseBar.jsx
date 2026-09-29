@@ -50,6 +50,7 @@ export default function PhaseBar({
   labelLayer,
   onDuplicate,
   otherLocations = [],
+  laneTop = null,
 }) {
   const startDate = parseDate(phase.start);
   const endDate = parseDate(phase.end);
@@ -210,10 +211,15 @@ export default function PhaseBar({
 
   return (
     <div
-      className="absolute top-1/2 -translate-y-1/2"
+      className={`absolute ${laneTop == null ? "top-1/2 -translate-y-1/2" : ""}`}
       style={{
         left,
         width,
+        // A lane-assigned phase (genuinely overlapping another one in this
+        // row) sits at its own fixed vertical slot instead of the shared
+        // midline every other phase centers on — see LocationRow's
+        // assignPhaseLanes.
+        ...(laneTop != null ? { top: laneTop, transform: "translateY(-50%)" } : {}),
         // While dragging, this needs to beat every sticky header/column too
         // (not just other bars) so the live date preview stays visible.
         zIndex: dragMode ? 60 : open || conflictOpen ? 30 : hovering ? 25 : idleZIndex,
@@ -323,7 +329,11 @@ export default function PhaseBar({
             } ${dimmed ? "opacity-25" : ""}`}
             style={{
               left: left + width + 6,
-              top: "50%",
+              // Follows the bar's own lane when it has one — this portals
+              // into a layer spanning the whole (possibly multi-lane) row,
+              // so without this it would always center on the row's overall
+              // midline regardless of which lane its own bar sits in.
+              top: laneTop ?? "50%",
               transform: `translateY(calc(-50% + ${labelStagger ? 9 : -9}px))`,
             }}
           >
