@@ -300,10 +300,10 @@ export default function PhaseBar({
         </button>
         {!owner && !externalLabel && <UserX size={13} className="mr-1 shrink-0" />}
         {!externalLabel && <span className="truncate">{phase.label}</span>}
-        {/* Only once there's room to spare — the phase label always wins
-            the space it needs first. Initials instead of the full name
-            take much less of that room. */}
-        {ownerInitials && !externalLabel && width >= 90 && (
+        {/* Initials are small enough to fit any bar big enough to show a
+            label at all — externalLabel bars (<60px) are the only ones
+            with no room inside. */}
+        {ownerInitials && !externalLabel && (
           <span className="pointer-events-none absolute bottom-0.5 right-2 text-[9px] font-semibold opacity-75">
             {ownerInitials}
           </span>
