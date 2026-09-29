@@ -51,6 +51,7 @@ export default function PhaseBar({
   onDuplicate,
   otherLocations = [],
   laneTop = null,
+  ownerName = null,
 }) {
   const startDate = parseDate(phase.start);
   const endDate = parseDate(phase.end);
@@ -197,7 +198,7 @@ export default function PhaseBar({
         color: "#4A4A50",
       }
     : phase.confirmed
-    ? { backgroundColor: owner.bg, color: owner.text }
+    ? { backgroundColor: owner.bg, color: owner.text, border: "1.5px solid rgba(17,17,20,0.18)" }
     : {
         backgroundImage: `repeating-linear-gradient(135deg, ${owner.bg}30 0 6px, ${owner.bg}55 6px 12px)`,
         border: `1.5px dashed ${owner.bg}`,
@@ -299,6 +300,16 @@ export default function PhaseBar({
         </button>
         {!owner && !externalLabel && <UserX size={13} className="mr-1 shrink-0" />}
         {!externalLabel && <span className="truncate">{phase.label}</span>}
+        {/* Only once there's real room to spare — the phase label always
+            wins the space it needs first. */}
+        {ownerName && !externalLabel && width >= 130 && (
+          <span
+            className="pointer-events-none absolute bottom-0.5 right-2 truncate text-[9px] font-semibold opacity-75"
+            style={{ maxWidth: width - 16 }}
+          >
+            {ownerName}
+          </span>
+        )}
         <span
           onPointerDown={(e) => beginDrag(e, "resize-left")}
           onPointerMove={onPointerMove}
