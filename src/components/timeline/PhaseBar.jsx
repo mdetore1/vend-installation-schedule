@@ -51,7 +51,7 @@ export default function PhaseBar({
   onDuplicate,
   otherLocations = [],
   laneTop = null,
-  ownerName = null,
+  ownerInitials = null,
 }) {
   const startDate = parseDate(phase.start);
   const endDate = parseDate(phase.end);
@@ -300,14 +300,12 @@ export default function PhaseBar({
         </button>
         {!owner && !externalLabel && <UserX size={13} className="mr-1 shrink-0" />}
         {!externalLabel && <span className="truncate">{phase.label}</span>}
-        {/* Only once there's real room to spare — the phase label always
-            wins the space it needs first. */}
-        {ownerName && !externalLabel && width >= 130 && (
-          <span
-            className="pointer-events-none absolute bottom-0.5 right-2 truncate text-[9px] font-semibold opacity-75"
-            style={{ maxWidth: width - 16 }}
-          >
-            {ownerName}
+        {/* Only once there's room to spare — the phase label always wins
+            the space it needs first. Initials instead of the full name
+            take much less of that room. */}
+        {ownerInitials && !externalLabel && width >= 90 && (
+          <span className="pointer-events-none absolute bottom-0.5 right-2 text-[9px] font-semibold opacity-75">
+            {ownerInitials}
           </span>
         )}
         <span

@@ -239,7 +239,7 @@ export default function LocationRow({
               key={phase.id}
               phase={phase}
               owner={owner?.color ?? null}
-              ownerName={owner?.name ?? null}
+              ownerInitials={owner?.initials ?? null}
               team={team}
               pxPerDay={pxPerDay}
               rangeStart={rangeStart}
