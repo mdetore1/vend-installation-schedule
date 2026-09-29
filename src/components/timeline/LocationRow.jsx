@@ -21,7 +21,10 @@ function assignPhaseLanes(entries) {
   const laneEnds = [];
   const placed = [];
   for (const entry of entries) {
-    let lane = laneEnds.findIndex((end) => end < entry.startDay);
+    // <= , not < — a phase ending the same day the next one starts is
+    // back-to-back, not overlapping (Onboarding ending the 14th and Install
+    // starting the 14th is the normal, expected handoff, not a conflict).
+    let lane = laneEnds.findIndex((end) => end <= entry.startDay);
     if (lane === -1) {
       lane = laneEnds.length;
       laneEnds.push(entry.endDay);
