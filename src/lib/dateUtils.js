@@ -190,9 +190,15 @@ export function canonPhaseLabel(label) {
   // Substring match — real phase bars get renamed to things like "Install
   // South Ramp Entrance" for a specific site's install, and those should
   // still count as the location's Install phase everywhere this is used
-  // (Dashboard date pills, cascade scheduling, sorting).
+  // (Dashboard date pills, cascade scheduling, sorting). Go Live gets the
+  // same treatment — a split garage's Go Live phases commonly get renamed
+  // to "Go Live 1"/"Go Live 2" etc. to tell them apart, and an exact-match
+  // check silently failed to recognize those, which made goLiveStart() fall
+  // back to the location's earliest phase date (Onboarding's start) instead
+  // of its real go-live date — throwing off sort order everywhere that uses
+  // it (Installation Schedule, Onboarding Dashboard).
   if (l.includes("install")) return "install";
-  if (l === "go live" || l === "go-live" || l === "golive") return "golive";
+  if (l.includes("go live") || l.includes("go-live") || l.includes("golive")) return "golive";
   return null;
 }
 
