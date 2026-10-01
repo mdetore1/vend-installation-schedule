@@ -182,18 +182,40 @@ async function fetchAllSalesDeals(token, deadlineAt) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const hubspotToken = Deno.env.get("HUBSPOT_TOKEN");
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const hubspotToken = Deno.env.get("HUBSPOT_TOKEN");
 
-    const authHeader = req.headers.get("Authorization") || "";
-    if (authHeader.replace("Bearer ", "") !== serviceRoleKey) {
-      return json({ error: "Not authorized" }, 401);
+  const authHeader = req.headers.get("Authorization") || "";
+  if (authHeader.replace("Bearer ", "") !== serviceRoleKey) {
+    return json({ error: "Not authorized" }, 401);
+  }
+  if (!hubspotToken) return json({ error: "HUBSPOT_TOKEN secret not set" }, 500);
+
+  const admin = createClient(supabaseUrl, serviceRoleKey);
+
+  // Records this run's outcome so the app can show "last synced X ago" and
+  // flag errors, instead of a failure only being discoverable by someone
+  // noticing stale data and digging through Edge Function logs after the
+  // fact (which is exactly how the batch-upsert bug above went unnoticed).
+  // Never let logging the outcome become the reason the sync itself fails.
+  async function logSyncRun(result) {
+    try {
+      await admin.from("sync_runs").insert({
+        source: "hubspot",
+        ok: result.ok,
+        total_deals: result.totalDeals ?? null,
+        synced: result.synced ?? null,
+        skipped: result.skipped ?? null,
+        removed_stale: result.removedStale ?? null,
+        errors: result.errors ?? [],
+      });
+    } catch {
+      // ignore
     }
-    if (!hubspotToken) return json({ error: "HUBSPOT_TOKEN secret not set" }, 500);
+  }
 
-    const admin = createClient(supabaseUrl, serviceRoleKey);
+  try {
     const deadlineAt = Date.now() + TIME_BUDGET_MS;
 
     // Sequential, not parallel — HubSpot's per-second rate limit is easy to
@@ -354,7 +376,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return json({
+    const result = {
       ok: true,
       totalDeals: deals.length,
       synced,
@@ -368,8 +390,11 @@ Deno.serve(async (req) => {
         ownersTruncated || dealsTruncated
           ? "Hit the time budget before finishing — ran out of retries on HubSpot's rate limit. Synced what it could; the next scheduled run will pick up more."
           : undefined,
-    });
+    };
+    await logSyncRun(result);
+    return json(result);
   } catch (err) {
+    await logSyncRun({ ok: false, errors: [{ message: err.message }] });
     return json({ error: err.message }, 400);
   }
 });

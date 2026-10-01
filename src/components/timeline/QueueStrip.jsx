@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpDown, Check, ChevronDown, ChevronRight, ExternalLink, Layers, MapPin, Plus, Trash2, X } from "lucide-react";
+import { AlertTriangle, ArrowUpDown, Check, ChevronDown, ChevronRight, ExternalLink, Layers, MapPin, Plus, Trash2, X } from "lucide-react";
 import { TextInput, DebouncedTextInput, Select, Checkbox, Field } from "../fields";
 import { useDebouncedCommit } from "../../lib/useDebouncedCommit";
-import { formatShort, parseDate } from "../../lib/dateUtils";
+import { formatShort, parseDate, timeAgo } from "../../lib/dateUtils";
+import { useSyncStatus } from "../../lib/useSyncStatus";
 import { ACCESS_TYPES, CONTRACT_STATES } from "../../lib/locationDefaults";
 import AddQueueItemForm from "./AddQueueItemForm";
 import SalesRepSelect from "./SalesRepSelect";
@@ -717,6 +718,8 @@ export default function QueueStrip({
     memberIds.forEach((id) => onUpdate(id, { salesGroup: null }));
   }
 
+  const hubspotSync = useSyncStatus("hubspot");
+
   const activeSort = SORT_OPTIONS.find((s) => s.value === sortMode) || SORT_OPTIONS[0];
   const filteredItems = stageFilters.length ? queue.filter((q) => stageFilters.includes(q.hubspotStage)) : queue;
   const { groups, standalone } = groupQueueItems(filteredItems);
@@ -740,7 +743,24 @@ export default function QueueStrip({
             {stageFilters.length ? ` of ${queue.length}` : ""})
           </span>
         </span>
-        <ChevronDown size={16} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+        <div className="flex items-center gap-3">
+          {hubspotSync && (
+            <span
+              title={
+                hubspotSync.errors.length
+                  ? hubspotSync.errors.map((e) => e.message).join("; ")
+                  : `Synced ${hubspotSync.synced ?? 0}, skipped ${hubspotSync.skipped ?? 0} of ${hubspotSync.totalDeals ?? 0} HubSpot deals`
+              }
+              className={`flex items-center gap-1 text-xs font-semibold ${
+                hubspotSync.ok && !hubspotSync.errors.length ? "opacity-70" : "text-alert-700"
+              }`}
+            >
+              {(!hubspotSync.ok || hubspotSync.errors.length > 0) && <AlertTriangle size={12} />}
+              Synced {timeAgo(hubspotSync.ranAt)}
+            </span>
+          )}
+          <ChevronDown size={16} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+        </div>
       </button>
 
       <div
