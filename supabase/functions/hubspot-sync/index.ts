@@ -275,20 +275,41 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Split so a rename you make in the app sticks: a brand-new item still
-    // gets its name from HubSpot, but once it's in the queue the sync never
-    // touches that column again — everything else keeps updating normally.
-    // (Two separate calls because a bulk upsert needs every row to share
-    // the same columns; mixing "has name" and "no name" rows in one call
-    // would null out the omitted column for whichever rows lack it.)
+    // New items get a real bulk upsert (every row shares the same columns,
+    // including name) — cheap and safe since onConflict only ever UPDATEs
+    // an existing row here in the rare case a "new" id actually already
+    // exists.
     let synced = 0;
     const newRows = rowsToUpsert.filter((r) => r.isNew).map(({ isNew, ...r }) => r);
-    const existingRows = rowsToUpsert.filter((r) => !r.isNew).map(({ isNew, name, ...r }) => r);
-    for (const batch of [newRows, existingRows]) {
-      if (!batch.length) continue;
-      const { error } = await admin.from("queue_items").upsert(batch, { onConflict: "hubspot_deal_id" });
+    if (newRows.length) {
+      const { error } = await admin.from("queue_items").upsert(newRows, { onConflict: "hubspot_deal_id" });
       if (error) errors.push({ message: error.message });
-      else synced += batch.length;
+      else synced += newRows.length;
+    }
+
+    // Existing items are updated one row at a time instead of batched —
+    // deliberately NOT a bulk upsert. `name` is left out of every one of
+    // these rows so a rename made in the app sticks (the sync never
+    // overwrites that column once an item exists), but a bulk upsert
+    // builds ONE insert-or-update statement covering every row in the
+    // batch; if even one row's hubspot_deal_id has stopped matching an
+    // actual queue_items row (deleted, raced with a promotion, etc.),
+    // PostgREST falls back to inserting it — and that insert fails
+    // queue_items.name's NOT NULL constraint since name was omitted,
+    // taking the ENTIRE batch down with it. That's exactly what silently
+    // froze ~150 legitimate updates (including an already-closed deal
+    // that never flipped to Closed Won) behind one unrelated bad row,
+    // while the function still reported ok:true. A plain per-row UPDATE
+    // can't fail this way — a non-matching id just updates zero rows.
+    const existingRows = rowsToUpsert.filter((r) => !r.isNew).map(({ isNew, name, ...r }) => r);
+    const existingResults = await Promise.all(
+      existingRows.map(({ hubspot_deal_id, ...patch }) =>
+        admin.from("queue_items").update(patch).eq("hubspot_deal_id", hubspot_deal_id)
+      )
+    );
+    for (const { error } of existingResults) {
+      if (error) errors.push({ message: error.message });
+      else synced++;
     }
 
     if (locationMatches.length) {
