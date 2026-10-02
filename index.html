@@ -11,6 +11,12 @@
       rel="stylesheet"
     />
     <title>Vend · Installation Schedule</title>
+    <script>
+      // Apply the saved theme before first paint so a reload never flashes light.
+      try {
+        if (localStorage.getItem("vend-theme") === "dark") document.documentElement.dataset.theme = "dark";
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

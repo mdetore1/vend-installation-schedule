@@ -49,6 +49,51 @@
   --radius-card: 16px;
 }
 
+/* ── Dark mode ─────────────────────────────────────────────────────────────
+   Swaps the same tokens the whole app already reads, so every surface flips
+   at once without touching individual components. Each light/dark pair
+   stays consistent (e.g. `bg-vend-black text-white` buttons just invert),
+   and each accent's -100 tint / -700 text pair flips together so badges
+   stay readable. Toggled via data-theme on <html> (see useTheme). */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-white: #17171b;
+  --color-vend-white: #0e0e11;
+  --color-vend-black: #f1f1f2;
+
+  --color-slate-100: #3f3f45;
+  --color-slate-200: #55555c;
+  --color-slate-300: #7d7d85;
+  --color-slate-400: #9d9da5;
+  --color-slate-500: #bcbcc3;
+
+  --color-concrete-100: #222227;
+  --color-concrete-200: #2d2d33;
+  --color-concrete-300: #3d3d44;
+
+  --color-mint-200: #0c403b;
+  --color-mint-700: #5cf2e2;
+  --color-go-100: #0e3a2f;
+  --color-go-600: #12c298;
+  --color-go-700: #4fe0b8;
+  --color-beacon-100: #16294a;
+  --color-beacon-600: #6aa5ff;
+  --color-beacon-700: #9cc3ff;
+  --color-caution-100: #3a2f14;
+  --color-caution-600: #946a12;
+  --color-caution-700: #f0c565;
+  --color-alert-100: #3d1b1c;
+  --color-alert-600: #ff7173;
+  --color-alert-700: #ff9fa1;
+}
+
+/* Modal backdrops are bg-vend-black/40 — vend-black is light in dark mode,
+   which would wash the page out instead of dimming it. */
+:root[data-theme="dark"] .bg-vend-black\/40 {
+  background-color: rgb(0 0 0 / 0.6);
+}
+
 html,
 body,
 #root {

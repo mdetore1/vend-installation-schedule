@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { LogOut, Users } from "lucide-react";
+import { LogOut, Moon, Sun, Users } from "lucide-react";
 import { VendMark } from "../components/Logo";
 import { useAuth } from "../lib/auth";
+import { useTheme } from "../lib/useTheme";
 import { AuthForm, PendingScreen, ManageUsersModal, SetPasswordScreen } from "../components/auth/AuthScreens";
 import ProjectTracker from "./ProjectTracker";
 import LocationsMap from "../components/globe/LocationsMap";
@@ -15,6 +16,7 @@ const TABS = [
 
 export default function InstallsApp() {
   const auth = useAuth();
+  const { theme, toggle: toggleTheme } = useTheme();
   const [view, setView] = useState("schedule");
   const [showUsers, setShowUsers] = useState(false);
 
@@ -79,6 +81,15 @@ export default function InstallsApp() {
                 </button>
               ))}
           </span>
+          <button
+            type="button"
+            onClick={toggleTheme}
+            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            className="inline-flex items-center rounded-full border border-concrete-300 p-2 text-slate-500 transition hover:border-vend-black hover:text-vend-black"
+          >
+            {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
+          </button>
           {auth.isAdmin && (
             <button
               type="button"

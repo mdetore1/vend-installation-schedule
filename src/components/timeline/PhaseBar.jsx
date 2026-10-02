@@ -194,15 +194,15 @@ export default function PhaseBar({
   const barStyle = !owner
     ? {
         backgroundImage: "repeating-linear-gradient(135deg, #73737824 0 6px, #73737845 6px 12px)",
-        border: "1.5px dashed #99999E",
-        color: "#4A4A50",
+        border: "1.5px dashed var(--color-slate-300)",
+        color: "var(--color-slate-500)",
       }
     : phase.confirmed
     ? { backgroundColor: owner.bg, color: owner.text, border: "1.5px solid rgba(17,17,20,0.18)" }
     : {
         backgroundImage: `repeating-linear-gradient(135deg, ${owner.bg}30 0 6px, ${owner.bg}55 6px 12px)`,
         border: `1.5px dashed ${owner.bg}`,
-        color: "#111114",
+        color: "var(--color-vend-black)",
       };
 
   // When two bars overlap, the shorter one should win the stacking order —
@@ -277,12 +277,12 @@ export default function PhaseBar({
           onPointerDown={(e) => e.stopPropagation()}
           onClick={toggleDone}
           className={`relative flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-[1.5px] transition ${
-            phase.done ? "border-white/90 bg-white/90" : "border-white/60 bg-white/10 hover:bg-white/30"
+            phase.done ? "border-[#ffffffe6] bg-[#ffffffe6]" : "border-[#ffffff99] bg-[#ffffff1a] hover:bg-[#ffffff4d]"
           } ${externalLabel ? "" : "mr-1.5"}`}
           aria-label={phase.done ? "Mark phase incomplete" : "Mark phase complete"}
           title={phase.done ? "Mark incomplete" : "Mark complete"}
         >
-          {phase.done && <Check size={10} strokeWidth={3} className="text-go-700" />}
+          {phase.done && <Check size={10} strokeWidth={3} className="text-[#0b8f72]" />}
           {celebrating && (
             <span className="pointer-events-none absolute left-1/2 top-1/2 block h-0 w-0">
               {CONFETTI_PIECES.map((c) => (
@@ -314,7 +314,7 @@ export default function PhaseBar({
           onPointerUp={onPointerUp}
           className="absolute left-0 top-0 h-full w-2.5 cursor-ew-resize opacity-0 group-hover:opacity-100"
         >
-          <span className="absolute left-0.5 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded bg-white/70" />
+          <span className="absolute left-0.5 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded bg-[#ffffffb3]" />
         </span>
         <span
           onPointerDown={(e) => beginDrag(e, "resize-right")}
@@ -322,7 +322,7 @@ export default function PhaseBar({
           onPointerUp={onPointerUp}
           className="absolute right-0 top-0 h-full w-2.5 cursor-ew-resize opacity-0 group-hover:opacity-100"
         >
-          <span className="absolute right-0.5 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded bg-white/70" />
+          <span className="absolute right-0.5 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded bg-[#ffffffb3]" />
         </span>
       </div>
       {externalLabel &&
