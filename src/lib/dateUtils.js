@@ -172,6 +172,22 @@ export function rangesOverlap(aStart, aEnd, bStart, bEnd) {
   return parseDate(aStart) <= parseDate(bEnd) && parseDate(bStart) <= parseDate(aEnd);
 }
 
+// Like rangesOverlap, but two ranges that merely touch — one ending the same
+// day the next one starts — are a normal back-to-back handoff, not a
+// double-booking. (Two identical single-day ranges still do overlap.) Used
+// for phase-vs-phase conflicts; time off stays inclusive because someone out
+// on the 14th is out on the 14th, whatever else ends that day.
+export function phasesOverlap(aStart, aEnd, bStart, bEnd) {
+  if (!rangesOverlap(aStart, aEnd, bStart, bEnd)) return false;
+  const aS = parseDate(aStart).getTime();
+  const aE = parseDate(aEnd).getTime();
+  const bS = parseDate(bStart).getTime();
+  const bE = parseDate(bEnd).getTime();
+  const touching = aE === bS || bE === aS;
+  const bothSingleDay = aS === aE && bS === bE;
+  return !touching || bothSingleDay;
+}
+
 // Strictly-after next Monday (if `date` is itself a Monday, jumps a full
 // week forward rather than returning the same day).
 export function nextMondayAfter(date) {

@@ -12,7 +12,7 @@ import {
   addDays,
   startOfMonth,
   canonPhaseLabel,
-  rangesOverlap,
+  phasesOverlap,
   goLiveStart,
   latestScheduleDate,
   todayStart,
@@ -438,7 +438,7 @@ export default function ProjectTracker({ isAdmin = true }) {
     Object.values(byOwner).forEach((phases) => {
       for (let i = 0; i < phases.length; i++) {
         for (let j = i + 1; j < phases.length; j++) {
-          if (rangesOverlap(phases[i].start, phases[i].end, phases[j].start, phases[j].end)) {
+          if (phasesOverlap(phases[i].start, phases[i].end, phases[j].start, phases[j].end)) {
             flagged.add(phases[i].id);
             flagged.add(phases[j].id);
           }
