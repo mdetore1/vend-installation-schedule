@@ -52,6 +52,7 @@ export default function PhaseBar({
   otherLocations = [],
   laneTop = null,
   ownerInitials = null,
+  readOnly = false,
 }) {
   const startDate = parseDate(phase.start);
   const endDate = parseDate(phase.end);
@@ -121,6 +122,7 @@ export default function PhaseBar({
   useEffect(() => () => clearTimeout(conflictCloseTimer.current), []);
 
   function beginDrag(e, mode) {
+    if (readOnly) return;
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     // Resolve once at drag-start: if this phase is part of a multi-selection,
@@ -261,7 +263,7 @@ export default function PhaseBar({
         ref={barRef}
         data-phase-id={phase.id}
         className={`group relative flex h-11 select-none items-center overflow-hidden rounded-lg px-2.5 text-sm font-semibold shadow-sm transition-opacity ${
-          dragMode ? "cursor-grabbing" : "cursor-grab"
+          readOnly ? "cursor-default" : dragMode ? "cursor-grabbing" : "cursor-grab"
         } ${phase.done ? "opacity-50 line-through" : ""} ${dimmed ? "opacity-25" : ""} ${
           selected ? "ring-2 ring-beacon ring-offset-2" : ""
         } ${externalLabel ? "justify-center" : ""}`}
@@ -272,6 +274,7 @@ export default function PhaseBar({
         onMouseEnter={() => setHovering(true)}
         onMouseLeave={() => setHovering(false)}
       >
+        {!readOnly && (
         <button
           type="button"
           onPointerDown={(e) => e.stopPropagation()}
@@ -298,6 +301,7 @@ export default function PhaseBar({
             </span>
           )}
         </button>
+        )}
         {!owner && !externalLabel && <UserX size={13} className="mr-1 shrink-0" />}
         {!externalLabel && <span className="truncate">{phase.label}</span>}
         {/* Initials are small enough to fit any bar big enough to show a
@@ -308,6 +312,8 @@ export default function PhaseBar({
             {ownerInitials}
           </span>
         )}
+        {!readOnly && (
+          <>
         <span
           onPointerDown={(e) => beginDrag(e, "resize-left")}
           onPointerMove={onPointerMove}
@@ -324,6 +330,8 @@ export default function PhaseBar({
         >
           <span className="absolute right-0.5 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded bg-[#ffffffb3]" />
         </span>
+          </>
+        )}
       </div>
       {externalLabel &&
         labelLayer &&

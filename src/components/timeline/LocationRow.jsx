@@ -55,6 +55,9 @@ export default function LocationRow({
   allLocations,
   labelWidth,
   restoreMode = false,
+  // Customer view: nothing editable and nothing internal (sales rep, owner
+  // initials, conflict warnings, row actions) — just names, places and dates.
+  readOnly = false,
   draggable = true,
   doubleBookedPhaseIds = NO_CONFLICTS,
   selectedPhaseIds = NO_SELECTION,
@@ -124,11 +127,11 @@ export default function LocationRow({
       >
         {group && (
           <span
-            role={onEditGroup ? "button" : undefined}
-            onClick={onEditGroup ? (e) => { e.stopPropagation(); onEditGroup(group); } : undefined}
-            title={onEditGroup ? "Rename or add/remove garages" : undefined}
+            role={onEditGroup && !readOnly ? "button" : undefined}
+            onClick={onEditGroup && !readOnly ? (e) => { e.stopPropagation(); onEditGroup(group); } : undefined}
+            title={onEditGroup && !readOnly ? "Rename or add/remove garages" : undefined}
             className={`flex items-center gap-1 truncate text-[10px] font-bold text-beacon-700 ${
-              onEditGroup ? "cursor-pointer hover:text-beacon-700/70" : ""
+              onEditGroup && !readOnly ? "cursor-pointer hover:text-beacon-700/70" : ""
             }`}
           >
             <Layers size={10} className="shrink-0" />
@@ -136,7 +139,7 @@ export default function LocationRow({
           </span>
         )}
         <div className="flex items-center gap-2">
-          {draggable && (
+          {draggable && !readOnly && (
             <span
               onPointerDown={(e) => controls.start(e)}
               className="shrink-0 cursor-grab touch-none text-slate-200 transition hover:text-slate-400"
@@ -144,7 +147,7 @@ export default function LocationRow({
               <GripVertical size={16} />
             </span>
           )}
-          {restoreMode ? (
+          {readOnly ? null : restoreMode ? (
             <button
               type="button"
               onClick={() => onArchive(location.id)}
@@ -157,9 +160,11 @@ export default function LocationRow({
           )}
           <button
             type="button"
-            onClick={() => onEditLocation?.(location)}
-            className="-mx-1 min-w-0 flex-1 rounded px-1 py-0.5 text-left transition hover:bg-concrete-100/50"
-            title="Edit location & phases"
+            onClick={readOnly ? undefined : () => onEditLocation?.(location)}
+            className={`-mx-1 min-w-0 flex-1 rounded px-1 py-0.5 text-left transition ${
+              readOnly ? "cursor-default" : "hover:bg-concrete-100/50"
+            }`}
+            title={readOnly ? undefined : "Edit location & phases"}
           >
             <p className="truncate text-sm font-semibold text-vend-black">{location.name}</p>
             <div className="mt-0.5 flex flex-wrap items-center gap-1">
@@ -178,6 +183,7 @@ export default function LocationRow({
             </div>
           </button>
         </div>
+        {!readOnly && (
         <div className="absolute right-2 top-1 flex shrink-0 items-center gap-0.5 opacity-0 transition group-hover/row:opacity-100">
           {onDuplicateLocation && (
             <button
@@ -210,7 +216,8 @@ export default function LocationRow({
             <Trash2 size={14} />
           </button>
         </div>
-        {teamById[location.salesPersonId] && (
+        )}
+        {!readOnly && teamById[location.salesPersonId] && (
           <span className="pointer-events-none absolute bottom-1 right-3 text-[10px] font-medium text-slate-400">
             {teamById[location.salesPersonId].name}
           </span>
@@ -229,7 +236,7 @@ export default function LocationRow({
           const timeOffConflict =
             !isOnboarding && !!owner?.timeOff?.some((t) => rangesOverlap(phase.start, phase.end, t.start, t.end));
           const doubleBooked = !isOnboarding && doubleBookedPhaseIds.has(phase.id);
-          const conflict = timeOffConflict || doubleBooked;
+          const conflict = !readOnly && (timeOffConflict || doubleBooked);
           const conflictReasons = [
             timeOffConflict && `${owner?.name ?? "Owner"} is scheduled off during part of this range.`,
             doubleBooked && `${owner?.name ?? "Owner"} is double-booked on another install/go-live during part of this range.`,
@@ -239,7 +246,8 @@ export default function LocationRow({
               key={phase.id}
               phase={phase}
               owner={owner?.color ?? null}
-              ownerInitials={owner?.initials ?? null}
+              ownerInitials={readOnly ? null : owner?.initials ?? null}
+              readOnly={readOnly}
               team={team}
               pxPerDay={pxPerDay}
               rangeStart={rangeStart}

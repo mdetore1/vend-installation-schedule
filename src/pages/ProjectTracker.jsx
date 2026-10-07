@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { LayoutGroup } from "framer-motion";
-import { Layers, Minus, Plus } from "lucide-react";
+import { Eye, Layers, Minus, Plus } from "lucide-react";
 import { useLocalStorage, newId } from "../lib/storage";
 import { useScheduleStore } from "../lib/scheduleStore";
 import { useMapStore } from "../lib/mapStore";
@@ -21,6 +21,7 @@ import {
 } from "../lib/dateUtils";
 import TeamManagerButton from "../components/timeline/TeamManagerButton";
 import LocationFilter from "../components/timeline/LocationFilter";
+import LocationPicker from "../components/timeline/LocationPicker";
 import TimelineGrid from "../components/timeline/TimelineGrid";
 import CompletedStrip from "../components/timeline/CompletedStrip";
 import QueueStrip from "../components/timeline/QueueStrip";
@@ -267,6 +268,17 @@ export default function ProjectTracker({ isAdmin = true }) {
   // null — hides non-matching locations entirely rather than dimming their
   // phase bars, so a filtered view is a clean subset of the calendar.
   const [locationFilter, setLocationFilter] = useState(null);
+  // Hand-picked locations/groups to show (empty = no restriction) — for
+  // screen-sharing one customer's dates without their neighbors' on screen.
+  // Deliberately not persisted: a reload goes back to the full calendar so
+  // it can't be left narrowed to one customer by accident.
+  const [selectedLocationIds, setSelectedLocationIds] = useState(() => new Set());
+  // Hides everything internal (team time off, sales queue, owner names,
+  // conflict warnings, edit controls) and makes the calendar read-only.
+  const [customerView, setCustomerView] = useState(false);
+  // The owner/contractor/onsite filters reveal internal staffing, so they
+  // don't apply (and their control is hidden) while in customer view.
+  const effectiveFilter = customerView ? null : locationFilter;
   const [showAdd, setShowAdd] = useState(false);
   const [addKey, setAddKey] = useState(0);
   const [stripOpen, setStripOpen] = useState(false);
@@ -281,15 +293,16 @@ export default function ProjectTracker({ isAdmin = true }) {
   const matchesLocationFilter = useMemo(() => {
     const teamIds = new Set(data.team.map((t) => t.id));
     return (l) => {
-      if (!locationFilter) return true;
-      if (locationFilter.type === "contractor") return (l.contractor || "Task Force") === locationFilter.value;
-      if (locationFilter.type === "onsite") return !!l.hasOnsiteStaff;
-      if (locationFilter.type === "owner") {
-        return l.phases.some((p) => (teamIds.has(p.ownerId) ? p.ownerId : UNASSIGNED) === locationFilter.value);
+      if (selectedLocationIds.size && !selectedLocationIds.has(l.id)) return false;
+      if (!effectiveFilter) return true;
+      if (effectiveFilter.type === "contractor") return (l.contractor || "Task Force") === effectiveFilter.value;
+      if (effectiveFilter.type === "onsite") return !!l.hasOnsiteStaff;
+      if (effectiveFilter.type === "owner") {
+        return l.phases.some((p) => (teamIds.has(p.ownerId) ? p.ownerId : UNASSIGNED) === effectiveFilter.value);
       }
       return true;
     };
-  }, [data.team, locationFilter]);
+  }, [data.team, effectiveFilter, selectedLocationIds]);
 
   // Always auto-sorted soonest-Go-Live-first — recomputed from each
   // location's phase dates on every render, so the calendar re-shuffles
@@ -315,7 +328,7 @@ export default function ProjectTracker({ isAdmin = true }) {
   // The OOO row still just dims non-matching team members (it's a single
   // summary row, not a set of locations that can disappear), so it only
   // reacts to the owner half of the combined filter.
-  const ownerFilterForOOO = locationFilter?.type === "owner" ? locationFilter.value : null;
+  const ownerFilterForOOO = effectiveFilter?.type === "owner" ? effectiveFilter.value : null;
 
   // Distinct contractors currently in use, for the filter dropdown —
   // derived from all active locations regardless of the filter itself, so
@@ -351,10 +364,10 @@ export default function ProjectTracker({ isAdmin = true }) {
   // directly.
   const filteredQueue = useMemo(() => {
     const queue = data.queue || [];
-    if (!locationFilter) return queue;
-    if (locationFilter.type === "onsite") return queue.filter((q) => !!q.hasOnsiteStaff);
+    if (!effectiveFilter) return queue;
+    if (effectiveFilter.type === "onsite") return queue.filter((q) => !!q.hasOnsiteStaff);
     return [];
-  }, [data.queue, locationFilter]);
+  }, [data.queue, effectiveFilter]);
 
   // Label column auto-fits to the longest current name/place so nothing
   // truncates; dragging the column's resize handle pins an explicit width
@@ -475,10 +488,12 @@ export default function ProjectTracker({ isAdmin = true }) {
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-bold text-vend-black">Installation Schedule</h1>
-          <p className="mt-1 text-sm text-slate-400">
-            Drag a phase to reschedule, drag its edge to resize, click it to edit. Shift+click phases to group them —
-            drag any one of the group to move them all together.
-          </p>
+          {!customerView && (
+            <p className="mt-1 text-sm text-slate-400">
+              Drag a phase to reschedule, drag its edge to resize, click it to edit. Shift+click phases to group them —
+              drag any one of the group to move them all together.
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1 rounded-full border border-concrete-300 bg-white p-1">
@@ -499,7 +514,7 @@ export default function ProjectTracker({ isAdmin = true }) {
               <Plus size={14} />
             </button>
           </div>
-          {isAdmin && (
+          {isAdmin && !customerView && (
             <button
               type="button"
               onClick={openAddModal}
@@ -512,8 +527,28 @@ export default function ProjectTracker({ isAdmin = true }) {
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <LocationFilter team={data.team} contractors={contractors} filter={locationFilter} onFilterChange={setLocationFilter} />
-        {isAdmin && (
+        <LocationPicker
+          locations={data.locations}
+          groups={groups}
+          selectedIds={selectedLocationIds}
+          onChange={setSelectedLocationIds}
+        />
+        {!customerView && (
+          <LocationFilter team={data.team} contractors={contractors} filter={locationFilter} onFilterChange={setLocationFilter} />
+        )}
+        <button
+          type="button"
+          onClick={() => setCustomerView((v) => !v)}
+          title="Hide everything internal and make the calendar read-only, for sharing your screen with a customer"
+          className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${
+            customerView
+              ? "border-vend-black bg-vend-black text-white"
+              : "border-concrete-300 text-slate-500 hover:border-vend-black hover:text-vend-black"
+          }`}
+        >
+          <Eye size={13} /> Customer view
+        </button>
+        {isAdmin && !customerView && (
           <button
             type="button"
             onClick={() => setShowGroups(true)}
@@ -522,22 +557,36 @@ export default function ProjectTracker({ isAdmin = true }) {
             <Layers size={13} /> Group locations
           </button>
         )}
-        <TeamManagerButton
-          team={data.team}
-          onAddTeammate={addTeammate}
-          onUpdateTeammate={updateTeammate}
-          onRemoveTeammate={removeTeammate}
-          onReorderTeam={reorderTeam}
-          onAddTimeOff={addTimeOff}
-          onRemoveTimeOff={removeTimeOff}
-        />
+        {!customerView && (
+          <TeamManagerButton
+            team={data.team}
+            onAddTeammate={addTeammate}
+            onUpdateTeammate={updateTeammate}
+            onRemoveTeammate={removeTeammate}
+            onReorderTeam={reorderTeam}
+            onAddTimeOff={addTimeOff}
+            onRemoveTimeOff={removeTimeOff}
+          />
+        )}
       </div>
 
+      {/* Nothing is shown until locations are picked — an empty selection
+          would otherwise show every customer's locations, the exact thing
+          customer view exists to prevent. */}
+      {customerView && selectedLocationIds.size === 0 && (
+        <div className="rounded-2xl border border-dashed border-concrete-300 bg-white px-6 py-16 text-center">
+          <p className="font-display text-lg font-bold text-vend-black">Pick the locations to show</p>
+          <p className="mt-1 text-sm text-slate-400">
+            Customer view is on. Use the Locations menu above to choose this customer's locations or group — nothing
+            else is shown until you do.
+          </p>
+        </div>
+      )}
       <LayoutGroup>
         <div
           ref={scrollRef}
           className="scrollx overflow-auto rounded-2xl border border-concrete-200 bg-white"
-          style={{ maxHeight: "calc(100vh - 300px)" }}
+          style={{ maxHeight: "calc(100vh - 300px)", ...(customerView && selectedLocationIds.size === 0 ? { display: "none" } : {}) }}
         >
           <TimelineGrid
             locations={activeLocations}
@@ -569,11 +618,15 @@ export default function ProjectTracker({ isAdmin = true }) {
             onRemoveCompanyEvent={removeCompanyEvent}
             doubleBookedPhaseIds={doubleBookedPhaseIds}
             sortable={false}
+            readOnly={customerView}
+            showOOO={!customerView}
+            showBlankRows={!customerView}
             labelWidth={labelWidth}
             onResizeLabelWidth={setManualLabelWidth}
           />
         </div>
 
+        {!customerView && (
         <QueueStrip
           queue={filteredQueue}
           salesReps={data.salesReps || []}
@@ -585,7 +638,9 @@ export default function ProjectTracker({ isAdmin = true }) {
           onRemove={removeQueueItemWithUndo}
           onPromote={beginPromoteQueueItem}
         />
+        )}
 
+        {!customerView && (
         <CompletedStrip
           locations={archivedLocations}
           team={data.team}
@@ -601,6 +656,7 @@ export default function ProjectTracker({ isAdmin = true }) {
           labelWidth={labelWidth}
           onResizeLabelWidth={setManualLabelWidth}
         />
+        )}
       </LayoutGroup>
 
       <AddLocationForm
