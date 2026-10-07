@@ -24,6 +24,29 @@ const CLOSED_WON_STAGE_ID = "57147742";
 // it's promoted from there.
 const EXCLUDED_STAGE_IDS = ["57147743", "128934430"];
 
+// Columns this sync writes onto an existing queue item — read back so a row
+// is only rewritten when HubSpot actually changed something. Every database
+// write fans out as a realtime event to every open browser tab, so blindly
+// re-writing ~150 unchanged rows each run (what this used to do) made every
+// tab refetch everything ~150 times over and froze the app.
+const QUEUE_SYNC_COLUMNS = [
+  "hubspot_deal_id",
+  "hubspot_stage",
+  "place",
+  "contract_state",
+  "access_type",
+  "lanes",
+  "has_onsite_staff",
+  "sales_rep",
+  "garage_type",
+  "number_of_parking_spaces",
+  "property_type",
+  "incumbent_operator",
+  "deal_amount",
+  "contract_signed_date",
+];
+const sameValue = (a, b) => (a ?? null) === (b ?? null) || (a != null && b != null && String(a) === String(b));
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -226,7 +249,7 @@ Deno.serve(async (req) => {
     const [{ data: allLocations }, { data: existingReps }, { data: existingQueueRows }] = await Promise.all([
       admin.from("locations").select("id, name, hubspot_deal_id"),
       admin.from("sales_reps").select("name"),
-      admin.from("queue_items").select("hubspot_deal_id").not("hubspot_deal_id", "is", null),
+      admin.from("queue_items").select(QUEUE_SYNC_COLUMNS.join(", ")).not("hubspot_deal_id", "is", null),
     ]);
     const promotedIds = new Set(
       (allLocations || []).filter((l) => l.hubspot_deal_id).map((l) => l.hubspot_deal_id)
@@ -323,7 +346,15 @@ Deno.serve(async (req) => {
     // that never flipped to Closed Won) behind one unrelated bad row,
     // while the function still reported ok:true. A plain per-row UPDATE
     // can't fail this way — a non-matching id just updates zero rows.
-    const existingRows = rowsToUpsert.filter((r) => !r.isNew).map(({ isNew, name, ...r }) => r);
+    const existingByDealId = new Map((existingQueueRows || []).map((r) => [r.hubspot_deal_id, r]));
+    const existingRows = rowsToUpsert
+      .filter((r) => !r.isNew)
+      .map(({ isNew, name, ...r }) => r)
+      .filter((row) => {
+        const current = existingByDealId.get(row.hubspot_deal_id);
+        return !current || QUEUE_SYNC_COLUMNS.some((k) => !sameValue(row[k], current[k]));
+      });
+    const unchanged = rowsToUpsert.filter((r) => !r.isNew).length - existingRows.length;
     const existingResults = await Promise.all(
       existingRows.map(({ hubspot_deal_id, ...patch }) =>
         admin.from("queue_items").update(patch).eq("hubspot_deal_id", hubspot_deal_id)
@@ -380,6 +411,7 @@ Deno.serve(async (req) => {
       ok: true,
       totalDeals: deals.length,
       synced,
+      unchanged,
       skipped,
       removedStale,
       newReps: [...newReps],

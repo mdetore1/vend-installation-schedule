@@ -102,19 +102,62 @@ export function useScheduleStore() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial fetch on mount; no framework-level loader in this app
     refetchAll();
+
+    // Realtime fires once per changed ROW, and every event used to trigger
+    // a full 9-table refetch — so a background sync touching ~150 rows made
+    // every open tab run ~150 refetches at once and freeze. Bursts are now
+    // coalesced: wait for a brief lull (or at most MAX_WAIT) and run ONE
+    // refetch, never overlapping a fetch that's already in flight. A single
+    // ordinary edit still refreshes within ~150ms.
+    const DEBOUNCE_MS = 150;
+    const MAX_WAIT_MS = 1000;
+    let timer = null;
+    let firstAt = 0;
+    let inFlight = false;
+    let dirty = false;
+    async function run() {
+      if (inFlight) {
+        dirty = true;
+        return;
+      }
+      inFlight = true;
+      try {
+        await refetchAll();
+      } finally {
+        inFlight = false;
+        if (dirty) {
+          dirty = false;
+          run();
+        }
+      }
+    }
+    function schedule() {
+      const now = Date.now();
+      if (!timer) firstAt = now;
+      clearTimeout(timer);
+      const wait = Math.max(0, Math.min(DEBOUNCE_MS, firstAt + MAX_WAIT_MS - now));
+      timer = setTimeout(() => {
+        timer = null;
+        run();
+      }, wait);
+    }
+
     const channel = supabase
       .channel("schedule-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "team_members" }, refetchAll)
-      .on("postgres_changes", { event: "*", schema: "public", table: "time_off" }, refetchAll)
-      .on("postgres_changes", { event: "*", schema: "public", table: "locations" }, refetchAll)
-      .on("postgres_changes", { event: "*", schema: "public", table: "phases" }, refetchAll)
-      .on("postgres_changes", { event: "*", schema: "public", table: "queue_items" }, refetchAll)
-      .on("postgres_changes", { event: "*", schema: "public", table: "sales_reps" }, refetchAll)
-      .on("postgres_changes", { event: "*", schema: "public", table: "company_events" }, refetchAll)
-      .on("postgres_changes", { event: "*", schema: "public", table: "checklist_items" }, refetchAll)
-      .on("postgres_changes", { event: "*", schema: "public", table: "checklist_progress" }, refetchAll)
+      .on("postgres_changes", { event: "*", schema: "public", table: "team_members" }, schedule)
+      .on("postgres_changes", { event: "*", schema: "public", table: "time_off" }, schedule)
+      .on("postgres_changes", { event: "*", schema: "public", table: "locations" }, schedule)
+      .on("postgres_changes", { event: "*", schema: "public", table: "phases" }, schedule)
+      .on("postgres_changes", { event: "*", schema: "public", table: "queue_items" }, schedule)
+      .on("postgres_changes", { event: "*", schema: "public", table: "sales_reps" }, schedule)
+      .on("postgres_changes", { event: "*", schema: "public", table: "company_events" }, schedule)
+      .on("postgres_changes", { event: "*", schema: "public", table: "checklist_items" }, schedule)
+      .on("postgres_changes", { event: "*", schema: "public", table: "checklist_progress" }, schedule)
       .subscribe();
-    return () => supabase.removeChannel(channel);
+    return () => {
+      clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
   }, [refetchAll]);
 
   const data = useMemo(() => {
