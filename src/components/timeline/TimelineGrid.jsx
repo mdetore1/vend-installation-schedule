@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { AnimatePresence, Reorder } from "framer-motion";
 import { buildMonthTicks, buildQuarterTicks, buildWeekendBands, diffDays, todayStart } from "../../lib/dateUtils";
+import { groupPlace } from "../../lib/groupPlace";
 import LocationRow, { ROW_HEIGHT } from "./LocationRow";
 import OOORow from "./OOORow";
 
@@ -18,7 +19,14 @@ function buildDisplayEntries(locations, groups) {
       if (g.memberNames.includes(loc.name)) groupByLocationId.set(loc.id, g);
     }
   }
-  return locations.map((location) => ({ type: "location", location, group: groupByLocationId.get(location.id) }));
+  const placeByGroupId = new Map();
+  for (const g of groups) {
+    placeByGroupId.set(g.id, groupPlace(locations.filter((l) => groupByLocationId.get(l.id) === g)));
+  }
+  return locations.map((location) => {
+    const group = groupByLocationId.get(location.id);
+    return { type: "location", location, group, groupPlace: group ? placeByGroupId.get(group.id) : "" };
+  });
 }
 
 const QUARTER_HEIGHT = 26;
@@ -298,7 +306,7 @@ export default function TimelineGrid({
             {displayEntries.map((entry) => (
               <LocationRow
                 key={entry.location.id}
-                {...locationRowProps(entry.location, { group: entry.group, onEditGroup })}
+                {...locationRowProps(entry.location, { group: entry.group, groupPlace: entry.groupPlace, onEditGroup })}
               />
             ))}
           </AnimatePresence>

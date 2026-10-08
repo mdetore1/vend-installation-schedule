@@ -39,6 +39,7 @@ function assignPhaseLanes(entries) {
 export default function LocationRow({
   location,
   group,
+  groupPlace,
   onEditGroup,
   team,
   pxPerDay,
@@ -135,7 +136,10 @@ export default function LocationRow({
             }`}
           >
             <Layers size={10} className="shrink-0" />
-            {group.name}
+            <span className="min-w-0 truncate">
+              {group.name}
+              {groupPlace && <span className="font-medium text-slate-400"> · {groupPlace}</span>}
+            </span>
           </span>
         )}
         <div className="flex items-center gap-2">

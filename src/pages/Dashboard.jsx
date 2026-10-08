@@ -4,6 +4,7 @@ import { Reorder, useDragControls } from "framer-motion";
 import { Calendar, Check, CheckCheck, ChevronDown, ChevronRight, ExternalLink, GripVertical, Layers, ListChecks, Paperclip, PauseCircle, Pencil, Plus, Rocket, Trash2, X } from "lucide-react";
 import { useScheduleStore } from "../lib/scheduleStore";
 import { useMapStore } from "../lib/mapStore";
+import { groupPlace } from "../lib/groupPlace";
 import { useUndoToast } from "../lib/useUndoToast";
 import UndoToast from "../components/UndoToast";
 import { canonPhaseLabel, formatDateRange, UNASSIGNED, calendarPhaseHighlight, latestScheduleDate, goLiveStart } from "../lib/dateUtils";
@@ -873,6 +874,9 @@ function ClientGroupCard({ group, locations, team, open, onToggle, onUpdate, onA
           <ChevronRight size={16} className={`shrink-0 text-slate-400 transition-transform ${open ? "rotate-90" : ""}`} />
           <Layers size={14} className="shrink-0 text-beacon-700" />
           <span className="truncate font-display text-sm font-bold text-vend-black">{group.name}</span>
+          {groupPlace(locations) && (
+            <span className="truncate text-xs font-medium text-slate-400">{groupPlace(locations)}</span>
+          )}
           <CalendarHighlightBadge highlight={highlight} />
         </button>
         <button
