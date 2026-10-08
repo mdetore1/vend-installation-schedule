@@ -414,7 +414,7 @@ WV|charleston|38.3498|-81.6326`;
 const STATE_BY_KEY = {};
 for (const row of STATE_ROWS.split("\n")) {
   const [abbr, name, lat, lng] = row.split("|");
-  const state = { abbr, lat: Number(lat), lng: Number(lng) };
+  const state = { abbr, name, lat: Number(lat), lng: Number(lng) };
   STATE_BY_KEY[abbr.toLowerCase()] = state;
   STATE_BY_KEY[name] = state;
 }
@@ -430,6 +430,16 @@ function normalize(str) {
     .replace(/[.]/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+// A place's text plus its state spelled both ways, so searching "TX" finds
+// "Houston, Texas" and searching "Texas" finds "Houston, TX".
+export function placeSearchText(place) {
+  const norm = normalize(place);
+  if (!norm) return "";
+  const parts = norm.split(",").map((p) => p.trim()).filter(Boolean);
+  const state = STATE_BY_KEY[parts[parts.length - 1]];
+  return state ? `${norm} ${state.abbr.toLowerCase()} ${state.name}` : norm;
 }
 
 export function geocodePlace(place) {

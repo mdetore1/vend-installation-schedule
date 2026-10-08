@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ArrowUpDown, Check, ChevronDown, ChevronRight, ExternalLink, Layers, MapPin, Plus, Trash2, X } from "lucide-react";
+import { AlertTriangle, ArrowUpDown, Search, Check, ChevronDown, ChevronRight, ExternalLink, Layers, MapPin, Plus, Trash2, X } from "lucide-react";
 import { TextInput, DebouncedTextInput, Select, Checkbox, Field } from "../fields";
 import { useDebouncedCommit } from "../../lib/useDebouncedCommit";
 import { formatShort, parseDate, timeAgo } from "../../lib/dateUtils";
 import { useSyncStatus } from "../../lib/useSyncStatus";
 import { hubspotDealUrl } from "../../lib/hubspot";
+import { placeSearchText } from "../../lib/geocode";
 import { ACCESS_TYPES, CONTRACT_STATES } from "../../lib/locationDefaults";
 import AddQueueItemForm from "./AddQueueItemForm";
 import SalesRepSelect from "./SalesRepSelect";
@@ -723,6 +724,7 @@ export default function QueueStrip({
   // the current stage filter, but should still be editable.
   const { groups: allGroups } = useMemo(() => groupQueueItems(queue), [queue]);
   const [showGroupModal, setShowGroupModal] = useState(false);
+  const [search, setSearch] = useState("");
 
   function applyGroup(groupName, memberIds, previousMemberIds) {
     previousMemberIds.filter((id) => !memberIds.includes(id)).forEach((id) => onUpdate(id, { salesGroup: null }));
@@ -735,7 +737,19 @@ export default function QueueStrip({
   const hubspotSync = useSyncStatus("hubspot");
 
   const activeSort = SORT_OPTIONS.find((s) => s.value === sortMode) || SORT_OPTIONS[0];
-  const filteredItems = stageFilters.length ? queue.filter((q) => stageFilters.includes(q.hubspotStage)) : queue;
+  // Every word typed must match the deal's name, group, or city/state (a
+  // 1-2 letter word like "tx" must match a whole word, so "ca" finds
+  // California rather than every "Pacific"). Stage chips and search combine.
+  const searchTerms = search.toLowerCase().split(/[\s,]+/).filter(Boolean);
+  const matchesSearch = (q) => {
+    if (!searchTerms.length) return true;
+    const haystack = `${q.name} ${q.salesGroup || ""} ${placeSearchText(q.place)}`.toLowerCase();
+    const words = new Set(haystack.split(/[^a-z0-9]+/).filter(Boolean));
+    return searchTerms.every((t) => (t.length <= 2 ? words.has(t) : haystack.includes(t)));
+  };
+  const filteredItems = queue.filter(
+    (q) => (!stageFilters.length || stageFilters.includes(q.hubspotStage)) && matchesSearch(q)
+  );
   const { groups, standalone } = groupQueueItems(filteredItems);
   const entries = [
     ...groups.map((g) => ({ type: "group", ...g })),
@@ -754,7 +768,7 @@ export default function QueueStrip({
           Sales queue{" "}
           <span className="opacity-70">
             ({filteredCount}
-            {stageFilters.length ? ` of ${queue.length}` : ""})
+            {stageFilters.length || searchTerms.length ? ` of ${queue.length}` : ""})
           </span>
         </span>
         <div className="flex items-center gap-3">
@@ -781,6 +795,27 @@ export default function QueueStrip({
         className={`grid transition-[grid-template-rows] duration-300 ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
       >
         <div className="overflow-hidden">
+          <div className="border-b border-concrete-200 bg-white px-3 pt-2.5">
+            <div className="relative w-full sm:max-w-sm">
+              <Search size={13} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search deals by name, city, or state…"
+                className="w-full rounded-full border border-concrete-200 bg-white py-1.5 pl-8 pr-8 text-xs text-vend-black outline-none transition placeholder:text-slate-300 focus:border-vend-black"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  aria-label="Clear search"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-vend-black"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+          </div>
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-concrete-200 bg-white px-3 py-2">
             {stages.length > 0 ? (
               <div className="flex flex-wrap items-center gap-1.5">
@@ -865,6 +900,8 @@ export default function QueueStrip({
               <p className="px-2 py-4 text-sm text-slate-400">
                 {queue.length === 0
                   ? "Nothing in the queue — add a location sales is working on."
+                  : searchTerms.length
+                  ? `No deals match "${search.trim()}"${stageFilters.length ? " at these stages" : ""}.`
                   : "No queue items at these stages."}
               </p>
             )}

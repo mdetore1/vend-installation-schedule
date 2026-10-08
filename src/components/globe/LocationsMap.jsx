@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { MapContainer, TileLayer, CircleMarker, Tooltip, Popup } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
-import { ExternalLink, Layers, Plus, Trash2, X } from "lucide-react";
+import { AlertTriangle, ExternalLink, Layers, MapPin, Plus, Search, Trash2, X } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
@@ -9,6 +9,7 @@ import { useScheduleStore } from "../../lib/scheduleStore";
 import { useMapStore } from "../../lib/mapStore";
 import { geocodePlace } from "../../lib/geocode";
 import { hubspotDealUrl } from "../../lib/hubspot";
+import { useGeoOverrides } from "../../lib/useGeoOverrides";
 import { Field, TextInput, Checkbox } from "../fields";
 
 // Open Sales queue deals — a purple distinct from the live (blue), not-live
@@ -53,6 +54,206 @@ function namesMatch(a, b) {
   const setA = new Set(wa);
   const shared = wb.filter((w) => w.length >= 3 && setA.has(w));
   return shared.length >= Math.min(2, Math.min(wa.length, wb.length));
+}
+
+// Address search, normalized to {id, label, lat, lng}. OpenStreetMap's
+// Nominatim matches street numbers best, but its responses don't reliably
+// carry the header browsers need for a cross-site request — when the browser
+// blocks it, Photon (also OpenStreetMap data, CORS-enabled, coarser on house
+// numbers) answers instead.
+async function searchAddress(q) {
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&q=${encodeURIComponent(q)}`);
+    if (!res.ok) throw new Error(String(res.status));
+    const data = await res.json();
+    return data.map((r) => ({ id: `n${r.place_id}`, label: r.display_name, lat: Number(r.lat), lng: Number(r.lon) }));
+  } catch {
+    const res = await fetch(`https://photon.komoot.io/api/?limit=6&lang=en&q=${encodeURIComponent(q)}`);
+    if (!res.ok) throw new Error(String(res.status));
+    const data = await res.json();
+    return (data.features || []).map((f, i) => {
+      const pr = f.properties || {};
+      const street = [pr.housenumber, pr.street].filter(Boolean).join(" ");
+      const label = [pr.name !== pr.street ? pr.name : null, street, pr.city || pr.district, pr.state, pr.postcode, pr.country]
+        .filter(Boolean)
+        .join(", ");
+      return { id: `p${i}-${f.geometry.coordinates.join(",")}`, label, lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0] };
+    });
+  }
+}
+
+// Search an address (only called when someone clicks Search) and pin a location the map couldn't place, or only
+// placed approximately. Saved pins default to "confirm address before
+// visiting" since a hand-searched address is only as good as the match.
+function PlaceLocationModal({ target, onClose, onSave }) {
+  const [query, setQuery] = useState(target?.place || "");
+  const [results, setResults] = useState([]);
+  const [picked, setPicked] = useState(null);
+  const [searching, setSearching] = useState(false);
+  const [needsConfirm, setNeedsConfirm] = useState(true);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  if (!target) return null;
+
+  async function search() {
+    const q = query.trim();
+    if (!q) return;
+    setSearching(true);
+    setError("");
+    setPicked(null);
+    try {
+      const data = await searchAddress(q);
+      setResults(data);
+      if (!data.length) setError("No matches — try adding the street, city and state.");
+    } catch {
+      setError("Couldn't reach the address search. Try again in a moment.");
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  async function save() {
+    if (!picked) return;
+    setSaving(true);
+    const err = await onSave(target.key, {
+      lat: picked.lat,
+      lng: picked.lng,
+      address: picked.label,
+      needsConfirm,
+    });
+    setSaving(false);
+    if (err) setError("Couldn't save the placement. (The geo_overrides table may not have been created yet.)");
+  }
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-vend-black/40 p-4">
+      <div className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-concrete-200 px-6 py-4">
+          <div className="min-w-0">
+            <h2 className="font-display text-lg font-bold text-vend-black">Place on the map</h2>
+            <p className="truncate text-xs text-slate-400">{target.name}</p>
+          </div>
+          <button type="button" onClick={onClose} className="text-slate-300 hover:text-vend-black">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex-1 space-y-4 overflow-y-auto p-6">
+          <Field label="Address or place to search">
+            <div className="flex gap-2">
+              <TextInput
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && search()}
+                placeholder="e.g. 3379 Peachtree Rd NE, Atlanta, GA"
+              />
+              <button
+                type="button"
+                onClick={search}
+                disabled={searching || !query.trim()}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-vend-black px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-40"
+              >
+                <Search size={14} /> {searching ? "Searching…" : "Search"}
+              </button>
+            </div>
+          </Field>
+
+          {error && <p className="text-xs font-semibold text-alert-600">{error}</p>}
+
+          {results.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Pick the right match</p>
+              {results.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => setPicked(r)}
+                  className={`flex w-full items-start gap-2 rounded-xl border px-3 py-2 text-left text-sm transition ${
+                    picked?.id === r.id
+                      ? "border-vend-black bg-concrete-100/60"
+                      : "border-concrete-200 hover:border-slate-300"
+                  }`}
+                >
+                  <MapPin size={14} className="mt-0.5 shrink-0 text-slate-400" />
+                  <span className="min-w-0 text-vend-black">{r.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {picked && (
+            <Checkbox
+              checked={needsConfirm}
+              onChange={setNeedsConfirm}
+              label="Confirm address before visiting"
+              description="Flags this pin until someone has verified the exact address."
+            />
+          )}
+        </div>
+
+        <div className="flex justify-end gap-3 border-t border-concrete-200 px-6 py-4">
+          <button type="button" onClick={onClose} className="rounded-full px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-concrete-100">
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={save}
+            disabled={!picked || saving}
+            className="rounded-full bg-vend-black px-5 py-2 text-sm font-semibold text-white transition disabled:opacity-40"
+          >
+            {saving ? "Saving…" : "Save placement"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Popup body shared by the schedule/queue pins: placement status and the
+// admin actions to fix it.
+function PlacementInfo({ pin, isAdmin, onPlace, onConfirm, onClear }) {
+  if (pin.override) {
+    return (
+      <div className="space-y-1">
+        {pin.address && <div className="text-xs text-slate-500">{pin.address}</div>}
+        {pin.needsConfirm && (
+          <div className="flex items-center gap-1 text-xs font-semibold" style={{ color: "#A7771F" }}>
+            <AlertTriangle size={12} /> Confirm address before visiting
+          </div>
+        )}
+        {isAdmin && (
+          <div className="flex flex-wrap gap-x-3 pt-0.5 text-xs font-semibold">
+            {pin.needsConfirm && (
+              <button type="button" onClick={() => onConfirm(pin)} className="text-go-700 hover:underline">
+                Mark address confirmed
+              </button>
+            )}
+            <button type="button" onClick={() => onPlace(pin)} className="text-slate-500 hover:underline">
+              Change location
+            </button>
+            <button type="button" onClick={() => onClear(pin)} className="text-alert-600 hover:underline">
+              Remove placement
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+  if (pin.approx) {
+    return (
+      <div className="space-y-1">
+        <div className="text-xs text-slate-500">Approximate — placed from the city/state only.</div>
+        {isAdmin && (
+          <button type="button" onClick={() => onPlace(pin)} className="text-xs font-semibold text-slate-700 hover:underline">
+            Place precisely…
+          </button>
+        )}
+      </div>
+    );
+  }
+  return null;
 }
 
 function AddPinForm({ open, onClose, onSubmit }) {
@@ -300,6 +501,12 @@ export default function LocationsMap({ isAdmin = true }) {
   const deleteGroup = isAdmin ? mapStore.deleteGroup : denyWrite;
   const [showAdd, setShowAdd] = useState(false);
   const [showGroups, setShowGroups] = useState(false);
+  const geo = useGeoOverrides();
+  const { overrides } = geo;
+  const [placeTarget, setPlaceTarget] = useState(null);
+  const saveOverride = isAdmin ? geo.saveOverride : denyWrite;
+  const confirmOverride = isAdmin ? geo.confirmOverride : denyWrite;
+  const clearOverride = isAdmin ? geo.clearOverride : denyWrite;
   // Two layers: "Closed" is everything we already have or are working on
   // (live garages, scheduled locations, manual pins, and queue deals marked
   // Closed Won); "Sales queue" is the open deals still being looked at.
@@ -346,22 +553,28 @@ export default function LocationsMap({ isAdmin = true }) {
     activeLocations.forEach((loc) => {
       const isLive = liveGarages.some((g) => namesMatch(loc.name, g.name));
       if (isLive) return;
-      const geo = geocodePlace(loc.place);
-      if (!geo) {
-        cantPlace.push(loc);
+      const key = `location:${loc.id}`;
+      const ov = overrides.get(key);
+      const found = ov ? { lat: ov.lat, lng: ov.lng, precision: "exact" } : geocodePlace(loc.place);
+      if (!found) {
+        cantPlace.push({ ...loc, key });
         return;
       }
       upcoming.push({
         id: loc.id,
+        key,
         name: loc.name,
         place: loc.place,
-        lat: geo.lat,
-        lng: geo.lng,
-        approx: geo.precision === "region",
+        lat: found.lat,
+        lng: found.lng,
+        approx: found.precision === "region",
+        override: !!ov,
+        needsConfirm: !!ov?.needsConfirm,
+        address: ov?.address || "",
       });
     });
     return { upcomingPins: upcoming, unmapped: cantPlace };
-  }, [data.locations, liveGarages]);
+  }, [data.locations, liveGarages, overrides]);
 
   // Queue deals: placed from HubSpot's "City, State". Closed Won ones join the
   // closed layer (they're won — just not on the calendar yet); everything
@@ -370,18 +583,24 @@ export default function LocationsMap({ isAdmin = true }) {
     const placed = [];
     const cantPlace = [];
     (data.queue || []).forEach((q) => {
-      const geo = geocodePlace(q.place);
-      if (!geo) {
-        cantPlace.push(q);
+      const key = `queue:${q.id}`;
+      const ov = overrides.get(key);
+      const found = ov ? { lat: ov.lat, lng: ov.lng, precision: "exact" } : geocodePlace(q.place);
+      if (!found) {
+        cantPlace.push({ ...q, key });
         return;
       }
       placed.push({
         id: q.id,
+        key,
         name: q.name,
         place: q.place,
-        lat: geo.lat,
-        lng: geo.lng,
-        approx: geo.precision === "region",
+        lat: found.lat,
+        lng: found.lng,
+        approx: found.precision === "region",
+        override: !!ov,
+        needsConfirm: !!ov?.needsConfirm,
+        address: ov?.address || "",
         closedWon: q.contractState === "Closed Won",
         stage: q.hubspotStage,
         salesRep: q.salesRep,
@@ -390,15 +609,15 @@ export default function LocationsMap({ isAdmin = true }) {
       });
     });
     return { queuePins: placed, queueUnmapped: cantPlace };
-  }, [data.queue]);
+  }, [data.queue, overrides]);
   const openQueuePins = queuePins.filter((p) => !p.closedWon);
   const wonQueuePins = queuePins.filter((p) => p.closedWon);
   const visibleQueuePins = queuePins.filter((p) => (p.closedWon ? showClosed : showQueue));
   const visibleUnmapped = [
-    ...(showClosed ? unmapped.map((l) => ({ id: l.id, name: l.name, place: l.place })) : []),
+    ...(showClosed ? unmapped.map((l) => ({ id: l.id, key: l.key, name: l.name, place: l.place })) : []),
     ...queueUnmapped
       .filter((q) => (q.contractState === "Closed Won" ? showClosed : showQueue))
-      .map((q) => ({ id: q.id, name: q.name, place: q.place, deal: true })),
+      .map((q) => ({ id: q.id, key: q.key, name: q.name, place: q.place, deal: true })),
   ];
 
   return (
@@ -503,11 +722,31 @@ export default function LocationsMap({ isAdmin = true }) {
                 key={`upcoming-${p.id}`}
                 center={[p.lat, p.lng]}
                 radius={8}
-                pathOptions={{ color: "#111114", weight: 1, fillColor: "#FFC24B", fillOpacity: 0.95 }}
+                pathOptions={{
+                  color: p.needsConfirm ? "#D93738" : "#111114",
+                  weight: p.needsConfirm ? 2 : 1,
+                  dashArray: p.needsConfirm ? "3 3" : undefined,
+                  fillColor: "#FFC24B",
+                  fillOpacity: 0.95,
+                }}
               >
                 <Tooltip direction="top" offset={[0, -6]} permanent>
                   {p.name} — not live yet{p.approx ? " (approx.)" : ""}
+                  {p.needsConfirm ? " — confirm address" : ""}
                 </Tooltip>
+                <Popup>
+                  <div className="space-y-1">
+                    <div className="text-sm font-semibold">{p.name}</div>
+                    <div className="text-xs text-slate-500">{p.place || "—"}</div>
+                    <PlacementInfo
+                      pin={p}
+                      isAdmin={isAdmin}
+                      onPlace={(pin) => setPlaceTarget(pin)}
+                      onConfirm={(pin) => confirmOverride(pin.key)}
+                      onClear={(pin) => clearOverride(pin.key)}
+                    />
+                  </div>
+                </Popup>
               </CircleMarker>
             ))}
             {(showClosed ? mapPins : []).map((p) => (
@@ -560,12 +799,19 @@ export default function LocationsMap({ isAdmin = true }) {
                   key={`queue-${p.id}`}
                   center={[p.lat, p.lng]}
                   radius={6}
-                  pathOptions={{ color: "#111114", weight: 1, fillColor: p.closedWon ? "#14D5A3" : QUEUE_COLOR, fillOpacity: 0.9 }}
+                  pathOptions={{
+                    color: p.needsConfirm ? "#D93738" : "#111114",
+                    weight: p.needsConfirm ? 2 : 1,
+                    dashArray: p.needsConfirm ? "3 3" : undefined,
+                    fillColor: p.closedWon ? "#14D5A3" : QUEUE_COLOR,
+                    fillOpacity: 0.9,
+                  }}
                 >
                   <Tooltip direction="top" offset={[0, -4]}>
                     {p.name}
                     {p.stage ? ` — ${p.stage}` : ""}
                     {p.approx ? " (approx.)" : ""}
+                    {p.needsConfirm ? " — confirm address" : ""}
                   </Tooltip>
                   <Popup>
                     <div className="space-y-1">
@@ -574,6 +820,13 @@ export default function LocationsMap({ isAdmin = true }) {
                         {p.place}
                         {p.approx ? " (approximate)" : ""}
                       </div>
+                      <PlacementInfo
+                        pin={p}
+                        isAdmin={isAdmin}
+                        onPlace={(pin) => setPlaceTarget(pin)}
+                        onConfirm={(pin) => confirmOverride(pin.key)}
+                        onClear={(pin) => clearOverride(pin.key)}
+                      />
                       <div className="flex flex-wrap gap-x-3 text-xs text-slate-500">
                         {p.stage && <span>{p.stage}</span>}
                         {p.salesRep && <span>{p.salesRep}</span>}
@@ -611,6 +864,15 @@ export default function LocationsMap({ isAdmin = true }) {
                   <span className="font-semibold text-vend-black">{l.name}</span>
                   {l.deal && <span className="text-xs text-slate-400"> (deal)</span>}
                   {l.place ? ` — "${l.place}"` : " — no city set"}
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => setPlaceTarget(l)}
+                      className="ml-2 text-xs font-semibold text-beacon-700 hover:underline"
+                    >
+                      Place…
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -619,6 +881,16 @@ export default function LocationsMap({ isAdmin = true }) {
       </div>
 
       <AddPinForm open={showAdd} onClose={() => setShowAdd(false)} onSubmit={addPin} />
+      <PlaceLocationModal
+        key={placeTarget?.key || "none"}
+        target={placeTarget}
+        onClose={() => setPlaceTarget(null)}
+        onSave={async (key, fields) => {
+          const err = await saveOverride(key, fields);
+          if (!err) setPlaceTarget(null);
+          return err;
+        }}
+      />
       <ManageGroupsModal
         open={showGroups}
         onClose={() => setShowGroups(false)}
