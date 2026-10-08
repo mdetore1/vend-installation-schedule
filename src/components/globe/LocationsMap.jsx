@@ -7,7 +7,7 @@ import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { useScheduleStore } from "../../lib/scheduleStore";
 import { useMapStore } from "../../lib/mapStore";
-import { geocodePlace } from "../../lib/geocode";
+import { geocodePlace, geocodeDeal } from "../../lib/geocode";
 import { hubspotDealUrl } from "../../lib/hubspot";
 import { useGeoOverrides } from "../../lib/useGeoOverrides";
 import { Field, TextInput, Checkbox } from "../fields";
@@ -241,10 +241,14 @@ function PlacementInfo({ pin, isAdmin, onPlace, onConfirm, onClear }) {
       </div>
     );
   }
-  if (pin.approx) {
+  if (pin.fromName || pin.approx) {
     return (
       <div className="space-y-1">
-        <div className="text-xs text-slate-500">Approximate — placed from the city/state only.</div>
+        <div className="text-xs text-slate-500">
+          {pin.fromName
+            ? "Placed from the city in the deal's name — a best guess."
+            : "Approximate — placed from the city/state only."}
+        </div>
         {isAdmin && (
           <button type="button" onClick={() => onPlace(pin)} className="text-xs font-semibold text-slate-700 hover:underline">
             Place precisely…
@@ -555,7 +559,7 @@ export default function LocationsMap({ isAdmin = true }) {
       if (isLive) return;
       const key = `location:${loc.id}`;
       const ov = overrides.get(key);
-      const found = ov ? { lat: ov.lat, lng: ov.lng, precision: "exact" } : geocodePlace(loc.place);
+      const found = ov ? { lat: ov.lat, lng: ov.lng, precision: "exact" } : geocodeDeal(loc.name, loc.place);
       if (!found) {
         cantPlace.push({ ...loc, key });
         return;
@@ -568,6 +572,7 @@ export default function LocationsMap({ isAdmin = true }) {
         lat: found.lat,
         lng: found.lng,
         approx: found.precision === "region",
+        fromName: !!found.fromName,
         override: !!ov,
         needsConfirm: !!ov?.needsConfirm,
         address: ov?.address || "",
@@ -585,7 +590,7 @@ export default function LocationsMap({ isAdmin = true }) {
     (data.queue || []).forEach((q) => {
       const key = `queue:${q.id}`;
       const ov = overrides.get(key);
-      const found = ov ? { lat: ov.lat, lng: ov.lng, precision: "exact" } : geocodePlace(q.place);
+      const found = ov ? { lat: ov.lat, lng: ov.lng, precision: "exact" } : geocodeDeal(q.name, q.place);
       if (!found) {
         cantPlace.push({ ...q, key });
         return;
@@ -598,6 +603,7 @@ export default function LocationsMap({ isAdmin = true }) {
         lat: found.lat,
         lng: found.lng,
         approx: found.precision === "region",
+        fromName: !!found.fromName,
         override: !!ov,
         needsConfirm: !!ov?.needsConfirm,
         address: ov?.address || "",
@@ -731,7 +737,7 @@ export default function LocationsMap({ isAdmin = true }) {
                 }}
               >
                 <Tooltip direction="top" offset={[0, -6]} permanent>
-                  {p.name} — not live yet{p.approx ? " (approx.)" : ""}
+                  {p.name} — not live yet{p.approx ? " (approx.)" : ""}{p.fromName ? " (from name)" : ""}
                   {p.needsConfirm ? " — confirm address" : ""}
                 </Tooltip>
                 <Popup>
@@ -811,6 +817,7 @@ export default function LocationsMap({ isAdmin = true }) {
                     {p.name}
                     {p.stage ? ` — ${p.stage}` : ""}
                     {p.approx ? " (approx.)" : ""}
+                    {p.fromName ? " (from name)" : ""}
                     {p.needsConfirm ? " — confirm address" : ""}
                   </Tooltip>
                   <Popup>

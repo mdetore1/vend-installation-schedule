@@ -153,7 +153,20 @@ VA|virginia|37.7693|-78.1700
 WA|washington|47.4009|-121.4905
 WV|west virginia|38.4912|-80.9545
 WI|wisconsin|44.2685|-89.6165
-WY|wyoming|42.7560|-107.3025`;
+WY|wyoming|42.7560|-107.3025
+AB|alberta|55.0000|-115.0000
+BC|british columbia|53.7267|-127.6476
+MB|manitoba|53.7609|-98.8139
+NB|new brunswick|46.5653|-66.4619
+NL|newfoundland and labrador|53.1355|-57.6604
+NS|nova scotia|44.6820|-63.7443
+NT|northwest territories|64.8255|-124.8457
+NU|nunavut|70.2998|-83.1076
+ON|ontario|51.2538|-85.3232
+PE|prince edward island|46.5107|-63.4168
+QC|quebec|52.9399|-73.5491
+SK|saskatchewan|52.9399|-106.4509
+YT|yukon|64.2823|-135.0000`;
 const CITY_ROWS = `AL|birmingham|33.5186|-86.8104
 AL|huntsville|34.7304|-86.5861
 AL|montgomery|32.3792|-86.3077
@@ -409,7 +422,19 @@ WA|kirkland|47.6815|-122.2087
 WA|vancouver|45.6387|-122.6615
 WI|milwaukee|43.0389|-87.9065
 WI|madison|43.0731|-89.4012
-WV|charleston|38.3498|-81.6326`;
+WV|charleston|38.3498|-81.6326
+ON|toronto|43.6532|-79.3832
+ON|ottawa|45.4215|-75.6972
+ON|mississauga|43.5890|-79.6441
+ON|hamilton|43.2557|-79.8711
+QC|montreal|45.5017|-73.5673
+QC|quebec city|46.8139|-71.2080
+BC|vancouver|49.2827|-123.1207
+BC|victoria|48.4284|-123.3656
+AB|calgary|51.0447|-114.0719
+AB|edmonton|53.5461|-113.4938
+MB|winnipeg|49.8951|-97.1384
+NS|halifax|44.6488|-63.5752`;
 
 const STATE_BY_KEY = {};
 for (const row of STATE_ROWS.split("\n")) {
@@ -422,6 +447,53 @@ const CITY_BY_KEY = {};
 for (const row of CITY_ROWS.split("\n")) {
   const [abbr, city, lat, lng] = row.split("|");
   CITY_BY_KEY[`${city}|${abbr}`] = { lat: Number(lat), lng: Number(lng) };
+}
+
+// City name -> its place, for names that only exist once in the table above
+// (so "Phoenix" is unambiguous but "Columbia" is not). Used to read a city out
+// of a deal's NAME, e.g. "University Gateway - Blue Vista - Los Angeles".
+// Names that are also ordinary words or building names ("Mobile", "Mesa",
+// "Madison", "Hollywood") are left out so a "One Mobile Plaza" doesn't land
+// in Alabama.
+const NOT_FROM_NAME = new Set([
+  "mobile", "mesa", "madison", "hollywood", "jackson", "franklin", "salem", "lincoln", "clayton", "florence",
+  "newton", "troy", "aurora", "decatur", "vienna", "carmel", "naples", "quincy", "lexington", "columbia",
+  "springfield", "arlington", "bloomington", "charleston", "burlington", "glendale", "wilmington", "columbus",
+  "vancouver", "kansas city", "portland", "victoria", "hamilton", "cary", "largo", "troy",
+]);
+const UNIQUE_CITY = {};
+{
+  const byName = {};
+  for (const [key, c] of Object.entries(CITY_BY_KEY)) {
+    const [name, abbr] = key.split("|");
+    (byName[name] ||= []).push({ ...c, abbr });
+  }
+  for (const [name, rows] of Object.entries(byName)) {
+    if (rows.length === 1 && !NOT_FROM_NAME.has(name)) UNIQUE_CITY[name] = rows[0];
+  }
+}
+// Short forms people type in deal names ("PHX - Tempe Plaza").
+const CITY_ALIASES = {
+  phx: "phoenix|AZ", la: "los angeles|CA", sf: "san francisco|CA", sd: "san diego|CA", sj: "san jose|CA",
+  nyc: "new york|NY", atl: "atlanta|GA", chi: "chicago|IL", dfw: "dallas|TX", hou: "houston|TX", atx: "austin|TX",
+  bos: "boston|MA", sea: "seattle|WA", den: "denver|CO", lv: "las vegas|NV", pdx: "portland|OR", slc: "salt lake city|UT",
+  stl: "st louis|MO", mia: "miami|FL", tpa: "tampa|FL", clt: "charlotte|NC", bna: "nashville|TN", rdu: "raleigh|NC",
+  phl: "philadelphia|PA", msp: "minneapolis|MN",
+};
+
+function cityFromName(name) {
+  const padded = ` ${String(name || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()} `;
+  let best = null;
+  const consider = (label, c) => {
+    const idx = padded.lastIndexOf(` ${label} `);
+    if (idx < 0) return;
+    // The city is usually the last thing in a deal's name, so the latest match
+    // wins ("Washington Square - Seattle" is Seattle); longer breaks ties.
+    if (!best || idx > best.idx || (idx === best.idx && label.length > best.len)) best = { idx, len: label.length, c };
+  };
+  for (const [label, c] of Object.entries(UNIQUE_CITY)) consider(label, c);
+  for (const [alias, key] of Object.entries(CITY_ALIASES)) consider(alias, { ...CITY_BY_KEY[key], abbr: key.split("|")[1] });
+  return best ? { lat: best.c.lat, lng: best.c.lng, precision: "city", state: best.c.abbr } : null;
 }
 
 function normalize(str) {
@@ -446,10 +518,15 @@ export function geocodePlace(place) {
   const norm = normalize(place);
   if (!norm) return null;
 
-  const parts = norm
+  // HubSpot gives things like "Toronto, No State (Canada)": parentheses are
+  // just another separator, and a "No State" placeholder is dropped.
+  const allParts = norm
+    .replace(/[()]/g, ",")
     .split(",")
     .map((p) => p.trim())
-    .filter(Boolean);
+    .filter((p) => p && !p.startsWith("no state"));
+  if (!allParts.length) return null;
+  const parts = allParts.filter((p) => p !== "canada" && p !== "us" && p !== "usa" && p !== "united states");
 
   // "City, State": match on both first (exact and unambiguous). When the
   // last part is a state, it's excluded from the city-name checks below so
@@ -458,7 +535,7 @@ export function geocodePlace(place) {
   const cityParts = state ? parts.slice(0, -1) : parts;
   if (state) {
     const hit = CITY_BY_KEY[`${cityParts.join(" ")}|${state.abbr}`] || CITY_BY_KEY[`${cityParts[0]}|${state.abbr}`];
-    if (hit) return { lat: hit.lat, lng: hit.lng, precision: "city" };
+    if (hit) return { lat: hit.lat, lng: hit.lng, precision: "city", state: state.abbr };
   }
 
   // A known state with an unlisted city: plot at the state's center rather
@@ -466,18 +543,36 @@ export function geocodePlace(place) {
   // Portland, OR) or a substring match (which would drop "Ithaca, New York"
   // on NYC). Every city in the name-only list below is also in the
   // state-keyed table above, so nothing that used to place is lost.
-  if (state) return { lat: state.lat, lng: state.lng, precision: "region" };
+  if (state) return { lat: state.lat, lng: state.lng, precision: "region", state: state.abbr };
 
   for (const part of cityParts) {
     if (CITIES[part]) return { lat: CITIES[part][0], lng: CITIES[part][1], precision: "city" };
+    const only = UNIQUE_CITY[part];
+    if (only) return { lat: only.lat, lng: only.lng, precision: "city", state: only.abbr };
   }
 
   for (const key of Object.keys(CITIES)) {
     if (norm.includes(key)) return { lat: CITIES[key][0], lng: CITIES[key][1], precision: "city" };
   }
-  for (const part of [...parts, norm]) {
+  for (const part of [...allParts, norm]) {
+    const st = STATE_BY_KEY[part];
+    if (st) return { lat: st.lat, lng: st.lng, precision: "region", state: st.abbr };
     if (REGIONS[part]) return { lat: REGIONS[part][0], lng: REGIONS[part][1], precision: "region" };
-    if (STATE_BY_KEY[part]) return { lat: STATE_BY_KEY[part].lat, lng: STATE_BY_KEY[part].lng, precision: "region" };
   }
   return null;
+}
+
+// Place a deal/location: its City, State when that resolves to a city, else
+// the city named in the deal's own name ("... - Los Angeles", "PHX ..."). A
+// state-only place is upgraded to the name's city when they agree on the
+// state. Name-derived results carry fromName so the map can flag them as a
+// best guess.
+export function geocodeDeal(name, place) {
+  const fromPlace = geocodePlace(place);
+  if (fromPlace && fromPlace.precision === "city") return fromPlace;
+  const fromName = cityFromName(name);
+  if (fromName && (!fromPlace || (fromPlace.state && fromPlace.state === fromName.state))) {
+    return { ...fromName, fromName: true };
+  }
+  return fromPlace;
 }

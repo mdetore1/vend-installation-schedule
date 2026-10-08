@@ -795,27 +795,6 @@ export default function QueueStrip({
         className={`grid transition-[grid-template-rows] duration-300 ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
       >
         <div className="overflow-hidden">
-          <div className="border-b border-concrete-200 bg-white px-3 pt-2.5">
-            <div className="relative w-full sm:max-w-sm">
-              <Search size={13} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search deals by name, city, or state…"
-                className="w-full rounded-full border border-concrete-200 bg-white py-1.5 pl-8 pr-8 text-xs text-vend-black outline-none transition placeholder:text-slate-300 focus:border-vend-black"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch("")}
-                  aria-label="Clear search"
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-vend-black"
-                >
-                  <X size={13} />
-                </button>
-              )}
-            </div>
-          </div>
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-concrete-200 bg-white px-3 py-2">
             {stages.length > 0 ? (
               <div className="flex flex-wrap items-center gap-1.5">
@@ -849,6 +828,29 @@ export default function QueueStrip({
             )}
 
             <div className="flex shrink-0 items-center gap-1.5">
+              <div className="relative">
+                <Search size={12} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search name, city, state"
+                  aria-label="Search the Sales queue"
+                  className={`rounded-full border bg-white py-1 pl-7 pr-7 text-[11px] font-semibold text-vend-black outline-none transition-[width,border-color] placeholder:font-medium placeholder:text-slate-300 ${
+                    search ? "w-56 border-vend-black" : "w-44 border-concrete-200 hover:border-slate-300 focus:w-56 focus:border-vend-black"
+                  }`}
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    aria-label="Clear search"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-300 transition hover:text-vend-black"
+                  >
+                    <X size={11} />
+                  </button>
+                )}
+              </div>
+
               <button
                 type="button"
                 onClick={() => setShowGroupModal(true)}
