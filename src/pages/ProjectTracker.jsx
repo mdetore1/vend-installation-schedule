@@ -310,20 +310,46 @@ export default function ProjectTracker({ isAdmin = true }) {
   // manual order. On-hold locations sink to the bottom regardless of their
   // Go-Live date (still sorted by date among themselves) and rejoin the
   // normal order automatically as soon as Hold is turned off.
+  //
+  // Grouped garages (e.g. The Epic I and II) always stay together as one
+  // block: the block sorts into the list by its best member (earliest Go
+  // Live, not on hold), and the members sort among themselves — so another
+  // client's location can never land in between them.
   const activeLocations = useMemo(() => {
-    return data.locations
-      .filter((l) => !l.archived && matchesLocationFilter(l))
-      .slice()
-      .sort((a, b) => {
-        if (!!a.onHold !== !!b.onHold) return a.onHold ? 1 : -1;
-        const da = goLiveStart(a.phases);
-        const db = goLiveStart(b.phases);
-        if (!da && !db) return 0;
-        if (!da) return 1;
-        if (!db) return -1;
-        return da - db;
+    const visible = data.locations.filter((l) => !l.archived && matchesLocationFilter(l));
+    const dateOf = (l) => goLiveStart(l.phases);
+    const compareDates = (a, b) => {
+      if (!a && !b) return 0;
+      if (!a) return 1;
+      if (!b) return -1;
+      return a - b;
+    };
+    const compareLocations = (a, b) => {
+      if (!!a.onHold !== !!b.onHold) return a.onHold ? 1 : -1;
+      return compareDates(dateOf(a), dateOf(b));
+    };
+
+    const groupIdByLocationId = new Map();
+    groups.forEach((g) => {
+      visible.forEach((l) => {
+        if (g.memberNames.includes(l.name)) groupIdByLocationId.set(l.id, g.id);
       });
-  }, [data.locations, matchesLocationFilter]);
+    });
+    const blocks = new Map();
+    visible.forEach((l) => {
+      const key = groupIdByLocationId.get(l.id) ?? `solo:${l.id}`;
+      if (!blocks.has(key)) blocks.set(key, []);
+      blocks.get(key).push(l);
+    });
+
+    return [...blocks.values()]
+      .map((members) => {
+        members.sort(compareLocations);
+        return { members, lead: members[0] };
+      })
+      .sort((a, b) => compareLocations(a.lead, b.lead))
+      .flatMap((block) => block.members);
+  }, [data.locations, groups, matchesLocationFilter]);
 
   // The OOO row still just dims non-matching team members (it's a single
   // summary row, not a set of locations that can disappear), so it only
