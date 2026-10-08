@@ -159,18 +159,23 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
           className="w-64 shrink-0 truncate rounded border border-transparent bg-transparent font-display text-[15px] font-bold text-vend-black outline-none transition focus:border-concrete-300 focus:bg-concrete-100/50 sm:w-96"
         />
 
-        {item.hubspotDealId && (
-          <a
-            href={hubspotDealUrl(item.hubspotDealId)}
-            target="_blank"
-            rel="noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            title="Open this deal in HubSpot"
-            className="flex shrink-0 items-center gap-1 rounded-full bg-[#FF7A59]/15 px-2 py-1 text-[11px] font-bold text-[#FF7A59] transition hover:bg-[#FF7A59]/25"
-          >
-            <ExternalLink size={11} /> HubSpot
-          </a>
-        )}
+        {/* Fixed-width slot (a group's "N garages" pill sits in the same
+            column), so everything after it lines up row to row whether or
+            not this item has a HubSpot link. */}
+        <div className="w-24 shrink-0">
+          {item.hubspotDealId && (
+            <a
+              href={hubspotDealUrl(item.hubspotDealId)}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              title="Open this deal in HubSpot"
+              className="inline-flex items-center gap-1 rounded-full bg-[#FF7A59]/15 px-2 py-1 text-[11px] font-bold text-[#FF7A59] transition hover:bg-[#FF7A59]/25"
+            >
+              <ExternalLink size={11} /> HubSpot
+            </a>
+          )}
+        </div>
 
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
           {item.place && (
@@ -421,35 +426,45 @@ function QueueGroupCard({ group, salesReps, onAddSalesRep, onUpdate, onRemove, o
         className="flex w-full flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3 text-left"
       >
         <span className={`h-2 w-2 shrink-0 rounded-full ${anyClosedWon ? "bg-go" : "bg-caution"}`} />
-        <Layers size={14} className="shrink-0 text-beacon-700" />
-        <span className="font-display text-[15px] font-bold text-vend-black">{group.key}</span>
-        <span className="shrink-0 rounded-full bg-beacon-100 px-2.5 py-1 text-[11px] font-semibold text-beacon-700">
-          {members.length} garages
+        {/* Same columns as a single item's row — name box, then the slot a
+            HubSpot link sits in (holding the garage count here), then the
+            chips — so a group's details line up with the rows around it.
+            The 3px matches the name input's own inset. */}
+        <span className="flex w-64 shrink-0 items-center gap-1.5 sm:w-96">
+          <span className="truncate pl-[3px] font-display text-[15px] font-bold text-vend-black">{group.key}</span>
+          <Layers size={14} className="shrink-0 text-beacon-700" />
         </span>
-        {commonPlace && (
-          <span className="flex shrink-0 items-center gap-1 truncate text-xs text-slate-400">
-            <MapPin size={10} /> {commonPlace}
+        <div className="w-24 shrink-0">
+          <span className="inline-flex rounded-full bg-beacon-100 px-2.5 py-1 text-[11px] font-semibold text-beacon-700">
+            {members.length} garages
           </span>
-        )}
-        {commonSalesRep && (
-          <span className="shrink-0 truncate rounded-full bg-beacon-100 px-2.5 py-1 text-[11px] font-semibold text-beacon-700">
-            {commonSalesRep}
-          </span>
-        )}
-        {!!totalAmount && <Chip>{formatCurrency(totalAmount)} total</Chip>}
-        {commonAccessType && <Chip>{commonAccessType}</Chip>}
-        {!!totalLanes && <Chip>{totalLanes} lanes total</Chip>}
-        {anySpark && (
-          <span className="shrink-0 rounded-full bg-mint-200 px-2.5 py-1 text-[11px] font-bold text-mint-700">Spark</span>
-        )}
-        {commonStage && (
-          <span
-            className="shrink-0 truncate rounded-full bg-[#FF7A59]/15 px-2.5 py-1 text-[11px] font-bold text-[#FF7A59]"
-            title="Synced from HubSpot"
-          >
-            {commonStage}
-          </span>
-        )}
+        </div>
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+          {commonPlace && (
+            <span className="flex shrink-0 items-center gap-1 truncate text-xs text-slate-400">
+              <MapPin size={10} /> {commonPlace}
+            </span>
+          )}
+          {commonSalesRep && (
+            <span className="shrink-0 truncate rounded-full bg-beacon-100 px-2.5 py-1 text-[11px] font-semibold text-beacon-700">
+              {commonSalesRep}
+            </span>
+          )}
+          {!!totalAmount && <Chip>{formatCurrency(totalAmount)} total</Chip>}
+          {commonAccessType && <Chip>{commonAccessType}</Chip>}
+          {!!totalLanes && <Chip>{totalLanes} lanes total</Chip>}
+          {anySpark && (
+            <span className="shrink-0 rounded-full bg-mint-200 px-2.5 py-1 text-[11px] font-bold text-mint-700">Spark</span>
+          )}
+          {commonStage && (
+            <span
+              className="shrink-0 truncate rounded-full bg-[#FF7A59]/15 px-2.5 py-1 text-[11px] font-bold text-[#FF7A59]"
+              title="Synced from HubSpot"
+            >
+              {commonStage}
+            </span>
+          )}
+        </div>
         <ChevronRight size={15} className={`ml-auto shrink-0 text-slate-400 transition-transform ${open ? "rotate-90" : ""}`} />
       </button>
 
