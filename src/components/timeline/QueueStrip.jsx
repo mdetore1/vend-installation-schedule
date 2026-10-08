@@ -4,13 +4,12 @@ import { TextInput, DebouncedTextInput, Select, Checkbox, Field } from "../field
 import { useDebouncedCommit } from "../../lib/useDebouncedCommit";
 import { formatShort, parseDate, timeAgo } from "../../lib/dateUtils";
 import { useSyncStatus } from "../../lib/useSyncStatus";
+import { hubspotDealUrl } from "../../lib/hubspot";
 import { ACCESS_TYPES, CONTRACT_STATES } from "../../lib/locationDefaults";
 import AddQueueItemForm from "./AddQueueItemForm";
 import SalesRepSelect from "./SalesRepSelect";
 
 const miniInputCls = "!py-1.5 !text-xs";
-const HUBSPOT_PORTAL_ID = "7924065";
-const hubspotDealUrl = (dealId) => `https://app.hubspot.com/contacts/${HUBSPOT_PORTAL_ID}/record/0-3/${dealId}`;
 
 // Sales Pipeline's own stage order — the filter chips should read left to
 // right the same way a deal actually progresses, not in whatever order

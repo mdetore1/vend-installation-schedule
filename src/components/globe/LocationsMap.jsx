@@ -1,14 +1,37 @@
 import { useMemo, useState } from "react";
 import { MapContainer, TileLayer, CircleMarker, Tooltip, Popup } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
-import { Layers, Plus, Trash2, X } from "lucide-react";
+import { ExternalLink, Layers, Plus, Trash2, X } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { useScheduleStore } from "../../lib/scheduleStore";
 import { useMapStore } from "../../lib/mapStore";
 import { geocodePlace } from "../../lib/geocode";
+import { hubspotDealUrl } from "../../lib/hubspot";
 import { Field, TextInput, Checkbox } from "../fields";
+
+// Open Sales queue deals — a purple distinct from the live (blue), not-live
+// (amber), and won (green) pins.
+const QUEUE_COLOR = "#7C6FEA";
+
+function LayerToggle({ on, onClick, title, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      aria-pressed={on}
+      className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+        on
+          ? "border-vend-black bg-vend-black text-white"
+          : "border-concrete-300 bg-white text-slate-400 hover:border-vend-black hover:text-vend-black"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
 
 function normalizeName(s) {
   return (s || "")
@@ -277,6 +300,11 @@ export default function LocationsMap({ isAdmin = true }) {
   const deleteGroup = isAdmin ? mapStore.deleteGroup : denyWrite;
   const [showAdd, setShowAdd] = useState(false);
   const [showGroups, setShowGroups] = useState(false);
+  // Two layers: "Closed" is everything we already have or are working on
+  // (live garages, scheduled locations, manual pins, and queue deals marked
+  // Closed Won); "Sales queue" is the open deals still being looked at.
+  const [showClosed, setShowClosed] = useState(true);
+  const [showQueue, setShowQueue] = useState(true);
 
   function addPin(fields) {
     addPinRaw(fields);
@@ -335,6 +363,44 @@ export default function LocationsMap({ isAdmin = true }) {
     return { upcomingPins: upcoming, unmapped: cantPlace };
   }, [data.locations, liveGarages]);
 
+  // Queue deals: placed from HubSpot's "City, State". Closed Won ones join the
+  // closed layer (they're won — just not on the calendar yet); everything
+  // else is an open deal in the Sales queue layer.
+  const { queuePins, queueUnmapped } = useMemo(() => {
+    const placed = [];
+    const cantPlace = [];
+    (data.queue || []).forEach((q) => {
+      const geo = geocodePlace(q.place);
+      if (!geo) {
+        cantPlace.push(q);
+        return;
+      }
+      placed.push({
+        id: q.id,
+        name: q.name,
+        place: q.place,
+        lat: geo.lat,
+        lng: geo.lng,
+        approx: geo.precision === "region",
+        closedWon: q.contractState === "Closed Won",
+        stage: q.hubspotStage,
+        salesRep: q.salesRep,
+        amount: q.dealAmount,
+        dealId: q.hubspotDealId,
+      });
+    });
+    return { queuePins: placed, queueUnmapped: cantPlace };
+  }, [data.queue]);
+  const openQueuePins = queuePins.filter((p) => !p.closedWon);
+  const wonQueuePins = queuePins.filter((p) => p.closedWon);
+  const visibleQueuePins = queuePins.filter((p) => (p.closedWon ? showClosed : showQueue));
+  const visibleUnmapped = [
+    ...(showClosed ? unmapped.map((l) => ({ id: l.id, name: l.name, place: l.place })) : []),
+    ...queueUnmapped
+      .filter((q) => (q.contractState === "Closed Won" ? showClosed : showQueue))
+      .map((q) => ({ id: q.id, name: q.name, place: q.place, deal: true })),
+  ];
+
   return (
     <div className="flex h-full w-full flex-col gap-4 p-6 sm:p-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -344,14 +410,36 @@ export default function LocationsMap({ isAdmin = true }) {
             Scroll or pinch to zoom, drag to pan. Zoom in on a cluster to split it into individual garages.
           </p>
         </div>
-        <div className="flex items-center gap-4 text-xs font-semibold text-slate-500">
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-beacon" /> Live ({liveGarages.length + mapPins.filter((p) => p.live).length})
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-caution-600" /> Not live yet (
-            {upcomingPins.length + mapPins.filter((p) => !p.live).length})
-          </span>
+        <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-slate-500">
+          <div className="flex items-center gap-1.5">
+            <LayerToggle on={showClosed} onClick={() => setShowClosed((v) => !v)} title="Locations we already have or are working on">
+              Closed
+            </LayerToggle>
+            <LayerToggle on={showQueue} onClick={() => setShowQueue((v) => !v)} title="Open deals still in the Sales queue">
+              Sales queue ({openQueuePins.length})
+            </LayerToggle>
+          </div>
+          {showClosed && (
+            <>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-beacon" /> Live ({liveGarages.length + mapPins.filter((p) => p.live).length})
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-caution-600" /> Not live yet (
+                {upcomingPins.length + mapPins.filter((p) => !p.live).length})
+              </span>
+              {wonQueuePins.length > 0 && (
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-go" /> Won, not scheduled ({wonQueuePins.length})
+                </span>
+              )}
+            </>
+          )}
+          {showQueue && (
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: QUEUE_COLOR }} /> Sales queue deal
+            </span>
+          )}
           {isAdmin && (
             <>
               <button
@@ -381,7 +469,7 @@ export default function LocationsMap({ isAdmin = true }) {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             <MarkerClusterGroup chunkedLoading maxClusterRadius={50}>
-              {liveMarkers.map((m) => (
+              {(showClosed ? liveMarkers : []).map((m) => (
                 <CircleMarker
                   key={`live-${m.id}`}
                   center={[m.lat, m.lng]}
@@ -410,7 +498,7 @@ export default function LocationsMap({ isAdmin = true }) {
                 </CircleMarker>
               ))}
             </MarkerClusterGroup>
-            {upcomingPins.map((p) => (
+            {(showClosed ? upcomingPins : []).map((p) => (
               <CircleMarker
                 key={`upcoming-${p.id}`}
                 center={[p.lat, p.lng]}
@@ -422,7 +510,7 @@ export default function LocationsMap({ isAdmin = true }) {
                 </Tooltip>
               </CircleMarker>
             ))}
-            {mapPins.map((p) => (
+            {(showClosed ? mapPins : []).map((p) => (
               <CircleMarker
                 key={`pin-${p.id}`}
                 center={[p.lat, p.lng]}
@@ -466,18 +554,62 @@ export default function LocationsMap({ isAdmin = true }) {
                 </Popup>
               </CircleMarker>
             ))}
+            <MarkerClusterGroup chunkedLoading maxClusterRadius={40}>
+              {visibleQueuePins.map((p) => (
+                <CircleMarker
+                  key={`queue-${p.id}`}
+                  center={[p.lat, p.lng]}
+                  radius={6}
+                  pathOptions={{ color: "#111114", weight: 1, fillColor: p.closedWon ? "#14D5A3" : QUEUE_COLOR, fillOpacity: 0.9 }}
+                >
+                  <Tooltip direction="top" offset={[0, -4]}>
+                    {p.name}
+                    {p.stage ? ` — ${p.stage}` : ""}
+                    {p.approx ? " (approx.)" : ""}
+                  </Tooltip>
+                  <Popup>
+                    <div className="space-y-1">
+                      <div className="text-sm font-semibold">{p.name}</div>
+                      <div className="text-xs text-slate-500">
+                        {p.place}
+                        {p.approx ? " (approximate)" : ""}
+                      </div>
+                      <div className="flex flex-wrap gap-x-3 text-xs text-slate-500">
+                        {p.stage && <span>{p.stage}</span>}
+                        {p.salesRep && <span>{p.salesRep}</span>}
+                        {!!p.amount && <span>${Number(p.amount).toLocaleString("en-US")}</span>}
+                      </div>
+                      <div className="text-xs font-semibold" style={{ color: p.closedWon ? "#0B8F72" : QUEUE_COLOR }}>
+                        {p.closedWon ? "Closed won — not on the calendar yet" : "Open deal in the Sales queue"}
+                      </div>
+                      {p.dealId && (
+                        <a
+                          href={hubspotDealUrl(p.dealId)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-[#FF7A59]"
+                        >
+                          <ExternalLink size={11} /> Open in HubSpot
+                        </a>
+                      )}
+                    </div>
+                  </Popup>
+                </CircleMarker>
+              ))}
+            </MarkerClusterGroup>
           </MapContainer>
         </div>
 
-        {unmapped.length > 0 && (
+        {visibleUnmapped.length > 0 && (
           <div className="w-64 shrink-0 overflow-y-auto rounded-2xl border border-concrete-200 bg-white p-4">
             <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">
-              Couldn't place ({unmapped.length})
+              Couldn't place ({visibleUnmapped.length})
             </p>
             <ul className="space-y-2 text-sm">
-              {unmapped.map((l) => (
+              {visibleUnmapped.map((l) => (
                 <li key={l.id} className="text-slate-500">
                   <span className="font-semibold text-vend-black">{l.name}</span>
+                  {l.deal && <span className="text-xs text-slate-400"> (deal)</span>}
                   {l.place ? ` — "${l.place}"` : " — no city set"}
                 </li>
               ))}
