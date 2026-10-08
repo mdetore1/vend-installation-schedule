@@ -511,7 +511,7 @@ export default function LocationsMap({ isAdmin = true }) {
   const saveOverride = isAdmin ? geo.saveOverride : denyWrite;
   const confirmOverride = isAdmin ? geo.confirmOverride : denyWrite;
   const clearOverride = isAdmin ? geo.clearOverride : denyWrite;
-  // Two layers: "Closed" is everything we already have or are working on
+  // Two layers: "Locations" is everything we already have or are working on
   // (live garages, scheduled locations, manual pins, and queue deals marked
   // Closed Won); "Sales queue" is the open deals still being looked at.
   const [showClosed, setShowClosed] = useState(true);
@@ -638,7 +638,7 @@ export default function LocationsMap({ isAdmin = true }) {
         <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-slate-500">
           <div className="flex items-center gap-1.5">
             <LayerToggle on={showClosed} onClick={() => setShowClosed((v) => !v)} title="Locations we already have or are working on">
-              Closed
+              Locations
             </LayerToggle>
             <LayerToggle on={showQueue} onClick={() => setShowQueue((v) => !v)} title="Open deals still in the Sales queue">
               Sales queue ({openQueuePins.length})
