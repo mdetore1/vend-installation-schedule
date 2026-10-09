@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
 import confetti from "canvas-confetti";
 import { Reorder, useDragControls } from "framer-motion";
-import { Calendar, Check, CheckCheck, ChevronDown, ChevronRight, ExternalLink, GripVertical, Layers, ListChecks, Paperclip, PauseCircle, Pencil, Plus, Rocket, Trash2, X } from "lucide-react";
+import { Calendar, Check, CheckCheck, ChevronDown, ChevronRight, ExternalLink, GripVertical, Layers, ListChecks, Paperclip, PauseCircle, Pencil, Plus, Rocket, StickyNote, Trash2, X } from "lucide-react";
 import { useScheduleStore } from "../lib/scheduleStore";
 import { useMapStore } from "../lib/mapStore";
 import { groupPlace } from "../lib/groupPlace";
 import { useUndoToast } from "../lib/useUndoToast";
+import { useDebouncedCommit } from "../lib/useDebouncedCommit";
 import UndoToast from "../components/UndoToast";
 import { canonPhaseLabel, formatDateRange, UNASSIGNED, calendarPhaseHighlight, latestScheduleDate, goLiveStart } from "../lib/dateUtils";
 import { STAGES, STAGE_STYLES, stageByNumber, summarizeChecklist, effectiveStage } from "../lib/checklistUtils";
@@ -317,7 +318,28 @@ function MarkAllButton({ items, onUpdate }) {
   );
 }
 
-function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, reorderable }) {
+// Free-text notes for the team on one task at one location. Types instantly
+// and saves after a pause or on blur (see useDebouncedCommit) — saving every
+// keystroke would refetch the whole schedule per letter.
+function OurNotes({ value, onCommit }) {
+  const field = useDebouncedCommit(value || "", onCommit);
+  return (
+    <div className="mt-3">
+      <p className="mb-1 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+        <StickyNote size={11} /> Our notes
+        <span className="font-medium normal-case tracking-normal text-slate-300">· this location only</span>
+      </p>
+      <Textarea
+        {...field}
+        rows={2}
+        placeholder="Notes for us on this location…"
+        className="!bg-caution-100/30 !text-xs"
+      />
+    </div>
+  );
+}
+
+function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, notesEditable, reorderable }) {
   const [editingInstructions, setEditingInstructions] = useState(false);
   const [instructionsDraft, setInstructionsDraft] = useState(item.instructions || "");
   // Done tasks collapse by default (see below) — expanded lets you click
@@ -429,6 +451,7 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, reorder
             />
           </div>
 
+          {(onEditNotes || item.instructions || item.referenceLinks?.length > 0 || item.links?.length > 0 || item.attachments?.length > 0) && (
           <div className="mt-3.5 rounded-xl bg-concrete-100/50 px-4 py-4">
             {editingInstructions ? (
               <div className="space-y-2">
@@ -535,6 +558,22 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, reorder
               </div>
             )}
           </div>
+          )}
+
+          {/* This location's own notes for the team — separate from the shared
+              instructions above (which change for every location and are
+              edited in Manage Template), so writing here never touches any
+              other location. */}
+          {notesEditable ? (
+            <OurNotes value={item.locationNotes} onCommit={(notes) => onUpdate(item.itemId, { notes })} />
+          ) : (
+            item.locationNotes && (
+              <div className="mt-3 rounded-xl bg-caution-100/40 px-3 py-2.5">
+                <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">Our notes</p>
+                <p className="whitespace-pre-wrap text-xs leading-relaxed text-slate-600">{item.locationNotes}</p>
+              </div>
+            )
+          )}
 
           <div className="mt-2.5 flex items-center gap-4">
             <AddLinkControl onAdd={addLink} />
@@ -632,7 +671,8 @@ function CategoryGroup({ category, items, team, onUpdate, editable, onAddTask, o
               team={team}
               onUpdate={onUpdate}
               onRemove={editable ? () => onRemoveTask(item) : null}
-              onEditNotes={editable ? (patch) => onEditNotes(item, patch) : null}
+              onEditNotes={editable && onEditNotes ? (patch) => onEditNotes(item, patch) : null}
+              notesEditable={editable}
               reorderable
             />
           ))}
@@ -645,7 +685,8 @@ function CategoryGroup({ category, items, team, onUpdate, editable, onAddTask, o
             team={team}
             onUpdate={onUpdate}
             onRemove={editable ? () => onRemoveTask(item) : null}
-            onEditNotes={editable ? (patch) => onEditNotes(item, patch) : null}
+            onEditNotes={editable && onEditNotes ? (patch) => onEditNotes(item, patch) : null}
+            notesEditable={editable}
           />
         ))
       )}
@@ -1128,7 +1169,6 @@ export default function Dashboard({ isAdmin = true }) {
     onUpdate: updateChecklistItem,
     onAddTask: addChecklistItem,
     onRemoveTask: removeTaskForLocation,
-    onEditNotes: (item, patch) => updateChecklistTemplateItem(item.itemId, patch),
     onSetStage: setStageOverride,
     onSetOnHold: setOnHold,
     onMarkComplete: markLocationComplete,
