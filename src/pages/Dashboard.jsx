@@ -49,12 +49,12 @@ function LinkChips({ links, onRemove }) {
       {links.map((l, i) => (
         <span
           key={i}
-          className="inline-flex items-center gap-1 rounded-full bg-beacon px-2.5 py-0.5 text-[11px] font-bold text-white"
+          className="inline-flex items-center gap-1 rounded-full bg-concrete-200 px-2.5 py-0.5 text-[11px] font-bold text-vend-black"
         >
           <a href={l.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
             {l.label || l.url}
           </a>
-          <button type="button" onClick={() => onRemove(i)} aria-label="Remove link" className="text-white/60 transition hover:text-white">
+          <button type="button" onClick={() => onRemove(i)} aria-label="Remove link" className="text-slate-400 transition hover:text-alert-600">
             <X size={10} />
           </button>
         </span>
@@ -68,7 +68,7 @@ function ProgressBar({ done, total }) {
   return (
     <div className="flex shrink-0 items-center gap-2">
       <div className="h-2.5 w-28 overflow-hidden rounded-full bg-concrete-200">
-        <div className="h-full rounded-full bg-gradient-to-r from-beacon via-go to-mint transition-[width]" style={{ width: `${pct}%` }} />
+        <div className="h-full rounded-full bg-gradient-to-r from-go to-mint transition-[width]" style={{ width: `${pct}%` }} />
       </div>
       <span className="w-10 text-right text-sm font-extrabold text-vend-black">{pct}%</span>
     </div>
@@ -207,7 +207,7 @@ function DatePill({ icon: Icon, label, start, end }) {
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold ${
-        label === "Install" ? "bg-beacon text-white" : "bg-go text-[#111114]"
+        label === "Install" ? "bg-mint text-[#111114]" : "bg-go text-[#111114]"
       }`}
     >
       <Icon size={11} className="opacity-80" />
@@ -411,7 +411,7 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, notesEd
               value={item.assigneeId}
               onChange={(e) => onUpdate(item.itemId, { assigneeId: e.target.value })}
               options={[{ value: UNASSIGNED, label: "Unassigned" }, ...team.map((t) => ({ value: t.id, label: t.name }))]}
-              className="!w-auto !rounded-full !border-0 !bg-beacon !py-1 !pl-3 !pr-7 !text-[11px] !font-bold !text-white"
+              className="!w-auto !rounded-full !border-0 !bg-concrete-200 !py-1 !pl-3 !pr-7 !text-[11px] !font-bold !text-vend-black"
             />
           </div>
 
@@ -438,7 +438,7 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, notesEd
                   <button
                     type="button"
                     onClick={saveInstructions}
-                    className="rounded-full bg-beacon px-3 py-1.5 text-xs font-bold text-white hover:brightness-110"
+                    className="rounded-full bg-mint px-3 py-1.5 text-xs font-extrabold text-[#111114] hover:brightness-105"
                   >
                     Save
                   </button>
@@ -552,7 +552,7 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, notesEd
               <button
                 type="button"
                 onClick={() => setNotesOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-full bg-beacon px-3 py-1 text-[11px] font-bold text-white transition hover:brightness-110"
+                className="inline-flex items-center gap-1.5 rounded-full bg-mint px-3 py-1 text-[11px] font-extrabold text-[#111114] transition hover:brightness-105"
               >
                 <StickyNote size={11} /> Add notes
               </button>
@@ -586,7 +586,7 @@ function AddTaskRow({ onAdd }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-concrete-300 px-3 py-1.5 text-xs font-semibold text-slate-400 transition hover:border-beacon hover:text-beacon"
+        className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-concrete-300 px-3 py-1.5 text-xs font-semibold text-slate-400 transition hover:border-mint-600 hover:text-vend-black"
       >
         <Plus size={13} /> Add task
       </button>
@@ -621,7 +621,7 @@ function AddTaskRow({ onAdd }) {
           type="button"
           onClick={submit}
           disabled={!task.trim()}
-          className="rounded-full bg-beacon px-3.5 py-1.5 text-xs font-bold text-white transition hover:brightness-110 disabled:opacity-40"
+          className="rounded-full bg-mint px-3.5 py-1.5 text-xs font-extrabold text-[#111114] transition hover:brightness-105 disabled:opacity-40"
         >
           Add
         </button>
@@ -882,7 +882,7 @@ function ClientGroupCard({ group, locations, team, open, onToggle, onUpdate, onA
   return (
     <div
       className={`overflow-hidden rounded-3xl border-2 bg-white shadow-md transition hover:shadow-xl ${
-        primary.onHold ? "border-dashed border-caution-600" : highlight ? highlightBorderClass(highlight) : "border-beacon/40 hover:border-beacon"
+        primary.onHold ? "border-dashed border-caution-600" : highlight ? highlightBorderClass(highlight) : "border-mint-600/40 hover:border-mint-600"
       }`}
       style={
         primary.onHold
@@ -893,7 +893,7 @@ function ClientGroupCard({ group, locations, team, open, onToggle, onUpdate, onA
       <div className="flex w-full items-center gap-4 px-5 py-4 transition hover:bg-concrete-100/40">
         <button type="button" onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-4 text-left">
           <ChevronRight size={16} className={`shrink-0 text-slate-400 transition-transform ${open ? "rotate-90" : ""}`} />
-          <Layers size={14} className="shrink-0 text-beacon-700" />
+          <Layers size={14} className="shrink-0 text-mint-700" />
           <span className="truncate font-display text-lg font-bold tracking-tight text-vend-black">{group.name}</span>
           {groupPlace(locations) && (
             <span className="truncate text-xs font-medium text-slate-400">{groupPlace(locations)}</span>
@@ -978,7 +978,7 @@ function LocationRow({ location, team, open, onToggle, onUpdate, onAddTask, onRe
           ? "border-2 border-dashed border-caution-600"
           : highlight
           ? `border-2 ${highlightBorderClass(highlight)}`
-          : "border-2 border-concrete-200 hover:border-beacon"
+          : "border-2 border-concrete-200 hover:border-mint-600"
       }`}
       style={
         location.onHold
@@ -1161,7 +1161,7 @@ export default function Dashboard({ isAdmin = true }) {
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-4xl font-bold tracking-tight text-vend-black">Onboarding Dashboard</h1>
-          <span className="mt-2 block h-1.5 w-20 rounded-full bg-gradient-to-r from-mint via-go to-beacon" />
+          <span className="mt-2 block h-1.5 w-20 rounded-full bg-gradient-to-r from-mint to-go" />
           <p className="mt-2.5 text-sm font-medium text-slate-400">
             Track every location's onboarding checklist and assign tasks to the team.
           </p>
@@ -1171,14 +1171,14 @@ export default function Dashboard({ isAdmin = true }) {
             <button
               type="button"
               onClick={() => setShowManageTemplate(true)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-beacon px-4 py-2 text-xs font-bold text-white shadow-md shadow-beacon/30 transition hover:brightness-110"
+              className="inline-flex items-center gap-1.5 rounded-full bg-mint px-4 py-2 text-xs font-extrabold text-[#111114] shadow-md shadow-mint/40 transition hover:brightness-105"
             >
               <ListChecks size={13} /> Manage Template
             </button>
             <button
               type="button"
               onClick={() => setShowGroups(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border-2 border-beacon px-4 py-2 text-xs font-bold text-beacon transition hover:bg-beacon hover:text-white"
+              className="inline-flex items-center gap-1.5 rounded-full border-2 border-mint-600 px-4 py-2 text-xs font-bold text-vend-black transition hover:bg-mint"
             >
               <Layers size={13} /> Group locations
             </button>
@@ -1215,7 +1215,7 @@ export default function Dashboard({ isAdmin = true }) {
           <button
             type="button"
             onClick={() => setLaunchedOpen((v) => !v)}
-            className="flex w-full items-center justify-between bg-beacon px-5 py-3.5 text-left text-white transition hover:brightness-110"
+            className="flex w-full items-center justify-between bg-go px-5 py-3.5 text-left text-[#111114] transition hover:brightness-105"
           >
             <span className="text-sm font-extrabold uppercase tracking-wide">
               Launched Locations <span className="opacity-80">({launched.length + launchedGroups.reduce((n, g) => n + g.members.length, 0)})</span>
