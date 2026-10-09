@@ -49,12 +49,12 @@ function LinkChips({ links, onRemove }) {
       {links.map((l, i) => (
         <span
           key={i}
-          className="inline-flex items-center gap-1 rounded-full bg-beacon-100 px-2 py-0.5 text-[11px] font-semibold text-beacon-700"
+          className="inline-flex items-center gap-1 rounded-full bg-beacon px-2.5 py-0.5 text-[11px] font-bold text-white"
         >
           <a href={l.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
             {l.label || l.url}
           </a>
-          <button type="button" onClick={() => onRemove(i)} aria-label="Remove link" className="text-beacon-700/60 hover:text-beacon-700">
+          <button type="button" onClick={() => onRemove(i)} aria-label="Remove link" className="text-white/60 transition hover:text-white">
             <X size={10} />
           </button>
         </span>
@@ -63,58 +63,14 @@ function LinkChips({ links, onRemove }) {
   );
 }
 
-function AddLinkControl({ onAdd }) {
-  const [open, setOpen] = useState(false);
-  const [label, setLabel] = useState("");
-  const [url, setUrl] = useState("");
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-vend-black"
-      >
-        <Plus size={11} /> Add link
-      </button>
-    );
-  }
-
-  const submit = () => {
-    if (!url.trim()) return;
-    onAdd({ label: label.trim(), url: url.trim() });
-    setLabel("");
-    setUrl("");
-    setOpen(false);
-  };
-
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <TextInput autoFocus value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Label (optional)" className="w-32" />
-      <TextInput value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" className="min-w-[160px] flex-1" />
-      <button
-        type="button"
-        onClick={submit}
-        disabled={!url.trim()}
-        className="rounded-full bg-vend-black px-3 py-1.5 text-xs font-semibold text-white transition disabled:opacity-40"
-      >
-        Add
-      </button>
-      <button type="button" onClick={() => setOpen(false)} className="text-xs font-semibold text-slate-400 hover:text-vend-black">
-        Cancel
-      </button>
-    </div>
-  );
-}
-
 function ProgressBar({ done, total }) {
   const pct = total ? Math.round((done / total) * 100) : 0;
   return (
     <div className="flex shrink-0 items-center gap-2">
-      <div className="h-1.5 w-24 overflow-hidden rounded-full bg-concrete-200">
-        <div className="h-full rounded-full bg-mint-600 transition-[width]" style={{ width: `${pct}%` }} />
+      <div className="h-2.5 w-28 overflow-hidden rounded-full bg-concrete-200">
+        <div className="h-full rounded-full bg-gradient-to-r from-beacon via-go to-mint transition-[width]" style={{ width: `${pct}%` }} />
       </div>
-      <span className="w-9 text-right text-xs font-semibold text-slate-500">{pct}%</span>
+      <span className="w-10 text-right text-sm font-extrabold text-vend-black">{pct}%</span>
     </div>
   );
 }
@@ -129,8 +85,8 @@ function StageControl({ checklist, override, forceComplete, onSetStage }) {
   const stageNum = forceComplete ? null : effectiveStage(checklist, override);
   if (!stageNum) {
     return (
-      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-go-100 px-2.5 py-1 text-xs font-semibold text-go-700">
-        <Check size={12} /> Complete
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-go px-3 py-1 text-[11px] font-extrabold uppercase tracking-wide text-[#111114]">
+        <Check size={12} strokeWidth={3} /> Complete
       </span>
     );
   }
@@ -142,7 +98,7 @@ function StageControl({ checklist, override, forceComplete, onSetStage }) {
         value={stageNum}
         onChange={(e) => onSetStage(Number(e.target.value))}
         title="Move to a different stage"
-        className={`cursor-pointer appearance-none rounded-full py-1 pl-2.5 pr-6 text-xs font-semibold outline-none ${styles.badge}`}
+        className={`cursor-pointer appearance-none rounded-full py-1 pl-3 pr-7 text-[11px] font-extrabold uppercase tracking-wide outline-none transition hover:brightness-105 ${styles.badge}`}
       >
         {STAGES.map((s) => (
           <option key={s.n} value={s.n}>
@@ -150,7 +106,7 @@ function StageControl({ checklist, override, forceComplete, onSetStage }) {
           </option>
         ))}
       </select>
-      <ChevronDown size={10} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 opacity-60" />
+      <ChevronDown size={11} strokeWidth={3} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 opacity-70" />
     </div>
   );
 }
@@ -204,10 +160,10 @@ function MarkCompleteButton({ onClick, ready }) {
         onClick();
       }}
       title="Check everything off and move to Launched Locations"
-      className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full border-2 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wide transition ${
         ready
-          ? "border-go-600 bg-go-600 text-white shadow-sm hover:bg-go-700"
-          : "border-go-600/40 text-go-700 hover:bg-go-100"
+          ? "border-go bg-go text-[#111114] shadow-lg shadow-go/40 hover:brightness-105"
+          : "border-vend-black text-vend-black hover:bg-vend-black hover:text-white"
       }`}
     >
       <CheckCheck size={12} /> Complete
@@ -228,7 +184,7 @@ function OnHoldControl({ onHold, onSetOnHold }) {
         type="button"
         onClick={() => onSetOnHold(false)}
         title="Resume — clears the on-hold status"
-        className="inline-flex shrink-0 items-center gap-1 rounded-full bg-caution-100 px-2 py-0.5 text-[10px] font-semibold text-caution-700 transition hover:bg-caution-200"
+        className="inline-flex shrink-0 items-center gap-1 rounded-full bg-caution px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-[#111114] transition hover:brightness-105"
       >
         <PauseCircle size={10} /> On Hold
       </button>
@@ -249,8 +205,8 @@ function OnHoldControl({ onHold, onSetOnHold }) {
 function DatePill({ icon: Icon, label, start, end }) {
   if (!start) return null;
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-concrete-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500">
-      <Icon size={11} className="text-slate-400" />
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-vend-black px-3 py-1 text-[11px] font-bold text-white">
+      <Icon size={11} className="opacity-70" />
       {label} {formatDateRange(start, end)}
     </span>
   );
@@ -265,8 +221,8 @@ function DatePill({ icon: Icon, label, start, end }) {
 // of the intended color. glow-pulse-* (index.css) adds an actual animated
 // glow around the card, not just a static border.
 function highlightBorderClass(highlight) {
-  if (highlight === "install") return "border-beacon-600 glow-pulse-beacon";
-  if (highlight === "golive") return "border-go-600 glow-pulse-go";
+  if (highlight === "install") return "border-beacon glow-pulse-beacon";
+  if (highlight === "golive") return "border-go glow-pulse-go";
   return "";
 }
 
@@ -275,11 +231,11 @@ function CalendarHighlightBadge({ highlight }) {
   const isInstall = highlight === "install";
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-        isInstall ? "bg-beacon-100 text-beacon-700" : "bg-go-100 text-go-700"
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide ${
+        isInstall ? "bg-beacon text-white" : "bg-go text-[#111114]"
       }`}
     >
-      <span className={`h-1.5 w-1.5 animate-pulse rounded-full ${isInstall ? "bg-beacon-600" : "bg-go-600"}`} />
+      <span className={`h-1.5 w-1.5 animate-pulse rounded-full ${isInstall ? "bg-white" : "bg-[#111114]"}`} />
       {isInstall ? "Installing now" : "Going live now"}
     </span>
   );
@@ -311,30 +267,34 @@ function MarkAllButton({ items, onUpdate }) {
       type="button"
       onClick={() => markAllDone(items, onUpdate)}
       title="Mark all as done"
-      className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold text-slate-500 transition hover:bg-white/70 hover:text-vend-black"
+      className="inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold opacity-80 transition hover:bg-black/10 hover:opacity-100"
     >
       <CheckCheck size={13} /> Mark all
     </button>
   );
 }
 
-// Free-text notes for the team on one task at one location. Types instantly
-// and saves after a pause or on blur (see useDebouncedCommit) — saving every
+// The popout editor for a task's notes at one location. Types instantly and
+// saves after a pause or on blur (see useDebouncedCommit) — saving every
 // keystroke would refetch the whole schedule per letter.
-function OurNotes({ value, onCommit }) {
+function OurNotesEditor({ value, onCommit, onClose }) {
   const field = useDebouncedCommit(value || "", onCommit);
   return (
-    <div className="mt-3">
-      <p className="mb-1 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">
-        <StickyNote size={11} /> Our notes
-        <span className="font-medium normal-case tracking-normal text-slate-300">· this location only</span>
+    <div className="mt-3 rounded-xl border-l-4 border-caution bg-concrete-100 p-3">
+      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-slate-400">
+        <StickyNote size={12} /> Our notes
+        <span className="font-semibold normal-case tracking-normal text-slate-300">· this location only</span>
       </p>
-      <Textarea
-        {...field}
-        rows={2}
-        placeholder="Notes for us on this location…"
-        className="!bg-caution-100/30 !text-xs"
-      />
+      <Textarea {...field} autoFocus rows={3} placeholder="Notes for us on this location…" className="!text-sm" />
+      <div className="mt-2 flex justify-end">
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-full bg-vend-black px-3.5 py-1 text-xs font-bold text-white transition hover:opacity-85"
+        >
+          Done
+        </button>
+      </div>
     </div>
   );
 }
@@ -345,9 +305,9 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, notesEd
   // Done tasks collapse by default (see below) — expanded lets you click
   // back into one to review or edit what's already checked off.
   const [expanded, setExpanded] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
   const controls = useDragControls();
 
-  const addLink = (link) => onUpdate(item.itemId, { links: [...(item.links || []), link] });
   const removeLink = (idx) => onUpdate(item.itemId, { links: item.links.filter((_, i) => i !== idx) });
   // Reference links and attachments live on the shared template (same as
   // instructions), so adding/removing either is a template edit — it
@@ -439,7 +399,7 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, notesEd
 
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             {item.timing && (
-              <span className="shrink-0 rounded-full bg-concrete-200 px-2.5 py-1 text-[11px] font-semibold text-slate-500">
+              <span className="shrink-0 rounded-full bg-concrete-200 px-3 py-1 text-[11px] font-bold text-vend-black">
                 {item.timing}
               </span>
             )}
@@ -447,7 +407,7 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, notesEd
               value={item.assigneeId}
               onChange={(e) => onUpdate(item.itemId, { assigneeId: e.target.value })}
               options={[{ value: UNASSIGNED, label: "Unassigned" }, ...team.map((t) => ({ value: t.id, label: t.name }))]}
-              className="!w-auto !rounded-full !border-0 !bg-beacon-100 !py-1 !pl-2.5 !pr-7 !text-[11px] !font-semibold !text-beacon-700"
+              className="!w-auto !rounded-full !border-0 !bg-beacon !py-1 !pl-3 !pr-7 !text-[11px] !font-bold !text-white"
             />
           </div>
 
@@ -563,20 +523,36 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, notesEd
           {/* This location's own notes for the team — separate from the shared
               instructions above (which change for every location and are
               edited in Manage Template), so writing here never touches any
-              other location. */}
-          {notesEditable ? (
-            <OurNotes value={item.locationNotes} onCommit={(notes) => onUpdate(item.itemId, { notes })} />
+              other location. Opened by the "Add notes" button below; once
+              there are notes they show as a card you click to edit. */}
+          {notesEditable && notesOpen ? (
+            <OurNotesEditor value={item.locationNotes} onCommit={(notes) => onUpdate(item.itemId, { notes })} onClose={() => setNotesOpen(false)} />
           ) : (
             item.locationNotes && (
-              <div className="mt-3 rounded-xl bg-caution-100/40 px-3 py-2.5">
-                <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">Our notes</p>
-                <p className="whitespace-pre-wrap text-xs leading-relaxed text-slate-600">{item.locationNotes}</p>
+              <div
+                className={`mt-3 rounded-xl border-l-4 border-caution bg-concrete-100 px-3.5 py-2.5 ${notesEditable ? "group/notes relative cursor-text transition hover:bg-concrete-200/60" : ""}`}
+                onClick={notesEditable ? () => setNotesOpen(true) : undefined}
+                title={notesEditable ? "Click to edit — these notes are for this location only" : undefined}
+              >
+                <p className="mb-1 text-[11px] font-extrabold uppercase tracking-wide text-slate-400">Our notes</p>
+                <p className="whitespace-pre-wrap pr-6 text-sm leading-relaxed text-vend-black">{item.locationNotes}</p>
+                {notesEditable && (
+                  <Pencil size={13} className="absolute right-2.5 top-2.5 text-slate-300 opacity-0 transition group-hover/notes:opacity-100" />
+                )}
               </div>
             )
           )}
 
           <div className="mt-2.5 flex items-center gap-4">
-            <AddLinkControl onAdd={addLink} />
+            {notesEditable && !notesOpen && !item.locationNotes && (
+              <button
+                type="button"
+                onClick={() => setNotesOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-full bg-vend-black px-3 py-1 text-[11px] font-bold text-white transition hover:opacity-85"
+              >
+                <StickyNote size={11} /> Add notes
+              </button>
+            )}
             {onEditNotes && <AttachmentUploadButton onAdd={addAttachment} />}
           </div>
         </div>
@@ -780,24 +756,24 @@ function StageAccordion({ stage, categories, open, onToggle, team, onUpdate, edi
   ));
 
   return (
-    <div className="overflow-hidden rounded-xl border border-concrete-200 bg-white">
-      <div className={`flex items-center gap-3 px-4 py-3 transition ${styles.header}`}>
+    <div className="overflow-hidden rounded-2xl border-2 border-concrete-200 bg-white">
+      <div className={`flex items-center gap-3 px-4 py-3 transition ${complete ? "bg-concrete-100 text-slate-400" : `${styles.header} ${styles.ink}`}`}>
         <button type="button" onClick={onToggle} className="flex flex-1 items-center gap-3 text-left">
           {complete ? (
             <Check size={14} className="shrink-0 text-go-600" />
           ) : (
-            <span className={`h-2 w-2 shrink-0 rounded-full ${styles.dot}`} />
+            <span className="h-2 w-2 shrink-0 rounded-full bg-current opacity-70" />
           )}
-          <span className={`flex-1 font-display text-sm font-bold ${complete ? "text-slate-400 line-through" : "text-vend-black"}`}>
+          <span className={`flex-1 font-display text-sm font-extrabold uppercase tracking-wide ${complete ? "line-through" : ""}`}>
             {stage.label}
           </span>
-          <span className="text-xs font-semibold text-slate-500">
+          <span className="text-xs font-extrabold opacity-80">
             {done}/{items.length}
           </span>
         </button>
         {editable && <MarkAllButton items={items} onUpdate={onUpdate} />}
         <button type="button" onClick={onToggle} aria-label="Toggle stage" className="shrink-0">
-          <ChevronDown size={14} className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+          <ChevronDown size={14} strokeWidth={3} className={`opacity-70 transition-transform ${open ? "rotate-180" : ""}`} />
         </button>
       </div>
       <div className={`grid transition-[grid-template-rows] duration-300 ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
@@ -901,8 +877,8 @@ function ClientGroupCard({ group, locations, team, open, onToggle, onUpdate, onA
 
   return (
     <div
-      className={`overflow-hidden rounded-2xl border-2 bg-white shadow-sm transition-shadow hover:shadow-md ${
-        primary.onHold ? "border-dashed border-caution-600" : highlight ? highlightBorderClass(highlight) : "border-beacon-600/30"
+      className={`overflow-hidden rounded-3xl border-2 bg-white shadow-md transition hover:shadow-xl ${
+        primary.onHold ? "border-dashed border-caution-600" : highlight ? highlightBorderClass(highlight) : "border-beacon/40 hover:border-beacon"
       }`}
       style={
         primary.onHold
@@ -914,7 +890,7 @@ function ClientGroupCard({ group, locations, team, open, onToggle, onUpdate, onA
         <button type="button" onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-4 text-left">
           <ChevronRight size={16} className={`shrink-0 text-slate-400 transition-transform ${open ? "rotate-90" : ""}`} />
           <Layers size={14} className="shrink-0 text-beacon-700" />
-          <span className="truncate font-display text-sm font-bold text-vend-black">{group.name}</span>
+          <span className="truncate font-display text-lg font-bold tracking-tight text-vend-black">{group.name}</span>
           {groupPlace(locations) && (
             <span className="truncate text-xs font-medium text-slate-400">{groupPlace(locations)}</span>
           )}
@@ -955,7 +931,7 @@ function ClientGroupCard({ group, locations, team, open, onToggle, onUpdate, onA
       {showMembers && (
         <div className="flex flex-wrap items-center gap-1.5 px-5 pb-3">
           {locations.map((l) => (
-            <span key={l.id} className="rounded-full bg-concrete-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500">
+            <span key={l.id} className="rounded-full bg-concrete-200 px-3 py-1 text-[11px] font-bold text-vend-black">
               {l.name}
             </span>
           ))}
@@ -993,12 +969,12 @@ function LocationRow({ location, team, open, onToggle, onUpdate, onAddTask, onRe
 
   return (
     <div
-      className={`overflow-hidden rounded-2xl bg-white shadow-sm transition-shadow hover:shadow-md ${
+      className={`overflow-hidden rounded-3xl bg-white shadow-md transition hover:shadow-xl ${
         location.onHold
           ? "border-2 border-dashed border-caution-600"
           : highlight
           ? `border-2 ${highlightBorderClass(highlight)}`
-          : "border border-concrete-200"
+          : "border-2 border-concrete-200 hover:border-vend-black"
       }`}
       style={
         location.onHold
@@ -1011,10 +987,10 @@ function LocationRow({ location, team, open, onToggle, onUpdate, onAddTask, onRe
           <ChevronRight size={16} className={`shrink-0 text-slate-400 transition-transform ${open ? "rotate-90" : ""}`} />
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2">
-              <span className="truncate font-display text-sm font-bold text-vend-black">{location.name}</span>
+              <span className="truncate font-display text-lg font-bold tracking-tight text-vend-black">{location.name}</span>
               {location.place && <span className="truncate text-xs font-medium text-slate-400">{location.place}</span>}
               {location.hasOnsiteStaff && (
-                <span className="shrink-0 rounded-full bg-mint-200 px-2 py-0.5 text-[10px] font-bold text-mint-700">Spark</span>
+                <span className="shrink-0 rounded-full bg-mint px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-[#111114]">Spark</span>
               )}
               <CalendarHighlightBadge highlight={highlight} />
             </div>
@@ -1180,8 +1156,9 @@ export default function Dashboard({ isAdmin = true }) {
     <div className="mx-auto max-w-5xl px-6 py-8">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-bold text-vend-black">Onboarding Dashboard</h1>
-          <p className="mt-1 text-sm text-slate-400">
+          <h1 className="font-display text-4xl font-bold tracking-tight text-vend-black">Onboarding Dashboard</h1>
+          <span className="mt-2 block h-1.5 w-20 rounded-full bg-gradient-to-r from-mint via-go to-beacon" />
+          <p className="mt-2.5 text-sm font-medium text-slate-400">
             Track every location's onboarding checklist and assign tasks to the team.
           </p>
         </div>
@@ -1190,14 +1167,14 @@ export default function Dashboard({ isAdmin = true }) {
             <button
               type="button"
               onClick={() => setShowManageTemplate(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-concrete-300 px-3.5 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-vend-black hover:text-vend-black"
+              className="inline-flex items-center gap-1.5 rounded-full bg-vend-black px-4 py-2 text-xs font-bold text-white shadow-md transition hover:opacity-85"
             >
               <ListChecks size={13} /> Manage Template
             </button>
             <button
               type="button"
               onClick={() => setShowGroups(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-concrete-300 px-3.5 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-vend-black hover:text-vend-black"
+              className="inline-flex items-center gap-1.5 rounded-full border-2 border-vend-black px-4 py-2 text-xs font-bold text-vend-black transition hover:bg-vend-black hover:text-white"
             >
               <Layers size={13} /> Group locations
             </button>
@@ -1230,13 +1207,13 @@ export default function Dashboard({ isAdmin = true }) {
       </div>
 
       {!!(launched.length || launchedGroups.length) && (
-        <div className="mt-6 overflow-hidden rounded-2xl border border-concrete-200">
+        <div className="mt-8 overflow-hidden rounded-3xl border-2 border-concrete-200">
           <button
             type="button"
             onClick={() => setLaunchedOpen((v) => !v)}
-            className="flex w-full items-center justify-between bg-beacon-700 px-5 py-3 text-left text-white transition hover:bg-beacon-700/90"
+            className="flex w-full items-center justify-between bg-vend-black px-5 py-3.5 text-left text-white transition hover:opacity-90"
           >
-            <span className="text-sm font-semibold">
+            <span className="text-sm font-extrabold uppercase tracking-wide">
               Launched Locations <span className="opacity-80">({launched.length + launchedGroups.reduce((n, g) => n + g.members.length, 0)})</span>
             </span>
             <ChevronDown size={16} className={`transition-transform ${launchedOpen ? "rotate-180" : ""}`} />
