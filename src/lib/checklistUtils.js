@@ -9,15 +9,15 @@ export const STAGES = [
   { n: 4, label: "Post Go-Live / Handoff", color: "mint" },
 ];
 
-// Solid, saturated stage colors (badge = the stage pill, header = the stage
-// accordion's bar, ink = readable text on that bar). Ink is fixed rather than
+// Stage colors: badge is the solid stage pill, dot the small marker, accent the
+// thin bar on a stage's accordion header. Ink is fixed rather than
 // theme-driven because these fills are the same bright color in light and
 // dark mode.
 export const STAGE_STYLES = {
-  beacon: { badge: "bg-beacon text-white", dot: "bg-beacon", header: "bg-beacon", ink: "text-white" },
-  caution: { badge: "bg-caution text-[#111114]", dot: "bg-caution", header: "bg-caution", ink: "text-[#111114]" },
-  go: { badge: "bg-go text-[#111114]", dot: "bg-go", header: "bg-go", ink: "text-[#111114]" },
-  mint: { badge: "bg-mint text-[#111114]", dot: "bg-mint", header: "bg-mint", ink: "text-[#111114]" },
+  beacon: { badge: "bg-beacon text-white", dot: "bg-beacon", accent: "border-beacon" },
+  caution: { badge: "bg-caution text-[#111114]", dot: "bg-caution", accent: "border-caution" },
+  go: { badge: "bg-go text-[#111114]", dot: "bg-go", accent: "border-go" },
+  mint: { badge: "bg-mint text-[#111114]", dot: "bg-mint", accent: "border-mint" },
 };
 
 export function stageByNumber(n) {

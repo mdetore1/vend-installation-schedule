@@ -63,14 +63,14 @@ function LinkChips({ links, onRemove }) {
   );
 }
 
-function ProgressBar({ done, total }) {
+function ProgressBar({ done, total, fillClass = "bg-go" }) {
   const pct = total ? Math.round((done / total) * 100) : 0;
   return (
     <div className="flex shrink-0 items-center gap-2">
-      <div className="h-2.5 w-28 overflow-hidden rounded-full bg-concrete-200">
-        <div className="h-full rounded-full bg-gradient-to-r from-go to-mint transition-[width]" style={{ width: `${pct}%` }} />
+      <div className="h-2 w-24 overflow-hidden rounded-full bg-concrete-200">
+        <div className={`h-full rounded-full transition-[width] ${fillClass}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="w-10 text-right text-sm font-extrabold text-vend-black">{pct}%</span>
+      <span className="w-9 text-right text-xs font-semibold text-slate-500">{pct}%</span>
     </div>
   );
 }
@@ -81,12 +81,20 @@ function ProgressBar({ done, total }) {
 // the row's own toggle button (that would be invalid HTML and would also
 // toggle the row open/closed on every stage change), so callers place this
 // as a sibling of the toggle button, not inside it.
+// The bar's fill matches the row's current stage color, so the stage pill is
+// the one colored thing in a row and the bar just echoes it.
+function stageFillClass(checklist, override, forceComplete) {
+  const n = forceComplete ? null : effectiveStage(checklist, override);
+  const stage = n ? stageByNumber(n) : null;
+  return stage ? STAGE_STYLES[stage.color].dot : "bg-go";
+}
+
 function StageControl({ checklist, override, forceComplete, onSetStage }) {
   const stageNum = forceComplete ? null : effectiveStage(checklist, override);
   if (!stageNum) {
     return (
-      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-go px-3 py-1 text-[11px] font-extrabold uppercase tracking-wide text-[#111114]">
-        <Check size={12} strokeWidth={3} /> Complete
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-go px-3 py-1 text-xs font-semibold text-[#111114]">
+        <Check size={12} /> Complete
       </span>
     );
   }
@@ -98,7 +106,7 @@ function StageControl({ checklist, override, forceComplete, onSetStage }) {
         value={stageNum}
         onChange={(e) => onSetStage(Number(e.target.value))}
         title="Move to a different stage"
-        className={`cursor-pointer appearance-none rounded-full py-1 pl-3 pr-7 text-[11px] font-extrabold uppercase tracking-wide outline-none transition hover:brightness-105 ${styles.badge}`}
+        className={`cursor-pointer appearance-none rounded-full py-1 pl-3 pr-7 text-xs font-semibold outline-none transition hover:brightness-105 ${styles.badge}`}
       >
         {STAGES.map((s) => (
           <option key={s.n} value={s.n}>
@@ -106,7 +114,7 @@ function StageControl({ checklist, override, forceComplete, onSetStage }) {
           </option>
         ))}
       </select>
-      <ChevronDown size={11} strokeWidth={3} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 opacity-70" />
+      <ChevronDown size={11} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 opacity-70" />
     </div>
   );
 }
@@ -160,10 +168,10 @@ function MarkCompleteButton({ onClick, ready }) {
         onClick();
       }}
       title="Check everything off and move to Launched Locations"
-      className={`inline-flex shrink-0 items-center gap-1 rounded-full border-2 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wide transition ${
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold transition ${
         ready
-          ? "border-go bg-go text-[#111114] shadow-lg shadow-go/40 hover:brightness-105"
-          : "border-go text-go-700 hover:bg-go hover:text-[#111114]"
+          ? "border-go bg-go text-[#111114] hover:brightness-105"
+          : "border-concrete-300 text-slate-500 hover:border-go hover:text-go-700"
       }`}
     >
       <CheckCheck size={12} /> Complete
@@ -184,7 +192,7 @@ function OnHoldControl({ onHold, onSetOnHold }) {
         type="button"
         onClick={() => onSetOnHold(false)}
         title="Resume — clears the on-hold status"
-        className="inline-flex shrink-0 items-center gap-1 rounded-full bg-caution px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-[#111114] transition hover:brightness-105"
+        className="inline-flex shrink-0 items-center gap-1 rounded-full bg-caution px-2.5 py-1 text-[11px] font-semibold text-[#111114] transition hover:brightness-105"
       >
         <PauseCircle size={10} /> On Hold
       </button>
@@ -205,12 +213,8 @@ function OnHoldControl({ onHold, onSetOnHold }) {
 function DatePill({ icon: Icon, label, start, end }) {
   if (!start) return null;
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold ${
-        label === "Install" ? "bg-mint text-[#111114]" : "bg-go text-[#111114]"
-      }`}
-    >
-      <Icon size={11} className="opacity-80" />
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-concrete-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500">
+      <Icon size={11} className="text-slate-400" />
       {label} {formatDateRange(start, end)}
     </span>
   );
@@ -235,7 +239,7 @@ function CalendarHighlightBadge({ highlight }) {
   const isInstall = highlight === "install";
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide ${
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
         isInstall ? "bg-beacon text-white" : "bg-go text-[#111114]"
       }`}
     >
@@ -271,7 +275,7 @@ function MarkAllButton({ items, onUpdate }) {
       type="button"
       onClick={() => markAllDone(items, onUpdate)}
       title="Mark all as done"
-      className="inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold opacity-80 transition hover:bg-black/10 hover:opacity-100"
+      className="inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-500 transition hover:bg-white hover:text-vend-black"
     >
       <CheckCheck size={13} /> Mark all
     </button>
@@ -294,7 +298,7 @@ function OurNotesEditor({ value, onCommit, onClose }) {
         <button
           type="button"
           onClick={onClose}
-          className="rounded-full bg-go px-3.5 py-1 text-xs font-extrabold text-[#111114] transition hover:brightness-105"
+          className="rounded-full bg-concrete-200 px-3.5 py-1 text-xs font-semibold text-vend-black transition hover:bg-concrete-300"
         >
           Done
         </button>
@@ -438,7 +442,7 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, notesEd
                   <button
                     type="button"
                     onClick={saveInstructions}
-                    className="rounded-full bg-mint px-3 py-1.5 text-xs font-extrabold text-[#111114] hover:brightness-105"
+                    className="rounded-full bg-concrete-200 px-3 py-1.5 text-xs font-semibold text-vend-black hover:bg-concrete-300"
                   >
                     Save
                   </button>
@@ -552,7 +556,7 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, notesEd
               <button
                 type="button"
                 onClick={() => setNotesOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-full bg-mint px-3 py-1 text-[11px] font-extrabold text-[#111114] transition hover:brightness-105"
+                className="inline-flex items-center gap-1.5 rounded-full bg-concrete-100 px-3 py-1 text-[11px] font-semibold text-slate-500 transition hover:bg-concrete-200 hover:text-vend-black"
               >
                 <StickyNote size={11} /> Add notes
               </button>
@@ -621,7 +625,7 @@ function AddTaskRow({ onAdd }) {
           type="button"
           onClick={submit}
           disabled={!task.trim()}
-          className="rounded-full bg-mint px-3.5 py-1.5 text-xs font-extrabold text-[#111114] transition hover:brightness-105 disabled:opacity-40"
+          className="rounded-full bg-concrete-200 px-3.5 py-1.5 text-xs font-semibold text-vend-black transition hover:bg-concrete-300 disabled:opacity-40"
         >
           Add
         </button>
@@ -760,24 +764,24 @@ function StageAccordion({ stage, categories, open, onToggle, team, onUpdate, edi
   ));
 
   return (
-    <div className="overflow-hidden rounded-2xl border-2 border-concrete-200 bg-white">
-      <div className={`flex items-center gap-3 px-4 py-3 transition ${complete ? "bg-concrete-100 text-slate-400" : `${styles.header} ${styles.ink}`}`}>
+    <div className="overflow-hidden rounded-xl border border-concrete-200 bg-white">
+      <div className={`flex items-center gap-3 border-l-4 bg-concrete-100/70 px-4 py-3 transition ${complete ? "border-concrete-300 text-slate-400" : `${styles.accent} text-vend-black`}`}>
         <button type="button" onClick={onToggle} className="flex flex-1 items-center gap-3 text-left">
           {complete ? (
             <Check size={14} className="shrink-0 text-go-600" />
           ) : (
-            <span className="h-2 w-2 shrink-0 rounded-full bg-current opacity-70" />
+            <span className={`h-2 w-2 shrink-0 rounded-full ${styles.dot}`} />
           )}
-          <span className={`flex-1 font-display text-sm font-extrabold uppercase tracking-wide ${complete ? "line-through" : ""}`}>
+          <span className={`flex-1 font-display text-sm font-bold ${complete ? "line-through" : ""}`}>
             {stage.label}
           </span>
-          <span className="text-xs font-extrabold opacity-80">
+          <span className="text-xs font-semibold text-slate-500">
             {done}/{items.length}
           </span>
         </button>
         {editable && <MarkAllButton items={items} onUpdate={onUpdate} />}
         <button type="button" onClick={onToggle} aria-label="Toggle stage" className="shrink-0">
-          <ChevronDown size={14} strokeWidth={3} className={`opacity-70 transition-transform ${open ? "rotate-180" : ""}`} />
+          <ChevronDown size={14} className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
         </button>
       </div>
       <div className={`grid transition-[grid-template-rows] duration-300 ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
@@ -881,8 +885,8 @@ function ClientGroupCard({ group, locations, team, open, onToggle, onUpdate, onA
 
   return (
     <div
-      className={`overflow-hidden rounded-3xl border-2 bg-white shadow-md transition hover:shadow-xl ${
-        primary.onHold ? "border-dashed border-caution-600" : highlight ? highlightBorderClass(highlight) : "border-mint-600/40 hover:border-mint-600"
+      className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition hover:shadow-md ${
+        primary.onHold ? "border-dashed border-caution-600" : highlight ? highlightBorderClass(highlight) : "border-concrete-200 hover:border-slate-300"
       }`}
       style={
         primary.onHold
@@ -893,8 +897,8 @@ function ClientGroupCard({ group, locations, team, open, onToggle, onUpdate, onA
       <div className="flex w-full items-center gap-4 px-5 py-4 transition hover:bg-concrete-100/40">
         <button type="button" onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-4 text-left">
           <ChevronRight size={16} className={`shrink-0 text-slate-400 transition-transform ${open ? "rotate-90" : ""}`} />
-          <Layers size={14} className="shrink-0 text-mint-700" />
-          <span className="truncate font-display text-lg font-bold tracking-tight text-vend-black">{group.name}</span>
+          <Layers size={14} className="shrink-0 text-slate-400" />
+          <span className="truncate font-display text-base font-bold text-vend-black">{group.name}</span>
           {groupPlace(locations) && (
             <span className="truncate text-xs font-medium text-slate-400">{groupPlace(locations)}</span>
           )}
@@ -908,7 +912,7 @@ function ClientGroupCard({ group, locations, team, open, onToggle, onUpdate, onA
           {locations.length} locations
           <ChevronDown size={12} className={`transition-transform ${showMembers ? "rotate-180" : ""}`} />
         </button>
-        <ProgressBar done={done} total={total} />
+        <ProgressBar done={done} total={total} fillClass={stageFillClass(primary.checklist, primary.stageOverride, !editable)} />
         <StageControl
           checklist={primary.checklist}
           override={primary.stageOverride}
@@ -973,12 +977,12 @@ function LocationRow({ location, team, open, onToggle, onUpdate, onAddTask, onRe
 
   return (
     <div
-      className={`overflow-hidden rounded-3xl bg-white shadow-md transition hover:shadow-xl ${
+      className={`overflow-hidden rounded-2xl bg-white shadow-sm transition hover:shadow-md ${
         location.onHold
           ? "border-2 border-dashed border-caution-600"
           : highlight
           ? `border-2 ${highlightBorderClass(highlight)}`
-          : "border-2 border-concrete-200 hover:border-mint-600"
+          : "border border-concrete-200 hover:border-slate-300"
       }`}
       style={
         location.onHold
@@ -991,16 +995,16 @@ function LocationRow({ location, team, open, onToggle, onUpdate, onAddTask, onRe
           <ChevronRight size={16} className={`shrink-0 text-slate-400 transition-transform ${open ? "rotate-90" : ""}`} />
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2">
-              <span className="truncate font-display text-lg font-bold tracking-tight text-vend-black">{location.name}</span>
+              <span className="truncate font-display text-base font-bold text-vend-black">{location.name}</span>
               {location.place && <span className="truncate text-xs font-medium text-slate-400">{location.place}</span>}
               {location.hasOnsiteStaff && (
-                <span className="shrink-0 rounded-full bg-mint px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-[#111114]">Spark</span>
+                <span className="shrink-0 rounded-full bg-mint px-2.5 py-0.5 text-[11px] font-semibold text-[#111114]">Spark</span>
               )}
               <CalendarHighlightBadge highlight={highlight} />
             </div>
           </div>
         </button>
-        <ProgressBar done={done} total={total} />
+        <ProgressBar done={done} total={total} fillClass={stageFillClass(location.checklist, location.stageOverride, !editable)} />
         <StageControl
           checklist={location.checklist}
           override={location.stageOverride}
@@ -1160,8 +1164,8 @@ export default function Dashboard({ isAdmin = true }) {
     <div className="mx-auto max-w-5xl px-6 py-8">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-4xl font-bold tracking-tight text-vend-black">Onboarding Dashboard</h1>
-          <span className="mt-2 block h-1.5 w-20 rounded-full bg-gradient-to-r from-mint to-go" />
+          <h1 className="font-display text-3xl font-bold text-vend-black">Onboarding Dashboard</h1>
+          <span className="mt-2 block h-1 w-12 rounded-full bg-mint" />
           <p className="mt-2.5 text-sm font-medium text-slate-400">
             Track every location's onboarding checklist and assign tasks to the team.
           </p>
@@ -1171,14 +1175,14 @@ export default function Dashboard({ isAdmin = true }) {
             <button
               type="button"
               onClick={() => setShowManageTemplate(true)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-mint px-4 py-2 text-xs font-extrabold text-[#111114] shadow-md shadow-mint/40 transition hover:brightness-105"
+              className="inline-flex items-center gap-1.5 rounded-full border border-concrete-300 px-3.5 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-vend-black hover:text-vend-black"
             >
               <ListChecks size={13} /> Manage Template
             </button>
             <button
               type="button"
               onClick={() => setShowGroups(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border-2 border-mint-600 px-4 py-2 text-xs font-bold text-vend-black transition hover:bg-mint"
+              className="inline-flex items-center gap-1.5 rounded-full border border-concrete-300 px-3.5 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-vend-black hover:text-vend-black"
             >
               <Layers size={13} /> Group locations
             </button>
@@ -1211,13 +1215,13 @@ export default function Dashboard({ isAdmin = true }) {
       </div>
 
       {!!(launched.length || launchedGroups.length) && (
-        <div className="mt-8 overflow-hidden rounded-3xl border-2 border-concrete-200">
+        <div className="mt-8 overflow-hidden rounded-2xl border border-concrete-200">
           <button
             type="button"
             onClick={() => setLaunchedOpen((v) => !v)}
-            className="flex w-full items-center justify-between bg-go px-5 py-3.5 text-left text-[#111114] transition hover:brightness-105"
+            className="flex w-full items-center justify-between bg-concrete-100 px-5 py-3 text-left text-vend-black transition hover:bg-concrete-200"
           >
-            <span className="text-sm font-extrabold uppercase tracking-wide">
+            <span className="text-sm font-semibold">
               Launched Locations <span className="opacity-80">({launched.length + launchedGroups.reduce((n, g) => n + g.members.length, 0)})</span>
             </span>
             <ChevronDown size={16} className={`transition-transform ${launchedOpen ? "rotate-180" : ""}`} />
