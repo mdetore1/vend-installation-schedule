@@ -247,9 +247,15 @@ export function useScheduleStore() {
                     category: item.category,
                     task: item.task,
                     timing: item.timing,
-                    instructions: item.notes,
-                    referenceLinks: item.referenceLinks,
-                    attachments: item.attachments,
+                    // A location's own edit (checklist_progress.*_override)
+                    // wins over the shared template's; null inherits it.
+                    instructions: p?.instructions_override ?? item.notes,
+                    referenceLinks: p?.reference_links_override ?? item.referenceLinks,
+                    attachments: p?.attachments_override ?? item.attachments,
+                    editedForLocation:
+                      p?.instructions_override != null ||
+                      p?.reference_links_override != null ||
+                      p?.attachments_override != null,
                     sortOrder: item.sortOrder,
                     locationId: item.locationId,
                     done: p?.done ?? false,
@@ -687,7 +693,22 @@ export function useScheduleStore() {
     if (patch.notes !== undefined) row.notes = patch.notes || null;
     if (patch.links !== undefined) row.links = patch.links;
     if (patch.excluded !== undefined) row.excluded = patch.excluded;
-    await supabase.from("checklist_progress").upsert(row, { onConflict: "location_id,checklist_item_id" });
+    // This location's own version of the template's instructions/links/
+    // attachments — leaves every other location (and Manage Template) alone.
+    if (patch.instructions !== undefined) row.instructions_override = patch.instructions;
+    if (patch.referenceLinks !== undefined) row.reference_links_override = patch.referenceLinks;
+    if (patch.attachments !== undefined) row.attachments_override = patch.attachments;
+    if (patch.resetOverrides) {
+      row.instructions_override = null;
+      row.reference_links_override = null;
+      row.attachments_override = null;
+    }
+    const { error } = await supabase.from("checklist_progress").upsert(row, { onConflict: "location_id,checklist_item_id" });
+    if (error && ("instructions" in patch || "referenceLinks" in patch || "attachments" in patch || patch.resetOverrides)) {
+      window.alert(
+        `Couldn't save this edit: ${error.message}\n\n(The per-location edit columns may not have been added yet — run supabase/schema_checklist_overrides.sql once.)`
+      );
+    }
   }
 
   // ---- checklist template (affects every non-archived location live —

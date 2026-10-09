@@ -327,9 +327,8 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, reorder
 
   const addLink = (link) => onUpdate(item.itemId, { links: [...(item.links || []), link] });
   const removeLink = (idx) => onUpdate(item.itemId, { links: item.links.filter((_, i) => i !== idx) });
-  // Reference links and attachments live on the shared template (same as
-  // instructions), so adding/removing either is a template edit — it
-  // changes for every location.
+  // Instructions, reference links and attachments are edited for THIS location
+  // only (Manage Template is where the shared copy changes for everyone).
   const removeReferenceLink = (idx) => onEditNotes({ referenceLinks: item.referenceLinks.filter((_, i) => i !== idx) });
   const addAttachment = (file) => onEditNotes({ attachments: [...(item.attachments || []), file] });
   const removeAttachment = (idx) => onEditNotes({ attachments: item.attachments.filter((_, i) => i !== idx) });
@@ -468,7 +467,7 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, reorder
                       }
                     : undefined
                 }
-                title={onEditNotes ? "Click to edit — updates this task's notes for every location" : undefined}
+                title={onEditNotes ? "Click to edit — changes this location only (use Manage Template to change them for every location)" : undefined}
               >
                 {item.instructions ? (
                   <p className="whitespace-pre-wrap pr-7 text-sm leading-relaxed text-slate-600">{linkify(item.instructions)}</p>
@@ -482,6 +481,19 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, reorder
                   />
                 )}
               </div>
+            )}
+            {onEditNotes && item.editedForLocation && !editingInstructions && (
+              <p className="mt-2 flex flex-wrap items-center gap-x-2 text-[11px] font-semibold text-slate-400">
+                Edited for this location only
+                <button
+                  type="button"
+                  onClick={() => onEditNotes({ reset: true })}
+                  title="Throw away this location's edits and go back to the shared template's version"
+                  className="text-beacon-700 hover:underline"
+                >
+                  Reset to template
+                </button>
+              </p>
             )}
             {(item.referenceLinks?.length > 0 || item.links?.length > 0 || item.attachments?.length > 0) && (
               <div className="mt-3 space-y-1.5 border-t border-concrete-200/70 pt-3">
@@ -500,7 +512,7 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, reorder
                         type="button"
                         onClick={() => removeReferenceLink(i)}
                         aria-label="Remove reference link"
-                        title="Remove — updates this task for every location"
+                        title="Remove — this location only"
                         className="shrink-0 text-beacon-700/50 hover:text-alert-600"
                       >
                         <X size={11} />
@@ -523,7 +535,7 @@ function ChecklistTaskRow({ item, team, onUpdate, onRemove, onEditNotes, reorder
                         type="button"
                         onClick={() => removeAttachment(i)}
                         aria-label="Remove attachment"
-                        title="Remove — updates this task for every location"
+                        title="Remove — this location only"
                         className="shrink-0 text-mint-700/50 hover:text-alert-600"
                       >
                         <X size={11} />
@@ -929,7 +941,7 @@ function ClientGroupCard({ group, locations, team, open, onToggle, onUpdate, onA
             editable={editable}
             onAddTask={(fields) => onAddTask({ ...fields, locationId: primary.id })}
             onRemoveTask={(item) => onRemoveTask(primary.id, item)}
-            onEditNotes={onEditNotes}
+            onEditNotes={(item, patch) => onEditNotes(primary.id, item, patch)}
             onReorderCategories={onReorderCategories}
             onReorderTasks={onReorderTasks}
           />
@@ -1008,7 +1020,7 @@ function LocationRow({ location, team, open, onToggle, onUpdate, onAddTask, onRe
             editable={editable}
             onAddTask={(fields) => onAddTask({ ...fields, locationId: location.id })}
             onRemoveTask={(item) => onRemoveTask(location.id, item)}
-            onEditNotes={onEditNotes}
+            onEditNotes={(item, patch) => onEditNotes(location.id, item, patch)}
             onReorderCategories={onReorderCategories}
             onReorderTasks={onReorderTasks}
           />
@@ -1128,7 +1140,16 @@ export default function Dashboard({ isAdmin = true }) {
     onUpdate: updateChecklistItem,
     onAddTask: addChecklistItem,
     onRemoveTask: removeTaskForLocation,
-    onEditNotes: (item, patch) => updateChecklistTemplateItem(item.itemId, patch),
+    // Edits made inside a location apply to that location only. A task that
+    // exists only at this location has no shared copy to protect, so it's
+    // edited directly; Manage Template (onUpdateTask below) is what edits
+    // the shared template for everyone.
+    onEditNotes: (locationId, item, patch) => {
+      if (item.locationId) return updateChecklistTemplateItem(item.itemId, patch);
+      if (patch.reset) return updateChecklistItem(locationId, item.itemId, { resetOverrides: true });
+      const { notes, ...rest } = patch;
+      return updateChecklistItem(locationId, item.itemId, notes !== undefined ? { instructions: notes, ...rest } : rest);
+    },
     onSetStage: setStageOverride,
     onSetOnHold: setOnHold,
     onMarkComplete: markLocationComplete,
