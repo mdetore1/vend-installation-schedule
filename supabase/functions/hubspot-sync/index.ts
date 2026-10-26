@@ -247,7 +247,7 @@ Deno.serve(async (req) => {
     const { map: ownerNames, truncated: ownersTruncated } = await fetchOwnerNames(hubspotToken, deadlineAt);
     const { deals, truncated: dealsTruncated } = await fetchAllSalesDeals(hubspotToken, deadlineAt);
     const [{ data: allLocations }, { data: existingReps }, { data: existingQueueRows }] = await Promise.all([
-      admin.from("locations").select("id, name, hubspot_deal_id"),
+      admin.from("locations").select("id, name, hubspot_deal_id, deal_amount"),
       admin.from("sales_reps").select("name"),
       admin.from("queue_items").select(QUEUE_SYNC_COLUMNS.join(", ")).not("hubspot_deal_id", "is", null),
     ]);
@@ -267,6 +267,17 @@ Deno.serve(async (req) => {
     const locationsByName = new Map(
       (allLocations || []).filter((l) => !l.hubspot_deal_id).map((l) => [l.name.trim().toLowerCase(), l])
     );
+    // Garages split off one deal are named "<deal name> 1", "<deal name> 2"…,
+    // so a deal whose name matches that shared base claims every one of them.
+    const locationsByBaseName = new Map();
+    for (const l of allLocations || []) {
+      if (l.hubspot_deal_id) continue;
+      const base = l.name.trim().toLowerCase().replace(/\s+\d+$/, "");
+      if (base === l.name.trim().toLowerCase()) continue;
+      const list = locationsByBaseName.get(base) || [];
+      list.push(l);
+      locationsByBaseName.set(base, list);
+    }
     const existingRepNames = new Set((existingReps || []).map((r) => r.name.toLowerCase()));
 
     let skipped = 0;
@@ -279,15 +290,40 @@ Deno.serve(async (req) => {
     // reasoning as batching the main upsert below.
     const locationMatches = [];
 
+    // Locations already on the calendar keep their deal's ARR current too,
+    // so it can show on the schedule after the queue row is gone. One deal
+    // can back several garages (a split), so match by deal id, not row.
+    const locationsByDealId = new Map();
+    for (const l of allLocations || []) {
+      if (!l.hubspot_deal_id) continue;
+      const list = locationsByDealId.get(l.hubspot_deal_id) || [];
+      list.push(l);
+      locationsByDealId.set(l.hubspot_deal_id, list);
+    }
+    const locationAmountUpdates = [];
+
     for (const deal of deals) {
       if (promotedIds.has(deal.id)) {
+        const amount = deal.properties?.amount ? Number(deal.properties.amount) : null;
+        for (const l of locationsByDealId.get(deal.id) || []) {
+          if (!sameValue(l.deal_amount, amount)) locationAmountUpdates.push({ id: l.id, deal_amount: amount });
+        }
         skipped++;
         continue;
       }
       const p = deal.properties || {};
-      const matchingLocation = p.dealname ? locationsByName.get(p.dealname.trim().toLowerCase()) : null;
-      if (matchingLocation) {
-        locationMatches.push({ locationId: matchingLocation.id, dealId: deal.id });
+      const dealKey = p.dealname ? p.dealname.trim().toLowerCase() : null;
+      const matchingLocations = dealKey
+        ? [locationsByName.get(dealKey), ...(locationsByBaseName.get(dealKey) || [])].filter(Boolean)
+        : [];
+      if (matchingLocations.length) {
+        for (const l of matchingLocations) {
+          locationMatches.push({
+            locationId: l.id,
+            dealId: deal.id,
+            amount: p.amount ? Number(p.amount) : null,
+          });
+        }
         skipped++;
         continue;
       }
@@ -368,7 +404,7 @@ Deno.serve(async (req) => {
     if (locationMatches.length) {
       await Promise.all(
         locationMatches.map((m) =>
-          admin.from("locations").update({ hubspot_deal_id: m.dealId }).eq("id", m.locationId)
+          admin.from("locations").update({ hubspot_deal_id: m.dealId, deal_amount: m.amount }).eq("id", m.locationId)
         )
       );
       // It may already be sitting in the queue from a run before the match
@@ -379,6 +415,15 @@ Deno.serve(async (req) => {
         .from("queue_items")
         .delete()
         .in("hubspot_deal_id", locationMatches.map((m) => m.dealId));
+    }
+
+    if (locationAmountUpdates.length) {
+      const results = await Promise.all(
+        locationAmountUpdates.map(({ id, deal_amount }) =>
+          admin.from("locations").update({ deal_amount }).eq("id", id)
+        )
+      );
+      for (const { error } of results) if (error) errors.push({ message: error.message });
     }
 
     if (newReps.size) {
