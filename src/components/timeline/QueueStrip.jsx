@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ArrowUpDown, Search, Check, ChevronDown, ChevronRight, ExternalLink, Layers, MapPin, Plus, Trash2, X } from "lucide-react";
 import { TextInput, DebouncedTextInput, Select, Checkbox, Field } from "../fields";
 import { useDebouncedCommit } from "../../lib/useDebouncedCommit";
@@ -16,6 +16,10 @@ const miniInputCls = "!py-1.5 !text-xs";
 // right the same way a deal actually progresses, not in whatever order
 // stages happen to show up in the queue's data.
 const STAGE_ORDER = ["Discovery", "Qualification", "Scoping", "Proof of Value", "Final Proposal", "Negotiation", "Closed Won"];
+// A deal is closed won if it's marked so OR HubSpot has it at that stage — the
+// sync sets both, but a hand-added item only ever gets the contract state.
+const isClosedWonItem = (q) => q.contractState === "Closed Won" || q.hubspotStage === "Closed Won";
+
 function sortByStageOrder(stages) {
   return [...stages].sort((a, b) => {
     const ai = STAGE_ORDER.indexOf(a);
@@ -101,6 +105,13 @@ function entrySortValue(entry, mode) {
   return entryName(entry);
 }
 
+// Closed won deals (or a group with any) always sort above everything else,
+// whatever the sort mode — they're the ones ready to go on the calendar.
+const wonRank = (entry) => {
+  const won = entry.type === "group" ? entry.members.some(isClosedWonItem) : isClosedWonItem(entry.item);
+  return won ? 1 : 0;
+};
+
 function compareEntries(a, b, mode) {
   const av = entrySortValue(a, mode);
   const bv = entrySortValue(b, mode);
@@ -141,7 +152,11 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
   const nameField = useDebouncedCommit(item.name, (name) => onUpdate({ name }));
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-concrete-200 bg-white shadow-sm transition hover:border-concrete-300">
+    <div
+      className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition ${
+        isClosedWon ? "border-2 border-go" : "border-concrete-200 hover:border-concrete-300"
+      }`}
+    >
       <div
         className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3 cursor-pointer"
         onClick={(e) => {
@@ -220,7 +235,9 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
           onClick={onPromote}
           disabled={!isClosedWon}
           title={isClosedWon ? "" : "Mark Closed Won to add this to the calendar"}
-          className="hidden shrink-0 items-center gap-1.5 rounded-full bg-vend-black px-3.5 py-2 text-xs font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:opacity-30 sm:flex"
+          className={`hidden shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-30 sm:flex ${
+            isClosedWon ? "bg-go text-[#111114] shadow-md shadow-go/30 hover:brightness-105" : "bg-vend-black text-white hover:opacity-90"
+          }`}
         >
           <Plus size={13} /> Add to calendar
         </button>
@@ -419,7 +436,11 @@ function QueueGroupCard({ group, salesReps, onAddSalesRep, onUpdate, onRemove, o
   const commonStage = uniform((m) => m.hubspotStage);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-concrete-200 bg-white shadow-sm transition hover:border-concrete-300">
+    <div
+      className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition ${
+        anyClosedWon ? "border-2 border-go" : "border-concrete-200 hover:border-concrete-300"
+      }`}
+    >
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -716,15 +737,34 @@ export default function QueueStrip({
   }, [sortOpen]);
 
   const stages = useMemo(
-    () => sortByStageOrder([...new Set(queue.map((q) => q.hubspotStage).filter(Boolean))]),
+    () => {
+      const found = [...new Set(queue.map((q) => q.hubspotStage).filter(Boolean))];
+      if (queue.some(isClosedWonItem) && !found.includes("Closed Won")) found.push("Closed Won");
+      return sortByStageOrder(found);
+    },
     [queue]
   );
+  // Saved filters for a stage that no longer exists (e.g. "Closed Won" after the
+  // last closed deal moves to the calendar) are ignored rather than leaving an
+  // empty list with no chip to clear.
+  const activeStageFilters = stageFilters.filter((st) => stages.includes(st));
   // Unfiltered groups (for the manage-groups modal) vs. the stage-filtered
   // ones actually shown in the list — a group might have members outside
   // the current stage filter, but should still be editable.
   const { groups: allGroups } = useMemo(() => groupQueueItems(queue), [queue]);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [search, setSearch] = useState("");
+
+  // Whenever there are closed won deals, open on just those — they're what
+  // needs action — instead of whatever stage filters were saved last time.
+  // Once per page load, so changing the filter afterwards sticks.
+  const defaultedToWon = useRef(false);
+  useEffect(() => {
+    if (defaultedToWon.current || !queue.length) return;
+    defaultedToWon.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time default once the async queue has loaded
+    if (queue.some(isClosedWonItem)) setStageFilters(["Closed Won"]);
+  }, [queue]);
 
   function applyGroup(groupName, memberIds, previousMemberIds) {
     previousMemberIds.filter((id) => !memberIds.includes(id)).forEach((id) => onUpdate(id, { salesGroup: null }));
@@ -748,13 +788,14 @@ export default function QueueStrip({
     return searchTerms.every((t) => (t.length <= 2 ? words.has(t) : haystack.includes(t)));
   };
   const filteredItems = queue.filter(
-    (q) => (!stageFilters.length || stageFilters.includes(q.hubspotStage)) && matchesSearch(q)
+    (q) => (!activeStageFilters.length || activeStageFilters.some((st) => (st === "Closed Won" ? isClosedWonItem(q) : q.hubspotStage === st))) && matchesSearch(q)
   );
   const { groups, standalone } = groupQueueItems(filteredItems);
   const entries = [
     ...groups.map((g) => ({ type: "group", ...g })),
     ...standalone.map((item) => ({ type: "item", item })),
-  ].sort((a, b) => compareEntries(a, b, sortMode));
+  ].sort((a, b) => wonRank(b) - wonRank(a) || compareEntries(a, b, sortMode));
+  const hasWonEntries = entries.some((e) => wonRank(e) === 1);
   const filteredCount = groups.reduce((s, g) => s + g.members.length, 0) + standalone.length;
 
   return (
@@ -768,7 +809,7 @@ export default function QueueStrip({
           Sales queue{" "}
           <span className="opacity-70">
             ({filteredCount}
-            {stageFilters.length || searchTerms.length ? ` of ${queue.length}` : ""})
+            {activeStageFilters.length || searchTerms.length ? ` of ${queue.length}` : ""})
           </span>
         </span>
         <div className="flex items-center gap-3">
@@ -802,13 +843,13 @@ export default function QueueStrip({
                   type="button"
                   onClick={() => setStageFilters([])}
                   className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
-                    !stageFilters.length ? "bg-vend-black text-white" : "bg-concrete-200 text-slate-500 hover:bg-concrete-300"
+                    !activeStageFilters.length ? "bg-vend-black text-white" : "bg-concrete-200 text-slate-500 hover:bg-concrete-300"
                   }`}
                 >
-                  {!stageFilters.length && <Check size={11} />} All stages
+                  {!activeStageFilters.length && <Check size={11} />} All stages
                 </button>
                 {stages.map((s) => {
-                  const active = stageFilters.includes(s);
+                  const active = activeStageFilters.includes(s);
                   return (
                     <button
                       key={s}
@@ -903,14 +944,24 @@ export default function QueueStrip({
                 {queue.length === 0
                   ? "Nothing in the queue — add a location sales is working on."
                   : searchTerms.length
-                  ? `No deals match "${search.trim()}"${stageFilters.length ? " at these stages" : ""}.`
+                  ? `No deals match "${search.trim()}"${activeStageFilters.length ? " at these stages" : ""}.`
                   : "No queue items at these stages."}
               </p>
             )}
-            {entries.map((entry) =>
-              entry.type === "group" ? (
+            {hasWonEntries && (
+              <p className="px-1 text-[11px] font-extrabold uppercase tracking-wide text-go-700">
+                Closed won — ready to add to the calendar
+              </p>
+            )}
+            {entries.map((entry, i) => {
+              const startsRest = hasWonEntries && wonRank(entry) === 0 && (i === 0 || wonRank(entries[i - 1]) === 1);
+              return (
+                <Fragment key={entry.type === "group" ? entry.key : entry.item.id}>
+                  {startsRest && (
+                    <p className="px-1 pt-2 text-[11px] font-extrabold uppercase tracking-wide text-slate-400">Other deals</p>
+                  )}
+              {entry.type === "group" ? (
                 <QueueGroupCard
-                  key={entry.key}
                   group={entry}
                   salesReps={salesReps}
                   onAddSalesRep={onAddSalesRep}
@@ -920,7 +971,6 @@ export default function QueueStrip({
                 />
               ) : (
                 <QueueRow
-                  key={entry.item.id}
                   item={entry.item}
                   salesReps={salesReps}
                   onAddSalesRep={onAddSalesRep}
@@ -928,8 +978,10 @@ export default function QueueStrip({
                   onRemove={() => onRemove(entry.item.id)}
                   onPromote={() => onPromote(entry.item.id)}
                 />
-              )
-            )}
+              )}
+                </Fragment>
+              );
+            })}
           </div>
           <div className="border-t border-concrete-200 bg-white p-3">
             <button
