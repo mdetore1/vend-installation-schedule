@@ -430,6 +430,21 @@ Deno.serve(async (req) => {
       if (hits.length === 1) link(l, hits[0].deal);
     }
 
+    // The reverse of pass 1: the part of a deal's name after its last " - "
+    // (usually the address) appears in the location's name, e.g. location
+    // "1812 N Moore St" vs deal "Monday Properties - 1812 N Moore".
+    const dealTails = deals
+      .map((d) => {
+        const parts = String(d.properties?.dealname || "").split(" - ");
+        return { deal: d, key: parts.length > 1 ? normalize(parts[parts.length - 1]) : "" };
+      })
+      .filter((d) => d.key.trim().length >= 8);
+    for (const l of unlinked()) {
+      const key = normalize(l.name);
+      const hits = dealTails.filter((d) => key.includes(d.key));
+      if (hits.length === 1) link(l, hits[0].deal);
+    }
+
     for (const g of mapGroups || []) {
       const key = normalize(g.name);
       if (key.trim().length < 4) continue;
