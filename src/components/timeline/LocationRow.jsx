@@ -3,6 +3,7 @@ import { Reorder, useDragControls } from "framer-motion";
 import { Copy, ExternalLink, GripVertical, Layers, MapPin, RotateCcw, Split, Trash2 } from "lucide-react";
 import { Checkbox } from "../fields";
 import { canonPhaseLabel, diffDays, parseDate, rangesOverlap } from "../../lib/dateUtils";
+import { formatArr } from "../../lib/dealAmount";
 import { hubspotDealUrl } from "../../lib/hubspot";
 import PhaseBar from "./PhaseBar";
 
@@ -41,6 +42,8 @@ export default function LocationRow({
   location,
   group,
   groupPlace,
+  groupArr = 0,
+  sharesDeal = false,
   onEditGroup,
   team,
   pxPerDay,
@@ -140,6 +143,9 @@ export default function LocationRow({
             <span className="min-w-0 truncate">
               {group.name}
               {groupPlace && <span className="font-medium text-slate-400"> · {groupPlace}</span>}
+              {!!groupArr && !readOnly && (
+                <span className="font-bold text-vend-black"> · {formatArr(groupArr)} ARR</span>
+              )}
             </span>
           </span>
         )}
@@ -197,6 +203,14 @@ export default function LocationRow({
                 <MapPin size={10} className="shrink-0 text-slate-400" />
                 {location.place || "Add city, state"}
               </span>
+              {!!location.dealAmount && !readOnly && !sharesDeal && (
+                <span
+                  className="shrink-0 rounded-full bg-concrete-100 px-2 py-0.5 text-[10px] font-bold text-vend-black"
+                  title="Deal ARR from HubSpot"
+                >
+                  {formatArr(location.dealAmount)} ARR
+                </span>
+              )}
               {location.hasOnsiteStaff && (
                 <span className="shrink-0 rounded-full bg-mint-200 px-2 py-0.5 text-[10px] font-bold text-mint-700">Spark</span>
               )}

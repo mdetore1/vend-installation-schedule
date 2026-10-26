@@ -219,6 +219,8 @@ export function useScheduleStore() {
         // the Sales queue, or backfilled by the sync) — keeps the link alive
         // after the queue row is gone.
         hubspotDealId: l.hubspot_deal_id || null,
+        // The deal's ARR, kept current by the HubSpot sync (by deal id).
+        dealAmount: l.deal_amount != null ? Number(l.deal_amount) : null,
         // Overrides the auto-computed "current stage" (lowest stage with an
         // incomplete item) — e.g. still waiting on one Pre-Onboarding task but
         // the team has already moved on to Onboarding work. Null means "just
@@ -404,6 +406,19 @@ export function useScheduleStore() {
   // always landing at the end — that keeps the "soonest first" default
   // useful even after someone's manually dragged the rest into a custom
   // order, instead of re-sorting everything by date on every add.
+  // deal_amount only exists once its migration has run; until then a
+  // location insert carrying it would fail outright, so retry without it
+  // rather than blocking "add to calendar" on a SQL step.
+  async function insertLocationRow(row) {
+    const first = await supabase.from("locations").insert(row).select().single();
+    if (first.error && "deal_amount" in row && /deal_amount/.test(first.error.message || "")) {
+      const rest = { ...row };
+      delete rest.deal_amount;
+      return supabase.from("locations").insert(rest).select().single();
+    }
+    return first;
+  }
+
   async function addLocation(loc) {
     const activeLocs = data.locations.filter((l) => !l.archived);
     const newDate = earliestScheduleDate(loc.phases || []);
@@ -415,11 +430,13 @@ export function useScheduleStore() {
         break;
       }
     }
-    const { data: inserted, error } = await supabase
-      .from("locations")
-      .insert({ ...locationToRow(loc), hubspot_deal_id: loc.hubspotDealId ?? null, archived: false, sort_order: insertAt })
-      .select()
-      .single();
+    const { data: inserted, error } = await insertLocationRow({
+      ...locationToRow(loc),
+      hubspot_deal_id: loc.hubspotDealId ?? null,
+      ...(loc.dealAmount != null ? { deal_amount: loc.dealAmount } : {}),
+      archived: false,
+      sort_order: insertAt,
+    });
     if (error || !inserted) {
       // Fails silently otherwise — someone just sees "nothing happened"
       // with no clue a migration is missing or a write got rejected.
@@ -551,16 +568,29 @@ export function useScheduleStore() {
     }
   }
 
+  // Stamps an existing location with its HubSpot deal (and that deal's
+  // amount when known). Used to heal garages split off a deal before splits
+  // carried the link over.
+  async function setLocationDeal(locId, { hubspotDealId, dealAmount }) {
+    const row = { hubspot_deal_id: hubspotDealId };
+    if (dealAmount != null) row.deal_amount = dealAmount;
+    const { error } = await supabase.from("locations").update(row).eq("id", locId);
+    if (error && "deal_amount" in row && /deal_amount/.test(error.message || "")) {
+      await supabase.from("locations").update({ hubspot_deal_id: hubspotDealId }).eq("id", locId);
+    }
+  }
+
   async function deleteLocation(locId) {
     await supabase.from("locations").delete().eq("id", locId);
   }
   // Deleting a location cascades to its phases (FK), so restoring has to
   // re-insert both — same ids, so it lands back exactly as it was.
   async function restoreLocation(location) {
-    await supabase.from("locations").insert({
+    await insertLocationRow({
       id: location.id,
       ...locationToRow(location),
       hubspot_deal_id: location.hubspotDealId ?? null,
+      ...(location.dealAmount != null ? { deal_amount: location.dealAmount } : {}),
       archived: location.archived,
       checklist_snapshot: location.archived ? location.checklist : null,
     });
@@ -654,9 +684,7 @@ export function useScheduleStore() {
   }
 
   async function promoteQueueItem(queueItem, { name, place, phases, contractor, hasOnsiteStaff, salesPersonId }) {
-    const { data: inserted, error } = await supabase
-      .from("locations")
-      .insert({
+    const { data: inserted, error } = await insertLocationRow({
         name,
         place,
         archived: false,
@@ -669,9 +697,8 @@ export function useScheduleStore() {
         has_onsite_staff: !!hasOnsiteStaff,
         sales_person_id: salesPersonId && salesPersonId !== UNASSIGNED ? salesPersonId : null,
         hubspot_deal_id: queueItem.hubspotDealId ?? null,
-      })
-      .select()
-      .single();
+        ...(queueItem.dealAmount != null ? { deal_amount: queueItem.dealAmount } : {}),
+      });
     if (error || !inserted) {
       window.alert(`Couldn't add to the calendar: ${error?.message || "unknown error"}`);
       return;
@@ -822,6 +849,7 @@ export function useScheduleStore() {
     duplicatePhase,
     setArchived,
     updateLocation,
+    setLocationDeal,
     deleteLocation,
     restoreLocation,
     addQueueItem,

@@ -3,6 +3,7 @@ import { Plus, X } from "lucide-react";
 import { AnimatePresence, Reorder } from "framer-motion";
 import { buildMonthTicks, buildQuarterTicks, buildWeekendBands, diffDays, todayStart } from "../../lib/dateUtils";
 import { groupPlace } from "../../lib/groupPlace";
+import { totalArr } from "../../lib/dealAmount";
 import LocationRow, { ROW_HEIGHT } from "./LocationRow";
 import OOORow from "./OOORow";
 
@@ -20,12 +21,29 @@ function buildDisplayEntries(locations, groups) {
     }
   }
   const placeByGroupId = new Map();
+  const arrByGroupId = new Map();
   for (const g of groups) {
-    placeByGroupId.set(g.id, groupPlace(locations.filter((l) => groupByLocationId.get(l.id) === g)));
+    const members = locations.filter((l) => groupByLocationId.get(l.id) === g);
+    placeByGroupId.set(g.id, groupPlace(members));
+    arrByGroupId.set(g.id, totalArr(members));
   }
   return locations.map((location) => {
     const group = groupByLocationId.get(location.id);
-    return { type: "location", location, group, groupPlace: group ? placeByGroupId.get(group.id) : "" };
+    return {
+      type: "location",
+      location,
+      group,
+      groupPlace: group ? placeByGroupId.get(group.id) : "",
+      groupArr: group ? arrByGroupId.get(group.id) : 0,
+      // Garages split off one deal share its amount — the group total covers
+      // it, so repeating the full figure on every garage would read as N×.
+      sharesDeal:
+        !!group &&
+        !!location.hubspotDealId &&
+        locations.some(
+          (o) => o.id !== location.id && groupByLocationId.get(o.id) === group && o.hubspotDealId === location.hubspotDealId
+        ),
+    };
   });
 }
 
@@ -306,7 +324,13 @@ export default function TimelineGrid({
             {displayEntries.map((entry) => (
               <LocationRow
                 key={entry.location.id}
-                {...locationRowProps(entry.location, { group: entry.group, groupPlace: entry.groupPlace, onEditGroup })}
+                {...locationRowProps(entry.location, {
+                  group: entry.group,
+                  groupPlace: entry.groupPlace,
+                  groupArr: entry.groupArr,
+                  sharesDeal: entry.sharesDeal,
+                  onEditGroup,
+                })}
               />
             ))}
           </AnimatePresence>

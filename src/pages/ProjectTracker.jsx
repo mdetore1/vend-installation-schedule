@@ -208,6 +208,7 @@ export default function ProjectTracker({ isAdmin = true }) {
       await addLocation({
         // Every garage split off one deal stays linked to that deal.
         hubspotDealId: location.hubspotDealId,
+        dealAmount: location.dealAmount,
         name: `${baseName} ${i}`,
         place: location.place,
         lanes: location.lanes,
@@ -432,6 +433,30 @@ export default function ProjectTracker({ isAdmin = true }) {
       rangeEnd: addDays(max, 21),
     };
   }, [activeLocations, data.team, data.companyEvents]);
+
+  // Garages split off a deal before splits carried the link over ended up
+  // with no deal at all. Splits name their garages "<group name> N" inside a
+  // group of that same name, so a garage like that with no deal inherits it
+  // from a groupmate that has one — only when all the groupmates that have
+  // one agree, so a group of genuinely separate deals is never touched.
+  const healedDeals = useRef(new Set());
+  useEffect(() => {
+    if (!isAdmin || !store.loaded || !groups.length) return;
+    for (const g of groups) {
+      const members = data.locations.filter((l) => !l.archived && g.memberNames.includes(l.name));
+      const prefix = `${g.name} `;
+      const numbered = members.filter((l) => l.name.startsWith(prefix) && /^\d+$/.test(l.name.slice(prefix.length)));
+      const withDeal = numbered.filter((l) => l.hubspotDealId);
+      const dealIds = new Set(withDeal.map((l) => l.hubspotDealId));
+      if (dealIds.size !== 1) continue;
+      const source = withDeal[0];
+      for (const l of numbered) {
+        if (l.hubspotDealId || healedDeals.current.has(l.id)) continue;
+        healedDeals.current.add(l.id);
+        store.setLocationDeal(l.id, { hubspotDealId: source.hubspotDealId, dealAmount: source.dealAmount });
+      }
+    }
+  }, [isAdmin, store.loaded, groups, data.locations]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Opens scrolled to 3 weeks before today, rounded back to that week's
   // Monday — instead of the earliest date in the schedule, and instead of
