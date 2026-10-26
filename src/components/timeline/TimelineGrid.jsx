@@ -13,7 +13,7 @@ import OOORow from "./OOORow";
 // separate-row height/stacking/alignment issues a dedicated header row ran
 // into. Ungrouped locations pass through unchanged.
 function buildDisplayEntries(locations, groups) {
-  if (!groups?.length) return locations.map((location) => ({ type: "location", location }));
+  if (!groups?.length) return locations.map((location) => ({ type: "location", location, arr: location.dealAmount || 0 }));
   const groupByLocationId = new Map();
   for (const g of groups) {
     for (const loc of locations) {
@@ -27,22 +27,21 @@ function buildDisplayEntries(locations, groups) {
     placeByGroupId.set(g.id, groupPlace(members));
     arrByGroupId.set(g.id, totalArr(members));
   }
+  // A group's ARR total shows once, on its topmost row; the rest show none.
+  const shownGroupIds = new Set();
   return locations.map((location) => {
     const group = groupByLocationId.get(location.id);
+    let arr = location.dealAmount || 0;
+    if (group) {
+      arr = shownGroupIds.has(group.id) ? 0 : arrByGroupId.get(group.id);
+      shownGroupIds.add(group.id);
+    }
     return {
       type: "location",
       location,
       group,
       groupPlace: group ? placeByGroupId.get(group.id) : "",
-      groupArr: group ? arrByGroupId.get(group.id) : 0,
-      // Garages split off one deal share its amount — the group total covers
-      // it, so repeating the full figure on every garage would read as N×.
-      sharesDeal:
-        !!group &&
-        !!location.hubspotDealId &&
-        locations.some(
-          (o) => o.id !== location.id && groupByLocationId.get(o.id) === group && o.hubspotDealId === location.hubspotDealId
-        ),
+      arr,
     };
   });
 }
@@ -327,8 +326,7 @@ export default function TimelineGrid({
                 {...locationRowProps(entry.location, {
                   group: entry.group,
                   groupPlace: entry.groupPlace,
-                  groupArr: entry.groupArr,
-                  sharesDeal: entry.sharesDeal,
+                  arr: entry.arr,
                   onEditGroup,
                 })}
               />

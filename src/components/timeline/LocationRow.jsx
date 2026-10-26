@@ -42,8 +42,7 @@ export default function LocationRow({
   location,
   group,
   groupPlace,
-  groupArr = 0,
-  sharesDeal = false,
+  arr = 0,
   onEditGroup,
   team,
   pxPerDay,
@@ -143,9 +142,6 @@ export default function LocationRow({
             <span className="min-w-0 truncate">
               {group.name}
               {groupPlace && <span className="font-medium text-slate-400"> · {groupPlace}</span>}
-              {!!groupArr && !readOnly && (
-                <span className="font-bold text-vend-black"> · {formatArr(groupArr)} ARR</span>
-              )}
             </span>
           </span>
         )}
@@ -214,12 +210,12 @@ export default function LocationRow({
             </div>
           </div>
         </div>
-        {!!location.dealAmount && !readOnly && !sharesDeal && (
+        {!!arr && !readOnly && (
           <span
             className="pointer-events-none absolute right-3 top-1.5 text-xs font-bold text-slate-500 transition group-hover/row:opacity-0"
-            title="Deal ARR from HubSpot"
+            title={group ? "Total ARR for this group" : "Deal ARR from HubSpot"}
           >
-            {formatArr(location.dealAmount)} ARR
+            {formatArr(arr)} ARR
           </span>
         )}
         {!readOnly && (
