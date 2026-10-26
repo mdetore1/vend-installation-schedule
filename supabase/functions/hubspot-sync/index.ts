@@ -403,28 +403,41 @@ Deno.serve(async (req) => {
       else synced++;
     }
 
-    // A group's garages often don't carry the deal's own name (e.g. group
-    // "Four Oaks Place" -> deal "RFP - Four Oaks Place - 1300, 1330… Post Oak
-    // Blvd"). When exactly ONE deal's name contains the group's name, every
-    // garage in that group with no deal yet is linked to it. Several deals
-    // containing the name (e.g. a client with separate deals per building)
-    // is ambiguous, so those groups are left alone.
+    // Locations rarely carry a deal's full name ("Monday Properties - 1812 N
+    // Moore" vs "1812 N Moore"; "Westdale - The Epic II" vs "The Epic II";
+    // group "Four Oaks Place" vs "RFP - Four Oaks Place - 1300, 1330… Blvd").
+    // Two more passes link what the exact-name match above missed, both
+    // conservative — anything ambiguous is left unlinked rather than guessed:
+    //  1. a location whose name appears (whole words) in exactly one deal name;
+    //  2. a group's still-unlinked garages, when exactly ONE deal that nothing
+    //     else uses yet has the group's name in it — they all share that deal.
     const normalize = (v) => ` ${String(v || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()} `;
+    const dealAmountOf = (d) => (d.properties?.amount ? Number(d.properties.amount) : null);
     const alreadyMatched = new Set(locationMatches.map((m) => m.locationId));
+    const usedDealIds = new Set([...promotedIds, ...locationMatches.map((m) => m.dealId)]);
+    const dealNames = deals.map((d) => ({ deal: d, key: normalize(d.properties?.dealname) }));
+    const link = (l, deal) => {
+      locationMatches.push({ locationId: l.id, dealId: deal.id, amount: dealAmountOf(deal) });
+      alreadyMatched.add(l.id);
+      usedDealIds.add(deal.id);
+    };
+    const unlinked = () => (allLocations || []).filter((l) => !l.hubspot_deal_id && !alreadyMatched.has(l.id));
+
+    for (const l of unlinked()) {
+      const key = normalize(l.name);
+      if (key.trim().length < 8) continue;
+      const hits = dealNames.filter((d) => d.key.includes(key));
+      if (hits.length === 1) link(l, hits[0].deal);
+    }
+
     for (const g of mapGroups || []) {
       const key = normalize(g.name);
       if (key.trim().length < 4) continue;
-      const members = (allLocations || []).filter(
-        (l) => !l.hubspot_deal_id && !alreadyMatched.has(l.id) && (g.member_names || []).includes(l.name)
-      );
+      const members = unlinked().filter((l) => (g.member_names || []).includes(l.name));
       if (!members.length) continue;
-      const candidates = deals.filter((d) => normalize(d.properties?.dealname).includes(key));
-      if (candidates.length !== 1) continue;
-      const amount = candidates[0].properties?.amount ? Number(candidates[0].properties.amount) : null;
-      for (const l of members) {
-        locationMatches.push({ locationId: l.id, dealId: candidates[0].id, amount });
-        alreadyMatched.add(l.id);
-      }
+      const free = dealNames.filter((d) => d.key.includes(key) && !usedDealIds.has(d.deal.id));
+      if (free.length !== 1) continue;
+      for (const l of members) link(l, free[0].deal);
     }
 
     if (locationMatches.length) {
