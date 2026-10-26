@@ -206,6 +206,8 @@ export default function ProjectTracker({ isAdmin = true }) {
     await syncGroupMembershipOnRename(baseName, renamedName);
     for (let i = 2; i <= count; i++) {
       await addLocation({
+        // Every garage split off one deal stays linked to that deal.
+        hubspotDealId: location.hubspotDealId,
         name: `${baseName} ${i}`,
         place: location.place,
         lanes: location.lanes,

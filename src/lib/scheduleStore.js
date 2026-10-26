@@ -215,6 +215,10 @@ export function useScheduleStore() {
         contractor: l.contractor || "Task Force",
         hasOnsiteStaff: !!l.has_onsite_staff,
         salesPersonId: l.sales_person_id || UNASSIGNED,
+        // The HubSpot deal this location came from (set when it's promoted off
+        // the Sales queue, or backfilled by the sync) — keeps the link alive
+        // after the queue row is gone.
+        hubspotDealId: l.hubspot_deal_id || null,
         // Overrides the auto-computed "current stage" (lowest stage with an
         // incomplete item) — e.g. still waiting on one Pre-Onboarding task but
         // the team has already moved on to Onboarding work. Null means "just
@@ -413,7 +417,7 @@ export function useScheduleStore() {
     }
     const { data: inserted, error } = await supabase
       .from("locations")
-      .insert({ ...locationToRow(loc), archived: false, sort_order: insertAt })
+      .insert({ ...locationToRow(loc), hubspot_deal_id: loc.hubspotDealId ?? null, archived: false, sort_order: insertAt })
       .select()
       .single();
     if (error || !inserted) {
@@ -556,6 +560,7 @@ export function useScheduleStore() {
     await supabase.from("locations").insert({
       id: location.id,
       ...locationToRow(location),
+      hubspot_deal_id: location.hubspotDealId ?? null,
       archived: location.archived,
       checklist_snapshot: location.archived ? location.checklist : null,
     });

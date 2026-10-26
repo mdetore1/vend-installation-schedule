@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { Reorder, useDragControls } from "framer-motion";
-import { Copy, GripVertical, Layers, MapPin, RotateCcw, Split, Trash2 } from "lucide-react";
+import { Copy, ExternalLink, GripVertical, Layers, MapPin, RotateCcw, Split, Trash2 } from "lucide-react";
 import { Checkbox } from "../fields";
 import { canonPhaseLabel, diffDays, parseDate, rangesOverlap } from "../../lib/dateUtils";
+import { hubspotDealUrl } from "../../lib/hubspot";
 import PhaseBar from "./PhaseBar";
 
 export const ROW_HEIGHT = 68;
@@ -162,15 +163,35 @@ export default function LocationRow({
           ) : (
             <Checkbox checked={allDone} onChange={() => onArchive(location.id)} />
           )}
-          <button
-            type="button"
+          {/* A div (not a button) so the name can be a real link to the
+              HubSpot deal without nesting a link inside a button; clicking
+              anywhere else in here still opens the edit dialog. The link is
+              internal, so customer view shows a plain name. */}
+          <div
+            role={readOnly ? undefined : "button"}
+            tabIndex={readOnly ? undefined : 0}
             onClick={readOnly ? undefined : () => onEditLocation?.(location)}
+            onKeyDown={readOnly ? undefined : (e) => e.key === "Enter" && onEditLocation?.(location)}
             className={`-mx-1 min-w-0 flex-1 rounded px-1 py-0.5 text-left transition ${
-              readOnly ? "cursor-default" : "hover:bg-concrete-100/50"
+              readOnly ? "cursor-default" : "cursor-pointer hover:bg-concrete-100/50"
             }`}
             title={readOnly ? undefined : "Edit location & phases"}
           >
-            <p className="truncate text-sm font-semibold text-vend-black">{location.name}</p>
+            {location.hubspotDealId && !readOnly ? (
+              <a
+                href={hubspotDealUrl(location.hubspotDealId)}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                title="Open this deal in HubSpot"
+                className="inline-flex max-w-full items-center gap-1 text-sm font-semibold text-vend-black hover:text-[#FF7A59]"
+              >
+                <span className="truncate hover:underline">{location.name}</span>
+                <ExternalLink size={11} className="shrink-0 text-[#FF7A59]/70" />
+              </a>
+            ) : (
+              <p className="truncate text-sm font-semibold text-vend-black">{location.name}</p>
+            )}
             <div className="mt-0.5 flex flex-wrap items-center gap-1">
               <span className="inline-flex max-w-full items-center gap-1 truncate rounded-full bg-concrete-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
                 <MapPin size={10} className="shrink-0 text-slate-400" />
@@ -185,7 +206,7 @@ export default function LocationRow({
                 </span>
               )}
             </div>
-          </button>
+          </div>
         </div>
         {!readOnly && (
         <div className="absolute right-2 top-1 flex shrink-0 items-center gap-0.5 opacity-0 transition group-hover/row:opacity-100">
