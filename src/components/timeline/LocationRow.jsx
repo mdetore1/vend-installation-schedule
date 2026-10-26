@@ -203,14 +203,6 @@ export default function LocationRow({
                 <MapPin size={10} className="shrink-0 text-slate-400" />
                 {location.place || "Add city, state"}
               </span>
-              {!!location.dealAmount && !readOnly && !sharesDeal && (
-                <span
-                  className="shrink-0 rounded-full bg-concrete-100 px-2 py-0.5 text-[10px] font-bold text-vend-black"
-                  title="Deal ARR from HubSpot"
-                >
-                  {formatArr(location.dealAmount)} ARR
-                </span>
-              )}
               {location.hasOnsiteStaff && (
                 <span className="shrink-0 rounded-full bg-mint-200 px-2 py-0.5 text-[10px] font-bold text-mint-700">Spark</span>
               )}
@@ -222,6 +214,14 @@ export default function LocationRow({
             </div>
           </div>
         </div>
+        {!!location.dealAmount && !readOnly && !sharesDeal && (
+          <span
+            className="pointer-events-none absolute right-3 top-1.5 text-xs font-bold text-slate-500 transition group-hover/row:opacity-0"
+            title="Deal ARR from HubSpot"
+          >
+            {formatArr(location.dealAmount)} ARR
+          </span>
+        )}
         {!readOnly && (
         <div className="absolute right-2 top-1 flex shrink-0 items-center gap-0.5 opacity-0 transition group-hover/row:opacity-100">
           {onDuplicateLocation && (

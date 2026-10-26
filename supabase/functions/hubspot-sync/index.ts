@@ -278,6 +278,8 @@ Deno.serve(async (req) => {
       list.push(l);
       locationsByBaseName.set(base, list);
     }
+    // Garage groups (map_groups) whose members never got a deal link.
+    const { data: mapGroups } = await admin.from("map_groups").select("name, member_names");
     const existingRepNames = new Set((existingReps || []).map((r) => r.name.toLowerCase()));
 
     let skipped = 0;
@@ -399,6 +401,30 @@ Deno.serve(async (req) => {
     for (const { error } of existingResults) {
       if (error) errors.push({ message: error.message });
       else synced++;
+    }
+
+    // A group's garages often don't carry the deal's own name (e.g. group
+    // "Four Oaks Place" -> deal "RFP - Four Oaks Place - 1300, 1330… Post Oak
+    // Blvd"). When exactly ONE deal's name contains the group's name, every
+    // garage in that group with no deal yet is linked to it. Several deals
+    // containing the name (e.g. a client with separate deals per building)
+    // is ambiguous, so those groups are left alone.
+    const normalize = (v) => ` ${String(v || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()} `;
+    const alreadyMatched = new Set(locationMatches.map((m) => m.locationId));
+    for (const g of mapGroups || []) {
+      const key = normalize(g.name);
+      if (key.trim().length < 4) continue;
+      const members = (allLocations || []).filter(
+        (l) => !l.hubspot_deal_id && !alreadyMatched.has(l.id) && (g.member_names || []).includes(l.name)
+      );
+      if (!members.length) continue;
+      const candidates = deals.filter((d) => normalize(d.properties?.dealname).includes(key));
+      if (candidates.length !== 1) continue;
+      const amount = candidates[0].properties?.amount ? Number(candidates[0].properties.amount) : null;
+      for (const l of members) {
+        locationMatches.push({ locationId: l.id, dealId: candidates[0].id, amount });
+        alreadyMatched.add(l.id);
+      }
     }
 
     if (locationMatches.length) {
