@@ -581,7 +581,9 @@ export default function ProjectTracker({ isAdmin = true }) {
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <LocationPicker
-          locations={data.locations}
+          // Customer view only offers what's actually on the schedule —
+          // completed (launched) locations aren't part of what a customer sees.
+          locations={customerView ? data.locations.filter((l) => !l.archived) : data.locations}
           groups={groups}
           selectedIds={selectedLocationIds}
           onChange={setSelectedLocationIds}
