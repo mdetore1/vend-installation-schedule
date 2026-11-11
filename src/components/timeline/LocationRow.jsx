@@ -221,7 +221,7 @@ export default function LocationRow({
         {/* Vertically centered on the right edge, between the ARR (top) and the
             sales person (bottom), so hovering never hides either of them. */}
         {!readOnly && (
-        <div className="pointer-events-none absolute right-2 top-1/2 z-10 flex shrink-0 -translate-y-1/2 items-center gap-0.5 rounded-full border border-concrete-200 bg-white px-0.5 opacity-0 shadow-sm transition group-hover/row:pointer-events-auto group-hover/row:opacity-100">
+        <div className="pointer-events-none absolute right-2 top-1/2 z-10 flex shrink-0 -translate-y-1/2 items-center gap-0.5 opacity-0 transition group-hover/row:pointer-events-auto group-hover/row:opacity-100">
           {onDuplicateLocation && (
             <button
               type="button"
