@@ -63,6 +63,30 @@ function locationToRow(l) {
   };
 }
 
+// HubSpot deal details kept on a location for reference after it leaves the
+// Sales queue (schema_location_hubspot_info.sql). Same camelCase names on a
+// queue item and a location, so either can be the source.
+const HUBSPOT_INFO_COLUMNS = [
+  "hubspot_stage",
+  "garage_type",
+  "number_of_parking_spaces",
+  "property_type",
+  "incumbent_operator",
+  "contract_signed_date",
+  "potential_go_live_date",
+];
+function hubspotInfoToRow(src) {
+  return {
+    hubspot_stage: src.hubspotStage ?? null,
+    garage_type: src.garageType ?? null,
+    number_of_parking_spaces: src.numberOfParkingSpaces ?? null,
+    property_type: src.propertyType ?? null,
+    incumbent_operator: src.incumbentOperator ?? null,
+    contract_signed_date: src.contractSignedDate || null,
+    potential_go_live_date: src.potentialGoLiveDate || null,
+  };
+}
+
 export function useScheduleStore() {
   const [teamRows, setTeamRows] = useState([]);
   const [timeOffRows, setTimeOffRows] = useState([]);
@@ -221,6 +245,15 @@ export function useScheduleStore() {
         hubspotDealId: l.hubspot_deal_id || null,
         // The deal's ARR, kept current by the HubSpot sync (by deal id).
         dealAmount: l.deal_amount != null ? Number(l.deal_amount) : null,
+        // HubSpot deal details carried over from the Sales queue (and kept
+        // current by the sync) — shown on the location's Info tab.
+        hubspotStage: l.hubspot_stage || null,
+        garageType: l.garage_type || null,
+        numberOfParkingSpaces: l.number_of_parking_spaces ?? null,
+        propertyType: l.property_type || null,
+        incumbentOperator: l.incumbent_operator || null,
+        contractSignedDate: l.contract_signed_date || null,
+        potentialGoLiveDate: l.potential_go_live_date || null,
         // Overrides the auto-computed "current stage" (lowest stage with an
         // incomplete item) — e.g. still waiting on one Pre-Onboarding task but
         // the team has already moved on to Onboarding work. Null means "just
@@ -406,14 +439,17 @@ export function useScheduleStore() {
   // always landing at the end — that keeps the "soonest first" default
   // useful even after someone's manually dragged the rest into a custom
   // order, instead of re-sorting everything by date on every add.
-  // deal_amount only exists once its migration has run; until then a
-  // location insert carrying it would fail outright, so retry without it
-  // rather than blocking "add to calendar" on a SQL step.
+  // deal_amount and the HubSpot info columns only exist once their
+  // migrations have run; until then a location insert carrying them would
+  // fail outright, so retry without them rather than blocking "add to
+  // calendar" on a SQL step.
   async function insertLocationRow(row) {
     const first = await supabase.from("locations").insert(row).select().single();
-    if (first.error && "deal_amount" in row && /deal_amount/.test(first.error.message || "")) {
+    const optional = ["deal_amount", ...HUBSPOT_INFO_COLUMNS].filter((c) => c in row);
+    const msg = first.error?.message || "";
+    if (first.error && optional.some((c) => msg.includes(c))) {
       const rest = { ...row };
-      delete rest.deal_amount;
+      for (const c of optional) delete rest[c];
       return supabase.from("locations").insert(rest).select().single();
     }
     return first;
@@ -434,6 +470,7 @@ export function useScheduleStore() {
       ...locationToRow(loc),
       hubspot_deal_id: loc.hubspotDealId ?? null,
       ...(loc.dealAmount != null ? { deal_amount: loc.dealAmount } : {}),
+      ...(loc.hubspotDealId ? hubspotInfoToRow(loc) : {}),
       archived: false,
       sort_order: insertAt,
     });
@@ -591,6 +628,7 @@ export function useScheduleStore() {
       ...locationToRow(location),
       hubspot_deal_id: location.hubspotDealId ?? null,
       ...(location.dealAmount != null ? { deal_amount: location.dealAmount } : {}),
+      ...(location.hubspotDealId ? hubspotInfoToRow(location) : {}),
       archived: location.archived,
       checklist_snapshot: location.archived ? location.checklist : null,
     });
@@ -698,6 +736,7 @@ export function useScheduleStore() {
         sales_person_id: salesPersonId && salesPersonId !== UNASSIGNED ? salesPersonId : null,
         hubspot_deal_id: queueItem.hubspotDealId ?? null,
         ...(queueItem.dealAmount != null ? { deal_amount: queueItem.dealAmount } : {}),
+        ...hubspotInfoToRow(queueItem),
       });
     if (error || !inserted) {
       window.alert(`Couldn't add to the calendar: ${error?.message || "unknown error"}`);

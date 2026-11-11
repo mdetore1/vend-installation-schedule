@@ -48,6 +48,27 @@ const QUEUE_SYNC_COLUMNS = [
 // HubSpot's access_type option labeled "Kiosk In" has the internal value
 // "Full Gated" — store the label the app's dropdown uses, not the raw value.
 const ACCESS_TYPE_LABELS = { "Full Gated": "Kiosk In" };
+// HubSpot deal details also kept on a location once its deal is on the
+// calendar (schema_location_hubspot_info.sql), so the info stays there to
+// reference after the queue row is gone. Refreshed every run by deal id.
+const LOCATION_INFO_COLUMNS = [
+  "hubspot_stage",
+  "garage_type",
+  "number_of_parking_spaces",
+  "property_type",
+  "incumbent_operator",
+  "contract_signed_date",
+];
+function locationInfoFromDeal(p, stageLabels) {
+  return {
+    hubspot_stage: stageLabels[p.dealstage] || p.dealstage || null,
+    garage_type: p.garage_type || null,
+    number_of_parking_spaces: p.number_of_parking_spaces ? Number(p.number_of_parking_spaces) : null,
+    property_type: p.property_type || null,
+    incumbent_operator: p.parking_operator || null,
+    contract_signed_date: p.contract_signed_date ? p.contract_signed_date.slice(0, 10) : null,
+  };
+}
 const sameValue = (a, b) => (a ?? null) === (b ?? null) || (a != null && b != null && String(a) === String(b));
 
 const corsHeaders = {
@@ -249,8 +270,18 @@ Deno.serve(async (req) => {
     const stageLabels = await fetchStageLabels(hubspotToken, deadlineAt);
     const { map: ownerNames, truncated: ownersTruncated } = await fetchOwnerNames(hubspotToken, deadlineAt);
     const { deals, truncated: dealsTruncated } = await fetchAllSalesDeals(hubspotToken, deadlineAt);
-    const [{ data: allLocations }, { data: existingReps }, { data: existingQueueRows }] = await Promise.all([
-      admin.from("locations").select("id, name, hubspot_deal_id, deal_amount"),
+    // The info columns only exist once schema_location_hubspot_info.sql has
+    // run. If they're missing, fall back to the old select — a failed select
+    // here would leave allLocations empty, making every promoted deal look
+    // new and re-adding it to the queue.
+    let locationsRes = await admin
+      .from("locations")
+      .select(["id", "name", "hubspot_deal_id", "deal_amount", ...LOCATION_INFO_COLUMNS].join(", "));
+    const hasLocationInfo = !locationsRes.error;
+    if (!hasLocationInfo) locationsRes = await admin.from("locations").select("id, name, hubspot_deal_id, deal_amount");
+    if (locationsRes.error) throw new Error(`locations select failed: ${locationsRes.error.message}`);
+    const allLocations = locationsRes.data;
+    const [{ data: existingReps }, { data: existingQueueRows }] = await Promise.all([
       admin.from("sales_reps").select("name"),
       admin.from("queue_items").select(QUEUE_SYNC_COLUMNS.join(", ")).not("hubspot_deal_id", "is", null),
     ]);
@@ -305,18 +336,24 @@ Deno.serve(async (req) => {
       list.push(l);
       locationsByDealId.set(l.hubspot_deal_id, list);
     }
-    const locationAmountUpdates = [];
+    // {id, patch} per location whose deal amount or HubSpot info changed.
+    const locationUpdates = [];
 
     for (const deal of deals) {
+      const p = deal.properties || {};
       if (promotedIds.has(deal.id)) {
-        const amount = deal.properties?.amount ? Number(deal.properties.amount) : null;
+        const target = {
+          deal_amount: p.amount ? Number(p.amount) : null,
+          ...(hasLocationInfo ? locationInfoFromDeal(p, stageLabels) : {}),
+        };
         for (const l of locationsByDealId.get(deal.id) || []) {
-          if (!sameValue(l.deal_amount, amount)) locationAmountUpdates.push({ id: l.id, deal_amount: amount });
+          const patch = {};
+          for (const [k, v] of Object.entries(target)) if (!sameValue(l[k], v)) patch[k] = v;
+          if (Object.keys(patch).length) locationUpdates.push({ id: l.id, patch });
         }
         skipped++;
         continue;
       }
-      const p = deal.properties || {};
       const dealKey = p.dealname ? p.dealname.trim().toLowerCase() : null;
       const matchingLocations = dealKey
         ? [locationsByName.get(dealKey), ...(locationsByBaseName.get(dealKey) || [])].filter(Boolean)
@@ -327,6 +364,7 @@ Deno.serve(async (req) => {
             locationId: l.id,
             dealId: deal.id,
             amount: p.amount ? Number(p.amount) : null,
+            info: locationInfoFromDeal(p, stageLabels),
           });
         }
         skipped++;
@@ -420,7 +458,12 @@ Deno.serve(async (req) => {
     const usedDealIds = new Set([...promotedIds, ...locationMatches.map((m) => m.dealId)]);
     const dealNames = deals.map((d) => ({ deal: d, key: normalize(d.properties?.dealname) }));
     const link = (l, deal) => {
-      locationMatches.push({ locationId: l.id, dealId: deal.id, amount: dealAmountOf(deal) });
+      locationMatches.push({
+        locationId: l.id,
+        dealId: deal.id,
+        amount: dealAmountOf(deal),
+        info: locationInfoFromDeal(deal.properties || {}, stageLabels),
+      });
       alreadyMatched.add(l.id);
       usedDealIds.add(deal.id);
     };
@@ -461,7 +504,10 @@ Deno.serve(async (req) => {
     if (locationMatches.length) {
       await Promise.all(
         locationMatches.map((m) =>
-          admin.from("locations").update({ hubspot_deal_id: m.dealId, deal_amount: m.amount }).eq("id", m.locationId)
+          admin
+            .from("locations")
+            .update({ hubspot_deal_id: m.dealId, deal_amount: m.amount, ...(hasLocationInfo ? m.info : {}) })
+            .eq("id", m.locationId)
         )
       );
       // It may already be sitting in the queue from a run before the match
@@ -474,11 +520,9 @@ Deno.serve(async (req) => {
         .in("hubspot_deal_id", locationMatches.map((m) => m.dealId));
     }
 
-    if (locationAmountUpdates.length) {
+    if (locationUpdates.length) {
       const results = await Promise.all(
-        locationAmountUpdates.map(({ id, deal_amount }) =>
-          admin.from("locations").update({ deal_amount }).eq("id", id)
-        )
+        locationUpdates.map(({ id, patch }) => admin.from("locations").update(patch).eq("id", id))
       );
       for (const { error } of results) if (error) errors.push({ message: error.message });
     }

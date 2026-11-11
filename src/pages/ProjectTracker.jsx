@@ -209,6 +209,13 @@ export default function ProjectTracker({ isAdmin = true }) {
         // Every garage split off one deal stays linked to that deal.
         hubspotDealId: location.hubspotDealId,
         dealAmount: location.dealAmount,
+        hubspotStage: location.hubspotStage,
+        garageType: location.garageType,
+        numberOfParkingSpaces: location.numberOfParkingSpaces,
+        propertyType: location.propertyType,
+        incumbentOperator: location.incumbentOperator,
+        contractSignedDate: location.contractSignedDate,
+        potentialGoLiveDate: location.potentialGoLiveDate,
         name: `${baseName} ${i}`,
         place: location.place,
         lanes: location.lanes,
@@ -756,6 +763,7 @@ export default function ProjectTracker({ isAdmin = true }) {
         initialHasOnsiteStaff={editingLocation?.hasOnsiteStaff || false}
         initialSalesPersonId={editingLocation?.salesPersonId || UNASSIGNED}
         initialPhases={editingLocation?.phases}
+        infoLocation={editingLocation}
         onSubmit={finalizeEditLocation}
       />
 
