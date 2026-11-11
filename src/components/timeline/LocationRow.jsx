@@ -174,10 +174,11 @@ export default function LocationRow({
             tabIndex={readOnly ? undefined : 0}
             onClick={readOnly ? undefined : () => onEditLocation?.(location)}
             onKeyDown={readOnly ? undefined : (e) => e.key === "Enter" && onEditLocation?.(location)}
-            className={`-mx-1 min-w-0 flex-1 rounded px-1 py-0.5 text-left transition ${
-              readOnly ? "cursor-default" : "cursor-pointer hover:bg-concrete-100/50"
+            className={`-mx-2 min-w-0 flex-1 rounded-xl px-2 py-1 text-left transition duration-200 ${
+              readOnly
+                ? "cursor-default"
+                : "cursor-pointer hover:bg-white hover:shadow-[0_2px_12px_rgba(15,23,42,0.08)] hover:ring-1 hover:ring-concrete-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vend-black/20"
             }`}
-            title={readOnly ? undefined : "Edit location & phases"}
           >
             {location.hubspotDealId && !readOnly ? (
               <a
