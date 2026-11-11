@@ -212,14 +212,16 @@ export default function LocationRow({
         </div>
         {!!arr && !readOnly && (
           <span
-            className="pointer-events-none absolute right-3 top-1.5 text-xs font-bold text-slate-500 transition group-hover/row:opacity-0"
+            className="pointer-events-none absolute right-3 top-1.5 text-xs font-bold text-slate-500"
             title={group ? "Total ARR for this group" : "Deal ARR from HubSpot"}
           >
             {formatArr(arr)} ARR
           </span>
         )}
+        {/* Vertically centered on the right edge, between the ARR (top) and the
+            sales person (bottom), so hovering never hides either of them. */}
         {!readOnly && (
-        <div className="absolute right-2 top-1 flex shrink-0 items-center gap-0.5 opacity-0 transition group-hover/row:opacity-100">
+        <div className="pointer-events-none absolute right-2 top-1/2 z-10 flex shrink-0 -translate-y-1/2 items-center gap-0.5 rounded-full border border-concrete-200 bg-white px-0.5 opacity-0 shadow-sm transition group-hover/row:pointer-events-auto group-hover/row:opacity-100">
           {onDuplicateLocation && (
             <button
               type="button"
