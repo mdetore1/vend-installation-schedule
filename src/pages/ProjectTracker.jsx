@@ -764,6 +764,7 @@ export default function ProjectTracker({ isAdmin = true }) {
         initialSalesPersonId={editingLocation?.salesPersonId || UNASSIGNED}
         initialPhases={editingLocation?.phases}
         infoLocation={editingLocation}
+        canEdit={isAdmin}
         onSubmit={finalizeEditLocation}
       />
 

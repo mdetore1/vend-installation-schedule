@@ -115,6 +115,9 @@ export default function AddLocationForm({
   // When set (editing an existing location), the dialog opens on a read-only
   // Info tab for this location, with the form below on an Edit tab.
   infoLocation,
+  // False for view-only users: they get the Info tab alone, with no way into
+  // the Edit form (saving would only be refused anyway).
+  canEdit = true,
 }) {
   const [name, setName] = useState(initialName);
   const [place, setPlace] = useState(initialPlace);
@@ -130,7 +133,7 @@ export default function AddLocationForm({
   // applies while adding a brand-new location, never while editing one.
   const isEditing = !!initialPhases;
   const [tab, setTab] = useState(infoLocation ? "info" : "edit");
-  const showingInfo = !!infoLocation && tab === "info";
+  const showingInfo = !!infoLocation && (tab === "info" || !canEdit);
 
   if (!open) return null;
 
@@ -165,7 +168,7 @@ export default function AddLocationForm({
           </button>
         </div>
 
-        {infoLocation && (
+        {infoLocation && canEdit && (
           <div className="mb-5 flex gap-1.5" role="tablist">
             {TABS.map((t) => (
               <button
@@ -291,13 +294,15 @@ export default function AddLocationForm({
             {showingInfo ? "Close" : "Cancel"}
           </button>
           {showingInfo ? (
-            <button
-              type="button"
-              onClick={() => setTab("edit")}
-              className="rounded-full bg-vend-black px-5 py-2 text-sm font-semibold text-white transition"
-            >
-              Edit location
-            </button>
+            canEdit && (
+              <button
+                type="button"
+                onClick={() => setTab("edit")}
+                className="rounded-full bg-vend-black px-5 py-2 text-sm font-semibold text-white transition"
+              >
+                Edit location
+              </button>
+            )
           ) : (
           <button
             type="button"
