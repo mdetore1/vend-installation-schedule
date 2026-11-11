@@ -5,6 +5,9 @@ import { newId } from "./storage";
 import { toISO, addDays, cascadeDates, UNASSIGNED } from "./dateUtils";
 
 export const ACCESS_TYPES = ["Free In", "Gateless", "Kiosk In"];
+// HubSpot shows "Kiosk In" but stores "Full Gated" as the value behind it, so
+// synced rows carry "Full Gated" — map it to the label the dropdown knows.
+export const normalizeAccessType = (v) => (v === "Full Gated" ? "Kiosk In" : v);
 export const CONTRACT_STATES = ["In Progress", "Closed Won"];
 
 export const TEAM_DEPARTMENTS = ["Operations", "Sales", "Contractors/Other"];

@@ -15,7 +15,7 @@ const miniInputCls = "!py-1.5 !text-xs";
 // Sales Pipeline's own stage order — the filter chips should read left to
 // right the same way a deal actually progresses, not in whatever order
 // stages happen to show up in the queue's data.
-const STAGE_ORDER = ["Discovery", "Qualification", "Scoping", "Proof of Value", "Final Proposal", "Negotiation", "Closed Won"];
+const STAGE_ORDER = ["Discovery", "Qualification", "Scoping", "Proof of Value", "Proposal", "Final Proposal", "Negotiation", "Closed Won"];
 // A deal is closed won if it's marked so OR HubSpot has it at that stage — the
 // sync sets both, but a hand-added item only ever gets the contract state.
 const isClosedWonItem = (q) => q.contractState === "Closed Won" || q.hubspotStage === "Closed Won";

@@ -45,6 +45,9 @@ const QUEUE_SYNC_COLUMNS = [
   "deal_amount",
   "contract_signed_date",
 ];
+// HubSpot's access_type option labeled "Kiosk In" has the internal value
+// "Full Gated" — store the label the app's dropdown uses, not the raw value.
+const ACCESS_TYPE_LABELS = { "Full Gated": "Kiosk In" };
 const sameValue = (a, b) => (a ?? null) === (b ?? null) || (a != null && b != null && String(a) === String(b));
 
 const corsHeaders = {
@@ -345,7 +348,7 @@ Deno.serve(async (req) => {
         name: p.dealname || "(unnamed deal)",
         place: [p.city, p.state].filter(Boolean).join(", ") || null,
         contract_state: isClosedWon ? "Closed Won" : "In Progress",
-        access_type: p.access_type || null,
+        access_type: ACCESS_TYPE_LABELS[p.access_type] || p.access_type || null,
         lanes: p.of_lanes ? Number(p.of_lanes) : null,
         has_onsite_staff: parseOnsiteStaff(p.do_we_need_staff_),
         sales_rep: salesRep,

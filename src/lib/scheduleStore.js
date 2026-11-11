@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabaseClient";
 import { nextColor, initialsOf, UNASSIGNED, earliestScheduleDate, canonPhaseLabel } from "./dateUtils";
-import { DEFAULT_DEPARTMENT } from "./locationDefaults";
+import { DEFAULT_DEPARTMENT, normalizeAccessType } from "./locationDefaults";
 
 // Onboarding-owned tasks (including "Onboarding/Implementation") default to
 // whoever owns that location's Onboarding phase; Implementation-owned tasks
@@ -42,7 +42,7 @@ function phaseToRow(p) {
 // as "here's what's in Negotiation, here's what's in Final Proposal," not
 // one flat alphabetical list with stages interleaved. Manually-added items
 // with no HubSpot stage sort after every known stage.
-const QUEUE_STAGE_ORDER = ["Discovery", "Qualification", "Scoping", "Proof of Value", "Final Proposal", "Negotiation", "Closed Won"];
+const QUEUE_STAGE_ORDER = ["Discovery", "Qualification", "Scoping", "Proof of Value", "Proposal", "Final Proposal", "Negotiation", "Closed Won"];
 function queueStageRank(stage) {
   const i = QUEUE_STAGE_ORDER.indexOf(stage);
   return i === -1 ? QUEUE_STAGE_ORDER.length : i;
@@ -208,7 +208,7 @@ export function useScheduleStore() {
         place: l.place || "",
         archived: l.archived,
         lanes: l.lanes,
-        accessType: l.access_type,
+        accessType: normalizeAccessType(l.access_type),
         salesRep: l.sales_rep,
         propertyManagement: l.property_management,
         ownership: l.ownership,
@@ -272,7 +272,7 @@ export function useScheduleStore() {
       name: q.name,
       place: q.place || "",
       lanes: q.lanes,
-      accessType: q.access_type,
+      accessType: normalizeAccessType(q.access_type),
       contractState: q.contract_state,
       potentialGoLiveDate: q.potential_go_live_date,
       salesRep: q.sales_rep,
