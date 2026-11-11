@@ -553,6 +553,26 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Remove queue items whose deal is already on the calendar. The loop
+    // above skips those deals so they're never re-added, but a queue row can
+    // still be left behind (e.g. created before the location got linked to
+    // the deal) and would otherwise sit in the queue as a duplicate forever.
+    // Safe on a truncated fetch: it only uses the locations table.
+    let removedOnCalendar = 0;
+    {
+      const onCalendar = [...promotedIds, ...locationMatches.map((m) => m.dealId)];
+      const leftovers = (existingQueueRows || []).filter((r) => onCalendar.includes(r.hubspot_deal_id));
+      if (leftovers.length) {
+        const { error } = await admin
+          .from("queue_items")
+          .delete()
+          .in("hubspot_deal_id", leftovers.map((r) => r.hubspot_deal_id));
+        if (error) errors.push({ message: error.message });
+        else removedOnCalendar = leftovers.length;
+      }
+    }
+    removedStale += removedOnCalendar;
+
     const result = {
       ok: true,
       totalDeals: deals.length,
@@ -560,6 +580,7 @@ Deno.serve(async (req) => {
       unchanged,
       skipped,
       removedStale,
+      removedOnCalendar,
       newReps: [...newReps],
       errors,
       ownersTruncated,

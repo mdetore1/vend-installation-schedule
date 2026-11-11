@@ -300,7 +300,13 @@ export function useScheduleStore() {
                 .filter(Boolean),
       };
     });
-    const queue = queueRows.map((q) => ({
+    // A queue item whose HubSpot deal is already on the calendar is a
+    // leftover duplicate (the sync deletes these, but only once it runs) —
+    // never show the same deal in both places.
+    const dealsOnCalendar = new Set(locationRows.map((l) => l.hubspot_deal_id).filter(Boolean));
+    const queue = queueRows
+      .filter((q) => !q.hubspot_deal_id || !dealsOnCalendar.has(q.hubspot_deal_id))
+      .map((q) => ({
       id: q.id,
       name: q.name,
       place: q.place || "",
