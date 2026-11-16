@@ -386,7 +386,9 @@ Deno.serve(async (req) => {
         name: p.dealname || "(unnamed deal)",
         place: [p.city, p.state].filter(Boolean).join(", ") || null,
         contract_state: isClosedWon ? "Closed Won" : "In Progress",
-        access_type: ACCESS_TYPE_LABELS[p.access_type] || p.access_type || null,
+        access_type: p.access_type
+          ? p.access_type.split(";").map((v) => ACCESS_TYPE_LABELS[v.trim()] || v.trim()).filter(Boolean).join(" + ")
+          : null,
         lanes: p.of_lanes ? Number(p.of_lanes) : null,
         has_onsite_staff: parseOnsiteStaff(p.do_we_need_staff_),
         sales_rep: salesRep,

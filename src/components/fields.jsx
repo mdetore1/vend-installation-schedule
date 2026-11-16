@@ -103,6 +103,14 @@ export function Select({ options = [], placeholder = "Select…", className = ""
         <option value="" disabled>
           {placeholder}
         </option>
+        {/* A value outside the list (e.g. a HubSpot answer the list doesn't
+            have yet) still shows as itself instead of the browser silently
+            displaying some other option. */}
+        {props.value && !options.some((o) => (typeof o === "string" ? o : o.value) === props.value) && (
+          <option value={props.value} className="text-vend-black">
+            {props.value}
+          </option>
+        )}
         {options.map((o) => {
           const value = typeof o === "string" ? o : o.value;
           const label = typeof o === "string" ? o : o.label;
