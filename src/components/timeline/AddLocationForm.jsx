@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, ExternalLink } from "lucide-react";
+import { X, ExternalLink, CalendarCheck } from "lucide-react";
 import { Field, TextInput, Select, Toggle, Checkbox, Repeatable } from "../fields";
 import { addDays, cascadeDates, UNASSIGNED } from "../../lib/dateUtils";
 import { emptyPhase, defaultPhases } from "../../lib/locationDefaults";
@@ -243,6 +243,23 @@ export default function AddLocationForm({
           </Field>
 
           <Field label="Phases">
+            {phases.length > 0 && (() => {
+              const allConfirmed = phases.every((p) => p.confirmed);
+              return (
+                <button
+                  type="button"
+                  onClick={() => setPhases((ph) => ph.map((p) => ({ ...p, confirmed: !allConfirmed })))}
+                  className={`mb-3 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+                    allConfirmed
+                      ? "bg-concrete-200 text-slate-500 hover:bg-concrete-300"
+                      : "bg-mint-200/60 text-mint-700 hover:bg-mint-200"
+                  }`}
+                >
+                  <CalendarCheck size={14} />
+                  {allConfirmed ? "Set all back to proposed" : "Confirm all dates"}
+                </button>
+              );
+            })()}
             <Repeatable
               items={phases}
               minRows={1}

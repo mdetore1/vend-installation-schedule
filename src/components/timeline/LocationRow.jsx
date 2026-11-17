@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Reorder, useDragControls } from "framer-motion";
-import { Copy, ExternalLink, GripVertical, Layers, MapPin, RotateCcw, Split, Trash2 } from "lucide-react";
+import { CalendarCheck, Copy, ExternalLink, GripVertical, Layers, MapPin, RotateCcw, Split, Trash2 } from "lucide-react";
 import { Checkbox } from "../fields";
 import { canonPhaseLabel, diffDays, parseDate, rangesOverlap } from "../../lib/dateUtils";
 import { formatArr } from "../../lib/dealAmount";
@@ -54,6 +54,7 @@ export default function LocationRow({
   onEditLocation,
   onSplitLocation,
   onDuplicateLocation,
+  onConfirmAllDates,
   onShiftPhases,
   onDuplicatePhase,
   allLocations,
@@ -223,6 +224,28 @@ export default function LocationRow({
             sales person (bottom), so hovering never hides either of them. */}
         {!readOnly && (
         <div className="pointer-events-none absolute right-2 top-1/2 z-10 flex shrink-0 -translate-y-1/2 items-center gap-0.5 opacity-0 transition group-hover/row:pointer-events-auto group-hover/row:opacity-100">
+          {onConfirmAllDates && location.phases.length > 0 && (() => {
+            // Filled when every phase is already confirmed; clicking then
+            // puts them all back to proposed.
+            const allConfirmed = location.phases.every((p) => p.confirmed);
+            const label = allConfirmed ? "Set all dates back to proposed" : "Confirm all dates";
+            return (
+              <button
+                type="button"
+                onClick={() => onConfirmAllDates(location, !allConfirmed)}
+                className={`shrink-0 rounded-full p-1.5 transition ${
+                  allConfirmed
+                    ? "text-mint-700 hover:bg-concrete-100 hover:text-vend-black"
+                    : "text-slate-300 hover:bg-mint-200 hover:text-mint-700"
+                }`}
+                aria-label={label}
+                aria-pressed={allConfirmed}
+                title={label}
+              >
+                <CalendarCheck size={14} strokeWidth={allConfirmed ? 2.5 : 2} />
+              </button>
+            );
+          })()}
           {onDuplicateLocation && (
             <button
               type="button"

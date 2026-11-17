@@ -124,6 +124,19 @@ export default function ProjectTracker({ isAdmin = true }) {
     }
   }
 
+  // Confirms (or un-confirms) every phase of one location in one click.
+  // Undo puts each phase's own prior state back.
+  async function confirmAllDates(location, confirmed) {
+    if (!isAdmin) return denyWrite();
+    const changed = location.phases.filter((p) => !!p.confirmed !== confirmed);
+    if (!changed.length) return;
+    await Promise.all(changed.map((p) => store.updatePhase(location.id, p.id, { confirmed })));
+    setUndoAction({
+      label: confirmed ? `Confirmed all dates for "${location.name}"` : `Set "${location.name}" dates back to proposed`,
+      run: () => Promise.all(changed.map((p) => store.updatePhase(location.id, p.id, { confirmed: !!p.confirmed }))),
+    });
+  }
+
   async function deletePhase(locId, phaseId) {
     if (!isAdmin) return denyWrite();
     const prevPhase = data.locations.find((l) => l.id === locId)?.phases.find((p) => p.id === phaseId);
@@ -671,6 +684,7 @@ export default function ProjectTracker({ isAdmin = true }) {
             onEditLocation={openEditLocation}
             onSplitLocation={setSplitTarget}
             onDuplicateLocation={duplicateLocation}
+            onConfirmAllDates={confirmAllDates}
             onEditGroup={(group) => {
               setGroupModalEditTarget(group);
               setShowGroups(true);
