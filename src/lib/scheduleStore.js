@@ -63,6 +63,17 @@ function locationToRow(l) {
   };
 }
 
+const HARDWARE_COLUMNS = ["kiosks", "gates", "gates_keep_new", "exit_lanes", "monthly_parking_billing", "lpr"];
+// Row (snake_case) -> camelCase hardware fields, same on queue items and locations.
+const hardwareFromRow = (r) => ({
+  kiosks: r.kiosks ?? null,
+  gates: r.gates ?? null,
+  gatesKeepNew: r.gates_keep_new ?? null,
+  exitLanes: r.exit_lanes ?? null,
+  monthlyParkingBilling: r.monthly_parking_billing ?? null,
+  lpr: r.lpr ?? null,
+});
+
 // HubSpot deal details kept on a location for reference after it leaves the
 // Sales queue (schema_location_hubspot_info.sql). Same camelCase names on a
 // queue item and a location, so either can be the source.
@@ -74,7 +85,19 @@ const HUBSPOT_INFO_COLUMNS = [
   "incumbent_operator",
   "contract_signed_date",
   "potential_go_live_date",
+  // Hardware (schema_hubspot_hardware.sql). Entry lanes are the `lanes` column.
+  ...HARDWARE_COLUMNS,
 ];
+function hardwareToRow(src) {
+  return {
+    kiosks: src.kiosks ?? null,
+    gates: src.gates ?? null,
+    gates_keep_new: src.gatesKeepNew ?? null,
+    exit_lanes: src.exitLanes ?? null,
+    monthly_parking_billing: src.monthlyParkingBilling ?? null,
+    lpr: src.lpr ?? null,
+  };
+}
 function hubspotInfoToRow(src) {
   return {
     hubspot_stage: src.hubspotStage ?? null,
@@ -84,6 +107,7 @@ function hubspotInfoToRow(src) {
     incumbent_operator: src.incumbentOperator ?? null,
     contract_signed_date: src.contractSignedDate || null,
     potential_go_live_date: src.potentialGoLiveDate || null,
+    ...hardwareToRow(src),
   };
 }
 
@@ -254,6 +278,7 @@ export function useScheduleStore() {
         incumbentOperator: l.incumbent_operator || null,
         contractSignedDate: l.contract_signed_date || null,
         potentialGoLiveDate: l.potential_go_live_date || null,
+        ...hardwareFromRow(l),
         // Overrides the auto-computed "current stage" (lowest stage with an
         // incomplete item) — e.g. still waiting on one Pre-Onboarding task but
         // the team has already moved on to Onboarding work. Null means "just
@@ -327,6 +352,7 @@ export function useScheduleStore() {
       dealAmount: q.deal_amount,
       contractSignedDate: q.contract_signed_date,
       salesGroup: q.sales_group,
+      ...hardwareFromRow(q),
     })).sort((a, b) => {
       const rankDiff = queueStageRank(a.hubspotStage) - queueStageRank(b.hubspotStage);
       return rankDiff !== 0 ? rankDiff : a.name.localeCompare(b.name);
@@ -693,6 +719,7 @@ export function useScheduleStore() {
       deal_amount: item.dealAmount ?? null,
       contract_signed_date: item.contractSignedDate || null,
       sales_group: item.salesGroup || null,
+      ...Object.fromEntries(Object.entries(hardwareToRow(item)).filter(([, v]) => v != null)),
     });
   }
   async function addSalesRep(name) {

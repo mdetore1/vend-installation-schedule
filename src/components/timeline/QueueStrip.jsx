@@ -132,6 +132,17 @@ function FieldMini({ label, children }) {
   );
 }
 
+// Hardware details are HubSpot-only (the sync overwrites them every 30
+// minutes), so they're shown read-only — change them on the deal itself.
+function ReadOnlyValue({ value }) {
+  const empty = value == null || value === "";
+  return (
+    <p className={`rounded-xl bg-concrete-100 px-3 py-1.5 text-xs ${empty ? "text-slate-300" : "font-semibold text-vend-black"}`}>
+      {empty ? "—" : value}
+    </p>
+  );
+}
+
 function Chip({ children }) {
   return (
     <span className="shrink-0 truncate rounded-full bg-concrete-200 px-2.5 py-1 text-[11px] font-semibold text-slate-500">
@@ -291,7 +302,7 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
                 className={miniInputCls}
               />
             </FieldMini>
-            <FieldMini label="Lanes">
+            <FieldMini label="Entry lanes">
               <DebouncedTextInput
                 type="number"
                 min="0"
@@ -348,7 +359,7 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
             </FieldMini>
           </div>
 
-          {(item.hubspotDealId || item.garageType || item.numberOfParkingSpaces || item.propertyType || item.incumbentOperator || item.dealAmount || item.contractSignedDate) && (
+          {(item.hubspotDealId || item.garageType || item.numberOfParkingSpaces || item.propertyType || item.incumbentOperator || item.dealAmount || item.contractSignedDate || item.kiosks || item.gates != null || item.gatesKeepNew || item.exitLanes != null || item.monthlyParkingBilling || item.lpr) && (
             <div className="border-t border-concrete-200 p-3.5">
               <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                 From HubSpot
@@ -401,6 +412,27 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
                     onChange={(e) => onUpdate({ contractSignedDate: e.target.value })}
                     className={miniInputCls}
                   />
+                </FieldMini>
+              </div>
+              <p className="mb-2 mt-4 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Hardware</p>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <FieldMini label="Kiosks">
+                  <ReadOnlyValue value={item.kiosks} />
+                </FieldMini>
+                <FieldMini label="Gates">
+                  <ReadOnlyValue value={item.gates} />
+                </FieldMini>
+                <FieldMini label="Gates keep / new">
+                  <ReadOnlyValue value={item.gatesKeepNew} />
+                </FieldMini>
+                <FieldMini label="LPR cameras">
+                  <ReadOnlyValue value={item.lpr} />
+                </FieldMini>
+                <FieldMini label="Exit lanes">
+                  <ReadOnlyValue value={item.exitLanes} />
+                </FieldMini>
+                <FieldMini label="Monthly parking billing">
+                  <ReadOnlyValue value={item.monthlyParkingBilling} />
                 </FieldMini>
               </div>
             </div>

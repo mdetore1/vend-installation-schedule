@@ -69,6 +69,21 @@ function locationInfoFromDeal(p, stageLabels) {
     contract_signed_date: p.contract_signed_date ? p.contract_signed_date.slice(0, 10) : null,
   };
 }
+// Hardware details from the deal (schema_hubspot_hardware.sql), kept on both
+// queue items and locations. Entry lanes already live in the `lanes` column.
+// HubSpot has no camera count — LPR (Yes / No / I don't know) is the closest.
+const HARDWARE_COLUMNS = ["kiosks", "gates", "gates_keep_new", "exit_lanes", "monthly_parking_billing", "lpr"];
+const numOrNull = (v) => (v == null || v === "" || !Number.isFinite(Number(v)) ? null : Number(v));
+function hardwareFromDeal(p) {
+  return {
+    kiosks: p.of_kiosks || null,
+    gates: numOrNull(p.gates____),
+    gates_keep_new: p.gates__keep___new_ || null,
+    exit_lanes: numOrNull(p.of_exit_lanes),
+    monthly_parking_billing: p.monthly_parking_billing || null,
+    lpr: p.lpr || null,
+  };
+}
 const sameValue = (a, b) => (a ?? null) === (b ?? null) || (a != null && b != null && String(a) === String(b));
 
 const corsHeaders = {
@@ -95,6 +110,12 @@ const DEAL_PROPERTIES = [
   "property_type",
   "parking_operator",
   "of_lanes",
+  "of_exit_lanes",
+  "of_kiosks",
+  "gates____",
+  "gates__keep___new_",
+  "monthly_parking_billing",
+  "lpr",
   "do_we_need_staff_",
   "hubspot_owner_id",
   "city",
@@ -274,17 +295,35 @@ Deno.serve(async (req) => {
     // run. If they're missing, fall back to the old select — a failed select
     // here would leave allLocations empty, making every promoted deal look
     // new and re-adding it to the queue.
+    // Same for the hardware columns (schema_hubspot_hardware.sql): try them,
+    // then step back to fewer columns rather than fail the whole run.
+    const baseLocationCols = ["id", "name", "hubspot_deal_id", "deal_amount"];
     let locationsRes = await admin
       .from("locations")
-      .select(["id", "name", "hubspot_deal_id", "deal_amount", ...LOCATION_INFO_COLUMNS].join(", "));
+      .select([...baseLocationCols, ...LOCATION_INFO_COLUMNS, ...HARDWARE_COLUMNS].join(", "));
+    const hasLocationHardware = !locationsRes.error;
+    if (!hasLocationHardware) {
+      locationsRes = await admin.from("locations").select([...baseLocationCols, ...LOCATION_INFO_COLUMNS].join(", "));
+    }
     const hasLocationInfo = !locationsRes.error;
-    if (!hasLocationInfo) locationsRes = await admin.from("locations").select("id, name, hubspot_deal_id, deal_amount");
+    if (!hasLocationInfo) locationsRes = await admin.from("locations").select(baseLocationCols.join(", "));
     if (locationsRes.error) throw new Error(`locations select failed: ${locationsRes.error.message}`);
     const allLocations = locationsRes.data;
-    const [{ data: existingReps }, { data: existingQueueRows }] = await Promise.all([
-      admin.from("sales_reps").select("name"),
-      admin.from("queue_items").select(QUEUE_SYNC_COLUMNS.join(", ")).not("hubspot_deal_id", "is", null),
-    ]);
+    // Everything this run writes onto a location from its deal.
+    const locationInfo = (p) => ({
+      ...(hasLocationInfo ? locationInfoFromDeal(p, stageLabels) : {}),
+      ...(hasLocationHardware ? hardwareFromDeal(p) : {}),
+    });
+    const { data: existingReps } = await admin.from("sales_reps").select("name");
+    let queueSyncColumns = [...QUEUE_SYNC_COLUMNS, ...HARDWARE_COLUMNS];
+    let queueRes = await admin.from("queue_items").select(queueSyncColumns.join(", ")).not("hubspot_deal_id", "is", null);
+    const hasQueueHardware = !queueRes.error;
+    if (!hasQueueHardware) {
+      queueSyncColumns = QUEUE_SYNC_COLUMNS;
+      queueRes = await admin.from("queue_items").select(queueSyncColumns.join(", ")).not("hubspot_deal_id", "is", null);
+    }
+    if (queueRes.error) throw new Error(`queue_items select failed: ${queueRes.error.message}`);
+    const existingQueueRows = queueRes.data;
     const promotedIds = new Set(
       (allLocations || []).filter((l) => l.hubspot_deal_id).map((l) => l.hubspot_deal_id)
     );
@@ -344,7 +383,7 @@ Deno.serve(async (req) => {
       if (promotedIds.has(deal.id)) {
         const target = {
           deal_amount: p.amount ? Number(p.amount) : null,
-          ...(hasLocationInfo ? locationInfoFromDeal(p, stageLabels) : {}),
+          ...locationInfo(p),
         };
         for (const l of locationsByDealId.get(deal.id) || []) {
           const patch = {};
@@ -364,7 +403,7 @@ Deno.serve(async (req) => {
             locationId: l.id,
             dealId: deal.id,
             amount: p.amount ? Number(p.amount) : null,
-            info: locationInfoFromDeal(p, stageLabels),
+            info: locationInfo(p),
           });
         }
         skipped++;
@@ -398,6 +437,7 @@ Deno.serve(async (req) => {
         incumbent_operator: p.parking_operator || null,
         deal_amount: p.amount ? Number(p.amount) : null,
         contract_signed_date: p.contract_signed_date ? p.contract_signed_date.slice(0, 10) : null,
+        ...(hasQueueHardware ? hardwareFromDeal(p) : {}),
       });
     }
 
@@ -433,7 +473,7 @@ Deno.serve(async (req) => {
       .map(({ isNew, name, ...r }) => r)
       .filter((row) => {
         const current = existingByDealId.get(row.hubspot_deal_id);
-        return !current || QUEUE_SYNC_COLUMNS.some((k) => !sameValue(row[k], current[k]));
+        return !current || queueSyncColumns.some((k) => !sameValue(row[k], current[k]));
       });
     const unchanged = rowsToUpsert.filter((r) => !r.isNew).length - existingRows.length;
     const existingResults = await Promise.all(
@@ -464,7 +504,7 @@ Deno.serve(async (req) => {
         locationId: l.id,
         dealId: deal.id,
         amount: dealAmountOf(deal),
-        info: locationInfoFromDeal(deal.properties || {}, stageLabels),
+        info: locationInfo(deal.properties || {}),
       });
       alreadyMatched.add(l.id);
       usedDealIds.add(deal.id);
@@ -508,7 +548,7 @@ Deno.serve(async (req) => {
         locationMatches.map((m) =>
           admin
             .from("locations")
-            .update({ hubspot_deal_id: m.dealId, deal_amount: m.amount, ...(hasLocationInfo ? m.info : {}) })
+            .update({ hubspot_deal_id: m.dealId, deal_amount: m.amount, ...m.info })
             .eq("id", m.locationId)
         )
       );

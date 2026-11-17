@@ -85,8 +85,17 @@ function LocationInfo({ location, team }) {
         <InfoItem label="Property type" value={location.propertyType} />
         <InfoItem label="Incumbent operator" value={location.incumbentOperator} />
         <InfoItem label="Access" value={location.accessType} />
-        <InfoItem label="Lanes" value={location.lanes} />
         <InfoItem label="Onsite staff (Spark)" value={location.hasOnsiteStaff ? "Yes" : "No"} />
+      </InfoSection>
+
+      <InfoSection title="Hardware">
+        <InfoItem label="Kiosks" value={location.kiosks} />
+        <InfoItem label="Gates" value={formatCount(location.gates)} />
+        <InfoItem label="Gates keep / new" value={location.gatesKeepNew} />
+        <InfoItem label="LPR cameras" value={location.lpr} />
+        <InfoItem label="Entry lanes" value={location.lanes} />
+        <InfoItem label="Exit lanes" value={formatCount(location.exitLanes)} />
+        <InfoItem label="Monthly parking billing" value={location.monthlyParkingBilling} />
       </InfoSection>
 
       <InfoSection title="Location">
