@@ -120,7 +120,6 @@ function LocationInfo({ location, team }) {
       </InfoSection>
 
       <InfoSection title="Location">
-        <InfoItem label="City, state" value={location.place} />
         <InfoItem label="Contractor" value={location.contractor} />
         <InfoItem label="Property management" value={location.propertyManagement} />
         <InfoItem label="Ownership" value={location.ownership} />
