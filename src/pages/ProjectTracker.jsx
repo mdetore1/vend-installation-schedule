@@ -235,6 +235,7 @@ export default function ProjectTracker({ isAdmin = true }) {
         exitLanes: location.exitLanes,
         monthlyParkingBilling: location.monthlyParkingBilling,
         lpr: location.lpr,
+        address: location.address,
         name: `${baseName} ${i}`,
         place: location.place,
         lanes: location.lanes,

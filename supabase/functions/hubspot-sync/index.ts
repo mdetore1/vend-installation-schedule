@@ -84,6 +84,15 @@ function hardwareFromDeal(p) {
     lpr: p.lpr || null,
   };
 }
+// Street address from the deal (schema_location_address.sql), with city,
+// state and zip after it. Null when the deal has no street address, since
+// city/state alone is already the `place` column.
+function addressFromDeal(p) {
+  const street = (p.address || "").trim();
+  if (!street) return null;
+  const stateZip = [(p.state || "").trim(), (p.zip_code || "").trim()].filter(Boolean).join(" ");
+  return [street, (p.city || "").trim(), stateZip].filter(Boolean).join(", ");
+}
 const sameValue = (a, b) => (a ?? null) === (b ?? null) || (a != null && b != null && String(a) === String(b));
 
 const corsHeaders = {
@@ -120,6 +129,8 @@ const DEAL_PROPERTIES = [
   "hubspot_owner_id",
   "city",
   "state",
+  "address",
+  "zip_code",
 ];
 
 // "Only match specific words" — a rep typing "No" or "N/A" should not flip
@@ -297,7 +308,15 @@ Deno.serve(async (req) => {
     // new and re-adding it to the queue.
     // Same for the hardware columns (schema_hubspot_hardware.sql): try them,
     // then step back to fewer columns rather than fail the whole run.
-    const baseLocationCols = ["id", "name", "hubspot_deal_id", "deal_amount"];
+    // The address column (schema_location_address.sql) is probed on its own so
+    // a missing column only skips addresses, not the hardware columns too.
+    const [locAddrProbe, queueAddrProbe] = await Promise.all([
+      admin.from("locations").select("address").limit(1),
+      admin.from("queue_items").select("address").limit(1),
+    ]);
+    const hasAddress = !locAddrProbe.error && !queueAddrProbe.error;
+    const addressCols = hasAddress ? ["address"] : [];
+    const baseLocationCols = ["id", "name", "hubspot_deal_id", "deal_amount", ...addressCols];
     let locationsRes = await admin
       .from("locations")
       .select([...baseLocationCols, ...LOCATION_INFO_COLUMNS, ...HARDWARE_COLUMNS].join(", "));
@@ -313,13 +332,14 @@ Deno.serve(async (req) => {
     const locationInfo = (p) => ({
       ...(hasLocationInfo ? locationInfoFromDeal(p, stageLabels) : {}),
       ...(hasLocationHardware ? hardwareFromDeal(p) : {}),
+      ...(hasAddress ? { address: addressFromDeal(p) } : {}),
     });
     const { data: existingReps } = await admin.from("sales_reps").select("name");
-    let queueSyncColumns = [...QUEUE_SYNC_COLUMNS, ...HARDWARE_COLUMNS];
+    let queueSyncColumns = [...QUEUE_SYNC_COLUMNS, ...HARDWARE_COLUMNS, ...addressCols];
     let queueRes = await admin.from("queue_items").select(queueSyncColumns.join(", ")).not("hubspot_deal_id", "is", null);
     const hasQueueHardware = !queueRes.error;
     if (!hasQueueHardware) {
-      queueSyncColumns = QUEUE_SYNC_COLUMNS;
+      queueSyncColumns = [...QUEUE_SYNC_COLUMNS, ...addressCols];
       queueRes = await admin.from("queue_items").select(queueSyncColumns.join(", ")).not("hubspot_deal_id", "is", null);
     }
     if (queueRes.error) throw new Error(`queue_items select failed: ${queueRes.error.message}`);
@@ -438,6 +458,7 @@ Deno.serve(async (req) => {
         deal_amount: p.amount ? Number(p.amount) : null,
         contract_signed_date: p.contract_signed_date ? p.contract_signed_date.slice(0, 10) : null,
         ...(hasQueueHardware ? hardwareFromDeal(p) : {}),
+        ...(hasAddress ? { address: addressFromDeal(p) } : {}),
       });
     }
 

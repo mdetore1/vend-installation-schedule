@@ -359,11 +359,18 @@ function QueueRow({ item, salesReps, onAddSalesRep, onUpdate, onRemove, onPromot
             </FieldMini>
           </div>
 
-          {(item.hubspotDealId || item.garageType || item.numberOfParkingSpaces || item.propertyType || item.incumbentOperator || item.dealAmount || item.contractSignedDate || item.kiosks || item.gates != null || item.gatesKeepNew || item.exitLanes != null || item.monthlyParkingBilling || item.lpr) && (
+          {(item.hubspotDealId || item.garageType || item.numberOfParkingSpaces || item.propertyType || item.incumbentOperator || item.dealAmount || item.contractSignedDate || item.kiosks || item.gates != null || item.gatesKeepNew || item.exitLanes != null || item.monthlyParkingBilling || item.lpr || item.address) && (
             <div className="border-t border-concrete-200 p-3.5">
               <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                 From HubSpot
               </p>
+              {item.address && (
+                <div className="mb-3">
+                  <FieldMini label="Address">
+                    <ReadOnlyValue value={item.address} />
+                  </FieldMini>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <FieldMini label="Garage type">
                   <DebouncedTextInput

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, ExternalLink, CalendarCheck } from "lucide-react";
+import { X, ExternalLink, CalendarCheck, MapPin } from "lucide-react";
 import { Field, TextInput, Select, Toggle, Checkbox, Repeatable } from "../fields";
 import { addDays, cascadeDates, UNASSIGNED } from "../../lib/dateUtils";
 import { emptyPhase, defaultPhases } from "../../lib/locationDefaults";
@@ -53,8 +53,29 @@ function InfoSection({ title, children }) {
 // own settings. Editing lives on the Edit tab.
 function LocationInfo({ location, team }) {
   const salesPerson = team.find((t) => t.id === location.salesPersonId)?.name;
+  // Street address from the HubSpot deal; falls back to city/state.
+  const address = location.address || location.place;
   return (
     <div className="space-y-6">
+      <div className="flex items-start gap-3 rounded-xl bg-concrete-100 px-3 py-2.5">
+        <MapPin size={16} className="mt-0.5 shrink-0 text-slate-400" />
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Address</p>
+          <p className={`mt-0.5 break-words text-sm ${address ? "font-medium text-vend-black" : "text-slate-300"}`}>
+            {address || "No address in HubSpot yet"}
+          </p>
+        </div>
+        {address && (
+          <a
+            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex shrink-0 items-center gap-1 self-center rounded-full bg-white px-2.5 py-1 text-xs font-bold text-slate-600 transition hover:text-vend-black"
+          >
+            Map <ExternalLink size={11} />
+          </a>
+        )}
+      </div>
       {location.hubspotDealId ? (
         <a
           href={hubspotDealUrl(location.hubspotDealId)}

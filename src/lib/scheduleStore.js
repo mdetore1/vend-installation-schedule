@@ -63,7 +63,8 @@ function locationToRow(l) {
   };
 }
 
-const HARDWARE_COLUMNS = ["kiosks", "gates", "gates_keep_new", "exit_lanes", "monthly_parking_billing", "lpr"];
+// Plus the deal's street address (schema_location_address.sql).
+const HARDWARE_COLUMNS = ["kiosks", "gates", "gates_keep_new", "exit_lanes", "monthly_parking_billing", "lpr", "address"];
 // Row (snake_case) -> camelCase hardware fields, same on queue items and locations.
 const hardwareFromRow = (r) => ({
   kiosks: r.kiosks ?? null,
@@ -72,6 +73,7 @@ const hardwareFromRow = (r) => ({
   exitLanes: r.exit_lanes ?? null,
   monthlyParkingBilling: r.monthly_parking_billing ?? null,
   lpr: r.lpr ?? null,
+  address: r.address ?? null,
 });
 
 // HubSpot deal details kept on a location for reference after it leaves the
@@ -96,6 +98,7 @@ function hardwareToRow(src) {
     exit_lanes: src.exitLanes ?? null,
     monthly_parking_billing: src.monthlyParkingBilling ?? null,
     lpr: src.lpr ?? null,
+    address: src.address ?? null,
   };
 }
 function hubspotInfoToRow(src) {
