@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, ExternalLink, CalendarCheck, MapPin } from "lucide-react";
 import { Field, TextInput, Select, Toggle, Checkbox, Repeatable } from "../fields";
 import { addDays, cascadeDates, UNASSIGNED } from "../../lib/dateUtils";
@@ -31,20 +31,64 @@ function InfoItem({ label, value }) {
   const empty = value == null || value === "";
   return (
     <div className="min-w-0">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
-      <p className={`mt-0.5 break-words text-sm ${empty ? "text-slate-300" : "font-medium text-vend-black"}`}>
+      <dt className="text-xs text-slate-400">{label}</dt>
+      <dd className={`mt-0.5 break-words text-sm ${empty ? "text-slate-300" : "font-semibold text-vend-black"}`}>
         {empty ? "—" : value}
-      </p>
+      </dd>
     </div>
   );
 }
 
 function InfoSection({ title, children }) {
   return (
-    <section>
-      <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">{title}</h3>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-3">{children}</div>
+    <section className="rounded-2xl border border-concrete-200">
+      <h3 className="border-b border-concrete-200 px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+        {title}
+      </h3>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-3.5 p-4 sm:grid-cols-3">{children}</dl>
     </section>
+  );
+}
+
+// Headline numbers shown as tiles above the detail sections.
+function StatTile({ label, value }) {
+  const empty = value == null || value === "";
+  return (
+    <div className="rounded-2xl bg-concrete-100 px-3.5 py-3">
+      <p className="text-xs text-slate-500">{label}</p>
+      <p className={`mt-1 font-display text-lg font-bold leading-none ${empty ? "text-slate-300" : "text-vend-black"}`}>
+        {empty ? "—" : value}
+      </p>
+    </div>
+  );
+}
+
+// Stage pill + HubSpot link under the location name in the dialog header.
+function LocationInfoHeader({ location }) {
+  const stage = location.hubspotStage;
+  if (!stage && !location.hubspotDealId) return null;
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-2.5">
+      {stage && (
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+            stage === "Closed Won" ? "bg-mint-200/60 text-mint-700" : "bg-concrete-200 text-slate-600"
+          }`}
+        >
+          {stage}
+        </span>
+      )}
+      {location.hubspotDealId && (
+        <a
+          href={hubspotDealUrl(location.hubspotDealId)}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 text-xs font-semibold text-[#FF7A59] hover:underline"
+        >
+          Open in HubSpot <ExternalLink size={11} />
+        </a>
+      )}
+    </div>
   );
 }
 
@@ -56,12 +100,14 @@ function LocationInfo({ location, team }) {
   // Street address from the HubSpot deal; falls back to city/state.
   const address = location.address || location.place;
   return (
-    <div className="space-y-6">
-      <div className="flex items-start gap-3 rounded-xl bg-concrete-100 px-3 py-2.5">
-        <MapPin size={16} className="mt-0.5 shrink-0 text-slate-400" />
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 rounded-2xl border border-concrete-200 p-3.5">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-concrete-100 text-slate-500">
+          <MapPin size={16} />
+        </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Address</p>
-          <p className={`mt-0.5 break-words text-sm ${address ? "font-medium text-vend-black" : "text-slate-300"}`}>
+          <p className="text-xs text-slate-400">Address</p>
+          <p className={`mt-0.5 break-words text-sm ${address ? "font-semibold text-vend-black" : "text-slate-300"}`}>
             {address || "No address in HubSpot yet"}
           </p>
         </div>
@@ -70,30 +116,27 @@ function LocationInfo({ location, team }) {
             href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex shrink-0 items-center gap-1 self-center rounded-full bg-white px-2.5 py-1 text-xs font-bold text-slate-600 transition hover:text-vend-black"
+            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-concrete-100 px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-concrete-200 hover:text-vend-black"
           >
             Map <ExternalLink size={11} />
           </a>
         )}
       </div>
-      {location.hubspotDealId ? (
-        <a
-          href={hubspotDealUrl(location.hubspotDealId)}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1 rounded-full bg-[#FF7A59]/15 px-3 py-1.5 text-xs font-bold text-[#FF7A59] transition hover:bg-[#FF7A59]/25"
-        >
-          Open deal in HubSpot <ExternalLink size={12} />
-        </a>
-      ) : (
+
+      {!location.hubspotDealId && (
         <p className="rounded-xl bg-concrete-100 px-3 py-2 text-xs text-slate-500">
           This location isn{"’"}t linked to a HubSpot deal, so there{"’"}s no deal info to show.
         </p>
       )}
 
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <StatTile label="Deal ARR" value={formatCurrency(location.dealAmount)} />
+        <StatTile label="Parking spaces" value={formatCount(location.numberOfParkingSpaces)} />
+        <StatTile label="Kiosks" value={location.kiosks} />
+        <StatTile label="Gates" value={formatCount(location.gates)} />
+      </div>
+
       <InfoSection title="Deal">
-        <InfoItem label="HubSpot stage" value={location.hubspotStage} />
-        <InfoItem label="Deal amount (ARR)" value={formatCurrency(location.dealAmount)} />
         <InfoItem label="Contract signed" value={formatDate(location.contractSignedDate)} />
         <InfoItem label="Go-live requested" value={formatDate(location.potentialGoLiveDate)} />
         <InfoItem label="Sales rep" value={location.salesRep} />
@@ -102,7 +145,6 @@ function LocationInfo({ location, team }) {
 
       <InfoSection title="Garage">
         <InfoItem label="Garage type" value={location.garageType} />
-        <InfoItem label="Parking spaces" value={formatCount(location.numberOfParkingSpaces)} />
         <InfoItem label="Property type" value={location.propertyType} />
         <InfoItem label="Incumbent operator" value={location.incumbentOperator} />
         <InfoItem label="Access" value={location.accessType} />
@@ -110,16 +152,14 @@ function LocationInfo({ location, team }) {
       </InfoSection>
 
       <InfoSection title="Hardware">
-        <InfoItem label="Kiosks" value={location.kiosks} />
-        <InfoItem label="Gates" value={formatCount(location.gates)} />
-        <InfoItem label="Gates keep / new" value={location.gatesKeepNew} />
-        <InfoItem label="LPR cameras" value={location.lpr} />
         <InfoItem label="Entry lanes" value={location.lanes} />
         <InfoItem label="Exit lanes" value={formatCount(location.exitLanes)} />
+        <InfoItem label="Gates keep / new" value={location.gatesKeepNew} />
+        <InfoItem label="LPR cameras" value={location.lpr} />
         <InfoItem label="Monthly parking billing" value={location.monthlyParkingBilling} />
       </InfoSection>
 
-      <InfoSection title="Location">
+      <InfoSection title="Team & ownership">
         <InfoItem label="Contractor" value={location.contractor} />
         <InfoItem label="Property management" value={location.propertyManagement} />
         <InfoItem label="Ownership" value={location.ownership} />
@@ -164,6 +204,15 @@ export default function AddLocationForm({
   const [tab, setTab] = useState(infoLocation ? "info" : "edit");
   const showingInfo = !!infoLocation && (tab === "info" || !canEdit);
 
+  // The read-only Info tab closes on Esc or a click outside the box. The Edit
+  // tab and the Add form don't, so a stray click can't throw away edits.
+  useEffect(() => {
+    if (!open || !showingInfo) return;
+    const onKey = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, showingInfo, onClose]);
+
   if (!open) return null;
 
   function updatePhase(i, patch) {
@@ -186,19 +235,37 @@ export default function AddLocationForm({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-vend-black/40 p-4">
-      <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <h2 className="min-w-0 truncate font-display text-lg font-bold text-vend-black">
-            {infoLocation ? infoLocation.name : title}
-          </h2>
-          <button type="button" onClick={onClose} className="shrink-0 text-slate-300 hover:text-vend-black">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-vend-black/40 p-4"
+      onMouseDown={(e) => {
+        if (showingInfo && e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className={`flex max-h-[88vh] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-xl ${
+          infoLocation ? "max-w-2xl" : "max-w-lg"
+        }`}
+      >
+        <div className="border-b border-concrete-200 px-6 pb-4 pt-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="truncate font-display text-xl font-bold text-vend-black">
+              {infoLocation ? infoLocation.name : title}
+            </h2>
+            {infoLocation && <LocationInfoHeader location={infoLocation} />}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="-mr-1.5 shrink-0 rounded-full p-1.5 text-slate-400 transition hover:bg-concrete-100 hover:text-vend-black"
+          >
             <X size={18} />
           </button>
         </div>
 
         {infoLocation && canEdit && (
-          <div className="mb-5 flex gap-1.5" role="tablist">
+          <div className="mt-4 flex gap-1.5" role="tablist">
             {TABS.map((t) => (
               <button
                 key={t.key}
@@ -215,7 +282,9 @@ export default function AddLocationForm({
             ))}
           </div>
         )}
+        </div>
 
+        <div className="flex-1 overflow-y-auto px-6 py-5">
         {showingInfo ? (
           <LocationInfo location={infoLocation} team={team} />
         ) : (
@@ -330,8 +399,9 @@ export default function AddLocationForm({
           </Field>
         </div>
         )}
+        </div>
 
-        <div className="mt-6 flex justify-end gap-3">
+        <div className="flex justify-end gap-3 border-t border-concrete-200 px-6 py-4">
           <button
             type="button"
             onClick={onClose}
