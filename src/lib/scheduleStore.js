@@ -794,7 +794,19 @@ export function useScheduleStore() {
     if (patch.notes !== undefined) row.notes = patch.notes || null;
     if (patch.links !== undefined) row.links = patch.links;
     if (patch.excluded !== undefined) row.excluded = patch.excluded;
-    await supabase.from("checklist_progress").upsert(row, { onConflict: "location_id,checklist_item_id" });
+    // Show the change right away instead of waiting for the realtime
+    // round trip + full refetch (seconds on a busy dashboard, which made a
+    // ticked task look like it did nothing). The refetch then confirms it.
+    setProgressRows((rows) => {
+      const i = rows.findIndex((r) => r.location_id === locationId && r.checklist_item_id === itemId);
+      if (i === -1) return [...rows, { done: false, excluded: false, links: [], ...row }];
+      return rows.map((r, j) => (j === i ? { ...r, ...row } : r));
+    });
+    const { error } = await supabase.from("checklist_progress").upsert(row, { onConflict: "location_id,checklist_item_id" });
+    if (error) {
+      window.alert(`Couldn't save that change: ${error.message}`);
+      refetchAll();
+    }
   }
 
   // ---- checklist template (affects every non-archived location live —

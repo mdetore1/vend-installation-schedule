@@ -10,13 +10,6 @@ const TABS = [
   { key: "edit", label: "Edit" },
 ];
 
-function formatDate(iso) {
-  if (!iso) return null;
-  const [y, m, d] = String(iso).slice(0, 10).split("-").map(Number);
-  if (!y || !m || !d) return iso;
-  return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
-
 function formatCurrency(n) {
   if (n == null || n === "") return null;
   return `$${Math.round(Number(n)).toLocaleString("en-US")}`;
@@ -136,13 +129,6 @@ function LocationInfo({ location, team }) {
         <StatTile label="Gates" value={formatCount(location.gates)} />
       </div>
 
-      <InfoSection title="Deal">
-        <InfoItem label="Contract signed" value={formatDate(location.contractSignedDate)} />
-        <InfoItem label="Go-live requested" value={formatDate(location.potentialGoLiveDate)} />
-        <InfoItem label="Sales rep" value={location.salesRep} />
-        <InfoItem label="Sales person" value={salesPerson} />
-      </InfoSection>
-
       <InfoSection title="Garage">
         <InfoItem label="Garage type" value={location.garageType} />
         <InfoItem label="Property type" value={location.propertyType} />
@@ -160,6 +146,16 @@ function LocationInfo({ location, team }) {
       </InfoSection>
 
       <InfoSection title="Team & ownership">
+        {/* Sales person (assigned here) and sales rep (HubSpot owner) are
+            usually the same person — show one line unless they differ. */}
+        {salesPerson && location.salesRep && salesPerson !== location.salesRep ? (
+          <>
+            <InfoItem label="Sales person" value={salesPerson} />
+            <InfoItem label="Sales rep (HubSpot)" value={location.salesRep} />
+          </>
+        ) : (
+          <InfoItem label="Sales" value={salesPerson || location.salesRep} />
+        )}
         <InfoItem label="Contractor" value={location.contractor} />
         <InfoItem label="Property management" value={location.propertyManagement} />
         <InfoItem label="Ownership" value={location.ownership} />

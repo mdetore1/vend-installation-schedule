@@ -947,7 +947,7 @@ function ClientGroupCard({ group, locations, team, open, onToggle, onUpdate, onA
       )}
       <div className={`grid transition-[grid-template-rows] duration-300 ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
         <div className="overflow-hidden">
-          <ChecklistSection
+          {open && <ChecklistSection
             location={primary}
             team={team}
             onUpdate={(itemId, patch) => onUpdate(primary.id, itemId, patch)}
@@ -957,7 +957,7 @@ function ClientGroupCard({ group, locations, team, open, onToggle, onUpdate, onA
             onEditNotes={onEditNotes}
             onReorderCategories={onReorderCategories}
             onReorderTasks={onReorderTasks}
-          />
+          />}
         </div>
       </div>
     </div>
@@ -1026,7 +1026,7 @@ function LocationRow({ location, team, open, onToggle, onUpdate, onAddTask, onRe
       </div>
       <div className={`grid transition-[grid-template-rows] duration-300 ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
         <div className="overflow-hidden">
-          <ChecklistSection
+          {open && <ChecklistSection
             location={location}
             team={team}
             onUpdate={(itemId, patch) => onUpdate(location.id, itemId, patch)}
@@ -1036,7 +1036,7 @@ function LocationRow({ location, team, open, onToggle, onUpdate, onAddTask, onRe
             onEditNotes={onEditNotes}
             onReorderCategories={onReorderCategories}
             onReorderTasks={onReorderTasks}
-          />
+          />}
         </div>
       </div>
     </div>
